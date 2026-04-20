@@ -1,5 +1,4 @@
 use gtk4::prelude::*;
-use libadwaita::prelude::*;
 use libadwaita::{Application, ApplicationWindow, HeaderBar, ToolbarView};
 
 const APP_ID: &str = "io.github.snapix.Snapix";
