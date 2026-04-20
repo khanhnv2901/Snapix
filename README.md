@@ -18,11 +18,13 @@
 
 | Milestone | Status |
 |-----------|--------|
-| M0 — Foundation (workspace, X11 capture, entitlements) | ✅ In progress |
-| M1 — Wayland support | ⏳ Planned |
+| M0 — Foundation (workspace, X11/Wayland capture, entitlements) | ✅ Complete |
+| M1 — Wayland Polish (Flatpak, portal UX) | 🚧 In progress |
 | M2 — Editor MVP | ⏳ Planned |
 | M3 — Beautify | ⏳ Planned |
 | M4 — v0.1 release on Flathub | ⏳ Planned |
+
+See [PROGRESS.md](PROGRESS.md) for detailed progress tracking.
 
 ## Building
 
@@ -43,14 +45,30 @@ cd snapix
 cargo build --release
 ```
 
-### CLI usage (M0)
+### CLI usage
 
 ```bash
 # Capture full screen to PNG
 snapix capture --mode full --output screenshot.png
 
+# Capture active window
+snapix capture --mode window --output window.png
+
 # Launch GUI
 snapix
+```
+
+## Project Structure
+
+```
+snapix/
+├── crates/
+│   ├── snapix-core/      # Domain logic (canvas, entitlements, license)
+│   ├── snapix-capture/   # Screenshot backends (X11, Wayland portal)
+│   ├── snapix-ui/        # GTK4 + libadwaita UI
+│   └── snapix-app/       # CLI + binary entry point
+├── data/                 # Desktop files, icons, metainfo
+└── flatpak/              # Flatpak build manifest
 ```
 
 ## License

@@ -46,11 +46,13 @@ snapix capture --mode full -o test.png
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Test trên GNOME Wayland | 🔲 Pending | |
-| Test trên KDE Plasma 6 Wayland | 🔲 Pending | |
-| Flatpak manifest đầu tiên | 🔲 Pending | `flatpak/io.github.snapix.Snapix.yml` |
-| Runtime detect X11/Wayland (improve) | 🔲 Pending | Hiện dựa vào env vars |
-| Handle portal permission dialog UX | 🔲 Pending | |
+| Test trên GNOME Wayland | 🔲 Pending | Manual test needed |
+| Test trên KDE Plasma 6 Wayland | 🔲 Pending | Manual test needed |
+| Flatpak manifest | ✅ Done | `flatpak/io.github.snapix.Snapix.yml` |
+| Desktop file + metainfo | ✅ Done | `data/io.github.snapix.Snapix.*` |
+| App icon (placeholder) | ✅ Done | `data/icons/` |
+| Runtime detect X11/Wayland (improve) | ✅ Done | `SessionType` enum, multiple detection methods |
+| Handle portal permission dialog UX | ✅ Done | `WaylandCaptureError` enum with specific errors |
 
 ---
 
@@ -142,6 +144,14 @@ snapix/
 │       └── src/
 │           └── main.rs           # CLI parsing + GTK launch
 │
+├── data/                         # Desktop integration files
+│   ├── io.github.snapix.Snapix.desktop
+│   ├── io.github.snapix.Snapix.metainfo.xml
+│   └── icons/
+│
+├── flatpak/                      # Flatpak build files
+│   └── io.github.snapix.Snapix.yml
+│
 ├── .github/workflows/ci.yml      # CI pipeline
 ├── Snapix-Plan.md                # Product vision & roadmap
 └── PROGRESS.md                   # This file
@@ -188,3 +198,11 @@ snapix/
   - Added 3 integration tests for `snapix-capture` (backend detection)
   - Fixed `ashpd` async runtime issue (switched to `async-std` feature)
   - Fixed Wayland detection for empty `WAYLAND_DISPLAY` env var
+
+- **M1 Progress**
+  - Created Flatpak manifest (`flatpak/io.github.snapix.Snapix.yml`)
+  - Added `.desktop` file and AppStream metainfo
+  - Added placeholder SVG icon
+  - Improved session detection with `SessionType` enum (WAYLAND_DISPLAY, XDG_SESSION_TYPE, DISPLAY, GDK_BACKEND)
+  - Added `WaylandCaptureError` for better portal error handling (Cancelled, PortalUnavailable, PermissionDenied)
+  - Added URL decoding for portal file paths

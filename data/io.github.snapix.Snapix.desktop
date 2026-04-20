@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Snapix
+Comment=Screenshot beautifier for Linux
+Exec=snapix
+Icon=io.github.snapix.Snapix
+Terminal=false
+Type=Application
+Categories=Graphics;Utility;
+Keywords=screenshot;capture;beautify;annotate;
+StartupNotify=true
+MimeType=image/png;image/jpeg;

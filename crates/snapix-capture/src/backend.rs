@@ -11,27 +11,75 @@ pub trait CaptureBackend: Send + Sync {
     fn name(&self) -> &'static str;
 }
 
+/// Session type detected from environment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SessionType {
+    Wayland,
+    X11,
+    Unknown,
+}
+
+/// Detect the current session type using multiple methods.
+pub fn detect_session() -> SessionType {
+    // Method 1: Check WAYLAND_DISPLAY (most reliable for Wayland)
+    if std::env::var("WAYLAND_DISPLAY")
+        .map(|v| !v.is_empty())
+        .unwrap_or(false)
+    {
+        return SessionType::Wayland;
+    }
+
+    // Method 2: Check XDG_SESSION_TYPE
+    if let Ok(session_type) = std::env::var("XDG_SESSION_TYPE") {
+        match session_type.to_lowercase().as_str() {
+            "wayland" => return SessionType::Wayland,
+            "x11" => return SessionType::X11,
+            _ => {}
+        }
+    }
+
+    // Method 3: Check DISPLAY for X11
+    if std::env::var("DISPLAY")
+        .map(|v| !v.is_empty())
+        .unwrap_or(false)
+    {
+        return SessionType::X11;
+    }
+
+    // Method 4: Check GDK_BACKEND hint
+    if let Ok(gdk_backend) = std::env::var("GDK_BACKEND") {
+        match gdk_backend.to_lowercase().as_str() {
+            "wayland" => return SessionType::Wayland,
+            "x11" => return SessionType::X11,
+            _ => {}
+        }
+    }
+
+    SessionType::Unknown
+}
+
 /// Detect the best available backend for the running session.
 #[cfg(unix)]
 pub fn detect_backend() -> Box<dyn CaptureBackend> {
-    let wayland_display = std::env::var("WAYLAND_DISPLAY")
-        .map(|v| !v.is_empty())
-        .unwrap_or(false);
-    let xdg_session = std::env::var("XDG_SESSION_TYPE")
-        .map(|v| v.to_lowercase() == "wayland")
-        .unwrap_or(false);
-    let is_wayland = wayland_display || xdg_session;
+    let session = detect_session();
+    tracing::debug!("Detected session type: {:?}", session);
 
     #[cfg(feature = "wayland")]
-    if is_wayland {
-        tracing::info!("Detected Wayland session — using XDG portal backend");
+    if session == SessionType::Wayland {
+        tracing::info!("Using XDG portal backend (Wayland)");
         return Box::new(crate::wayland::WaylandBackend::new());
     }
 
     #[cfg(feature = "x11")]
-    {
-        tracing::info!("Detected X11 session — using x11rb backend");
+    if session == SessionType::X11 || session == SessionType::Unknown {
+        tracing::info!("Using x11rb backend (X11)");
         return Box::new(crate::x11::X11Backend::new());
+    }
+
+    #[cfg(all(feature = "wayland", not(feature = "x11")))]
+    {
+        tracing::warn!("Unknown session type, falling back to Wayland portal");
+        return Box::new(crate::wayland::WaylandBackend::new());
     }
 
     #[allow(unreachable_code)]

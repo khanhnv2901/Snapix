@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.snapix.Snapix</id>
+  <name>Snapix</name>
+  <summary>Screenshot beautifier for Linux</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>Apache-2.0</project_license>
+
+  <description>
+    <p>
+      Snapix is a screenshot tool for Linux that combines quick annotation
+      with beautiful output. Take screenshots, add annotations, and beautify
+      them with gradients, shadows, and rounded corners.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Capture fullscreen, region, or active window</li>
+      <li>Annotate with arrows, rectangles, text, and blur</li>
+      <li>Beautify with gradient backgrounds, padding, and shadows</li>
+      <li>Export to PNG/JPG or copy to clipboard</li>
+      <li>Native GTK4 + libadwaita interface</li>
+      <li>Wayland and X11 support</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">io.github.snapix.Snapix.desktop</launchable>
+
+  <url type="homepage">https://github.com/khanhnv2901/snapix</url>
+  <url type="bugtracker">https://github.com/khanhnv2901/snapix/issues</url>
+
+  <developer_name>Khanh Nguyen</developer_name>
+
+  <provides>
+    <binary>snapix</binary>
+  </provides>
+
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+
+  <categories>
+    <category>Graphics</category>
+    <category>Utility</category>
+  </categories>
+
+  <keywords>
+    <keyword>screenshot</keyword>
+    <keyword>capture</keyword>
+    <keyword>beautify</keyword>
+    <keyword>annotate</keyword>
+  </keywords>
+
+  <content_rating type="oars-1.1" />
+
+  <releases>
+    <release version="0.1.0" date="2026-04-20">
+      <description>
+        <p>Initial release with core functionality:</p>
+        <ul>
+          <li>Screenshot capture (fullscreen, region, window)</li>
+          <li>X11 and Wayland support</li>
+          <li>Basic GTK4 interface</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+</component>
