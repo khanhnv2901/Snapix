@@ -26,7 +26,7 @@
 
 See [PROGRESS.md](PROGRESS.md) for detailed progress tracking.
 
-Current M2 progress includes a live GTK4 editor shell, `DrawingArea` canvas rendering, a tool rail, and an inspector for padding, corner radius, shadow, and preset background styles. Capture-to-editor wiring, interactive annotation tools, export, clipboard, and undo/redo are still pending.
+Current M2 progress includes a live GTK4 editor shell, startup capture wired into the editor, a redesigned workspace UI, `DrawingArea` canvas rendering, padding/corner-radius/shadow/background controls, PNG export, clipboard copy, undo/redo, usable crop, arrow, and text tools, plus top-row actions for fullscreen/region capture, import, and clear. The main open M2 gaps are richer annotation editing, better crop polish, and Wayland capture limitations for true fullscreen/window distinctions.
 
 ## Building
 

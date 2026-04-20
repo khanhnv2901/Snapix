@@ -334,12 +334,19 @@ Dùng `AdwOverlaySplitView` + `AdwToolbarView` cho layout adaptive.
 
 **Ship criteria:** User flow complete: hotkey → chụp → edit → copy.
 
-**Current implementation snapshot (2026-04-20):**
-- Editor shell đã chạy được làm cửa sổ GUI mặc định của app.
-- `DrawingArea` canvas đã render background, frame padding, corner radius, shadow, placeholder state, và image surface nếu `Document.base_image` có dữ liệu.
-- Tool rail và inspector đã có mặt trong UI; các control padding/radius/shadow/background đang update `Document` realtime.
-- Crop / Arrow / Text mới dừng ở mức chọn tool trong UI, chưa có interaction layer trên canvas.
-- Save / Copy và luồng capture → editor vẫn chưa được nối, nên ship criteria của M2 chưa đạt.
+**Current implementation snapshot (2026-04-21):**
+- Editor shell đã chạy được làm cửa sổ GUI mặc định của app, và startup capture đã được nối vào editor.
+- Trên Wayland portal, nếu full-screen capture fail thì app fallback sang interactive window capture để vẫn nạp ảnh vào editor.
+- Layout editor đã được làm lại theo hướng dễ dùng hơn: top action row, top tool row, canvas trung tâm, settings panel bên phải.
+- `DrawingArea` canvas đã render background, frame padding, corner radius, shadow, crop overlay, arrow, text, và image surface nếu `Document.base_image` có dữ liệu.
+- Inspector controls cho padding/radius/shadow/background đang update `Document` realtime.
+- `Save` đã export PNG và `Copy` đã copy ảnh render hiện tại vào clipboard.
+- Crop đã usable với default crop box, move/resize handles, `Enter` để apply, `Esc` để cancel; tuy nhiên UX/polish vẫn chưa thật sự tốt.
+- Arrow đã usable theo flow drag-to-place.
+- Text đã usable theo flow click-to-place + dialog nhập nội dung.
+- Undo/redo đã hoạt động bằng snapshot toàn `Document`.
+- Top action row đã nối được `Fullscreen / Region / Import / Clear`, nhưng capture semantics trên Wayland portal vẫn chưa ổn định: `Fullscreen` có thể fail, `Region` là interactive path chính, và `Window` hiện không nên coi là fully supported trên portal hiện tại.
+- Vì vậy ship criteria của M2 vẫn chưa đạt hoàn toàn; phần còn thiếu chính là capture UX ổn định hơn và annotation editing/polish.
 
 ### M3 — Beautify
 - Background: gradient picker, solid, image, blur-of-screenshot

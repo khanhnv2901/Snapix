@@ -114,6 +114,11 @@ pub enum Annotation {
         stroke: Stroke,
         fill: Option<Color>,
     },
+    Ellipse {
+        bounds: Rect,
+        stroke: Stroke,
+        fill: Option<Color>,
+    },
     Text {
         pos: Point,
         content: String,

@@ -53,8 +53,72 @@ fn main() -> Result<()> {
         // No subcommand → launch the GTK4 GUI.
         None => {
             info!("Starting Snapix GUI");
-            let code = snapix_ui::SnapixApp::run();
+            let launch_context = async_std::task::block_on(prepare_editor_launch());
+            let code = snapix_ui::SnapixApp::run(launch_context);
             std::process::exit(code.value());
+        }
+    }
+}
+
+async fn prepare_editor_launch() -> snapix_ui::LaunchContext {
+    use snapix_capture::SessionType;
+    use snapix_core::canvas::Document;
+    use snapix_ui::{LaunchBanner, LaunchContext};
+
+    let backend = snapix_capture::detect_backend();
+    let session = snapix_capture::detect_session();
+    info!(
+        "Capturing startup screenshot for editor via {}",
+        backend.name()
+    );
+
+    match backend.capture_full().await {
+        Ok(image) => LaunchContext {
+            document: Document::new(image),
+            banner: Some(LaunchBanner::info(format!(
+                "Screenshot captured via {} and loaded into the editor. Annotation tools and export are still in progress.",
+                backend.name()
+            ))),
+        },
+        Err(error) => {
+            tracing::warn!("Startup full-screen capture failed: {error:#}");
+
+            if session == SessionType::Wayland {
+                tracing::info!(
+                    "Retrying startup capture with interactive window mode on Wayland portal"
+                );
+
+                match backend.capture_window().await {
+                    Ok(image) => {
+                        return LaunchContext {
+                            document: Document::new(image),
+                            banner: Some(LaunchBanner::info(format!(
+                                "Full-screen startup capture failed on {}, so Snapix fell back to interactive window capture and loaded the result into the editor.",
+                                backend.name()
+                            ))),
+                        };
+                    }
+                    Err(fallback_error) => {
+                        tracing::warn!(
+                            "Startup fallback window capture also failed: {fallback_error:#}"
+                        );
+
+                        return LaunchContext {
+                            document: Document::default(),
+                            banner: Some(LaunchBanner::warning(format!(
+                                "Startup capture failed: full-screen error: {error}; interactive fallback error: {fallback_error}. The editor opened with an empty document."
+                            ))),
+                        };
+                    }
+                }
+            }
+
+            LaunchContext {
+                document: Document::default(),
+                banner: Some(LaunchBanner::warning(format!(
+                    "Startup capture failed: {error}. The editor opened with an empty document."
+                ))),
+            }
         }
     }
 }

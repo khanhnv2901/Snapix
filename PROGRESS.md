@@ -4,7 +4,7 @@
 
 ---
 
-## Current Status: **M2 — Editor Foundation** 🚧 In Progress
+## Current Status: **M2 — Editor MVP** 🚧 In Progress
 
 ---
 
@@ -61,20 +61,26 @@ snapix capture --mode full -o test.png
 | Task | Status | Notes |
 |------|--------|-------|
 | GTK4 editor window với `DrawingArea` | ✅ Done | `EditorWindow` + `DocumentCanvas` are live in `snapix-ui` |
-| Canvas render pipeline | ⚠️ Partial | Cairo-based document/background/image rendering is implemented; not using tiny-skia and no annotation layer yet |
-| Tool: Crop | ⚠️ Stub | Tool button exists, no interaction logic yet |
-| Tool: Arrow | ⚠️ Stub | Tool button exists, no interaction logic yet |
-| Tool: Text | ⚠️ Stub | Tool button exists, no interaction logic yet |
-| Export PNG + copy clipboard | 🔲 Pending | Header actions are visible but disabled |
-| Undo/Redo stack (command pattern) | 🔲 Pending | No history model wired yet |
+| Canvas render pipeline | ✅ Done | Cairo-based preview/export pipeline renders background, frame, image, crop overlay, arrow, and text annotations; PNG export and clipboard copy use the same pipeline |
+| Tool: Crop | ⚠️ Partial | Usable non-destructive crop with default selection, move/resize handles, and `Enter/Esc`; UX still needs polish and clearer image-bound behavior |
+| Tool: Arrow | ✅ Done | Drag on the image to place an arrow; preview, save/copy, and undo/redo are wired |
+| Tool: Text | ✅ Done | Click on the image, enter text in a dialog, and commit a text annotation to the canvas |
+| Export PNG + copy clipboard | ✅ Done | `Save` exports PNG and `Copy` writes the rendered canvas image to the clipboard |
+| Undo/Redo stack | ✅ Done | Snapshot-based history is wired for crop, frame/background changes, arrow, and text |
+| Capture/import action row | ⚠️ Partial | Top-row `Fullscreen / Region / Import / Clear` actions are wired; Wayland portal semantics still limit true fullscreen/window distinction and `Window` is disabled there |
 
 ### M2 Snapshot
 
-- Editor shell launches as the default GUI window via `snapix_ui::SnapixApp`.
-- Canvas draws document background, frame padding, corner radius, drop shadow, and either a placeholder state or a loaded image surface.
+- Editor shell launches as the default GUI window via `snapix_ui::SnapixApp`, and startup capture loads directly into the editor.
+- The workspace UI has been reshaped toward an editor-style layout with a top action row, top tool row, central canvas, and right-side settings panel.
+- GUI startup on Wayland still falls back from failing full-screen portal capture to interactive capture so the editor opens with a real image when possible.
+- Canvas renders beautify output plus committed arrow and text annotations, while crop uses its own interaction/overlay layer.
 - Inspector controls already update `Document.frame` and `Document.background` in real time.
-- Capture flow is not wired into the editor yet, so GUI launch still starts with an empty document.
-- Annotation interactions, export, clipboard, and undo/redo remain open.
+- `Save` exports the rendered canvas to PNG and `Copy` writes the rendered image to the system clipboard.
+- Crop supports default selection, move/resize handles, `Enter` apply, and `Esc` cancel.
+- Arrow supports drag placement, and Text supports click-to-place plus dialog input.
+- Undo/redo is working via whole-document snapshots.
+- The remaining M2 risk area is capture UX on Wayland portals, where true fullscreen/window semantics are still inconsistent.
 
 ---
 
@@ -193,11 +199,22 @@ snapix/
 
 ---
 
-*Last updated: 2026-04-20*
+*Last updated: 2026-04-21*
 
 ---
 
 ## Changelog
+
+### 2026-04-21
+- **M2 Progress**
+  - Refreshed the editor shell layout toward a cleaner top-toolbar workspace design
+  - Added undo/redo for document snapshots
+  - Added usable Arrow tool with preview and committed annotation rendering
+  - Added usable Text tool with click placement and dialog input
+  - Added top action row handlers for fullscreen/region/import/clear
+  - Added import-from-file flow directly into the editor
+  - Improved crop with default selection plus move/resize handles
+  - Documented current Wayland portal capture limitations in the UI behavior
 
 ### 2026-04-20
 - **M0 Complete** 🎉
@@ -217,7 +234,9 @@ snapix/
 
 - **M2 Progress**
   - Added `EditorWindow` as the default GTK4 GUI shell
-  - Added `DocumentCanvas` with Cairo rendering for document background, frame, and image preview
-  - Added tool rail stubs for Select, Crop, Arrow, Text, and Blur
+  - Added startup capture -> editor wiring, including Wayland fallback from full-screen capture to interactive window capture
+  - Added `DocumentCanvas` with Cairo rendering for document background, frame, image preview, and crop overlay
   - Added inspector controls for padding, corner radius, shadow, and preset background styles
-  - Left capture wiring, annotation interactions, export, clipboard, and undo/redo for the next M2 steps
+  - Added `Save` PNG export and `Copy` clipboard output from the same render pipeline
+  - Added a first non-destructive crop flow with drag selection plus `Enter` apply / `Esc` cancel
+  - Left richer annotation editing and portal-specific capture polish for the next M2 steps

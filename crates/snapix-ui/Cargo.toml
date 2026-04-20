@@ -17,3 +17,6 @@ glib.workspace           = true
 gio.workspace            = true
 anyhow.workspace         = true
 tracing.workspace        = true
+image.workspace          = true
+arboard.workspace        = true
+async-std                = { workspace = true, features = ["attributes"] }
