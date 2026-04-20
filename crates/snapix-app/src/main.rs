@@ -69,7 +69,9 @@ async fn run_capture(mode: CaptureMode, output: PathBuf) -> Result<()> {
         CaptureMode::Full => backend.capture_full().await?,
         CaptureMode::Region => {
             // Interactive region selection requires the GUI; fall back to full for now.
-            tracing::warn!("Interactive region capture not yet implemented — capturing full screen");
+            tracing::warn!(
+                "Interactive region capture not yet implemented — capturing full screen"
+            );
             backend.capture_full().await?
         }
         CaptureMode::Window => backend.capture_window().await?,

@@ -42,15 +42,7 @@ impl CaptureBackend for X11Backend {
         let height = screen.height_in_pixels;
 
         let image = conn
-            .get_image(
-                ImageFormat::Z_PIXMAP,
-                root,
-                0,
-                0,
-                width,
-                height,
-                !0u32,
-            )
+            .get_image(ImageFormat::Z_PIXMAP, root, 0, 0, width, height, !0u32)
             .context("get_image request failed")?
             .reply()
             .context("get_image reply failed")?;

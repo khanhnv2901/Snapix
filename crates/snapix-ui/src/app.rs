@@ -8,9 +8,7 @@ pub struct SnapixApp;
 
 impl SnapixApp {
     pub fn run() -> glib::ExitCode {
-        let app = Application::builder()
-            .application_id(APP_ID)
-            .build();
+        let app = Application::builder().application_id(APP_ID).build();
 
         app.connect_activate(build_ui);
         app.run()

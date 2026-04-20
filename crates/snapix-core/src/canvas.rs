@@ -9,7 +9,11 @@ pub struct Image {
 
 impl Image {
     pub fn new(width: u32, height: u32, data: Vec<u8>) -> Self {
-        Self { width, height, data }
+        Self {
+            width,
+            height,
+            data,
+        }
     }
 
     pub fn from_dynamic(img: image::DynamicImage) -> Self {
@@ -121,8 +125,18 @@ pub enum Background {
 impl Default for Background {
     fn default() -> Self {
         Background::Gradient {
-            from: Color { r: 100, g: 149, b: 237, a: 255 },
-            to: Color { r: 147, g: 112, b: 219, a: 255 },
+            from: Color {
+                r: 100,
+                g: 149,
+                b: 237,
+                a: 255,
+            },
+            to: Color {
+                r: 147,
+                g: 112,
+                b: 219,
+                a: 255,
+            },
             angle_deg: 135.0,
         }
     }
