@@ -334,6 +334,13 @@ Dùng `AdwOverlaySplitView` + `AdwToolbarView` cho layout adaptive.
 
 **Ship criteria:** User flow complete: hotkey → chụp → edit → copy.
 
+**Current implementation snapshot (2026-04-20):**
+- Editor shell đã chạy được làm cửa sổ GUI mặc định của app.
+- `DrawingArea` canvas đã render background, frame padding, corner radius, shadow, placeholder state, và image surface nếu `Document.base_image` có dữ liệu.
+- Tool rail và inspector đã có mặt trong UI; các control padding/radius/shadow/background đang update `Document` realtime.
+- Crop / Arrow / Text mới dừng ở mức chọn tool trong UI, chưa có interaction layer trên canvas.
+- Save / Copy và luồng capture → editor vẫn chưa được nối, nên ship criteria của M2 chưa đạt.
+
 ### M3 — Beautify
 - Background: gradient picker, solid, image, blur-of-screenshot
 - Frame: padding slider, corner radius, drop shadow

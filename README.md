@@ -19,12 +19,14 @@
 | Milestone | Status |
 |-----------|--------|
 | M0 — Foundation (workspace, X11/Wayland capture, entitlements) | ✅ Complete |
-| M1 — Wayland Polish (Flatpak, portal UX) | 🚧 In progress |
-| M2 — Editor MVP | ⏳ Planned |
+| M1 — Wayland Polish (Flatpak, portal UX) | ⚠️ Mostly complete, QA pending |
+| M2 — Editor MVP | 🚧 In progress |
 | M3 — Beautify | ⏳ Planned |
 | M4 — v0.1 release on Flathub | ⏳ Planned |
 
 See [PROGRESS.md](PROGRESS.md) for detailed progress tracking.
+
+Current M2 progress includes a live GTK4 editor shell, `DrawingArea` canvas rendering, a tool rail, and an inspector for padding, corner radius, shadow, and preset background styles. Capture-to-editor wiring, interactive annotation tools, export, clipboard, and undo/redo are still pending.
 
 ## Building
 

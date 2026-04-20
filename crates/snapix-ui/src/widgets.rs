@@ -126,12 +126,7 @@ fn paint_empty_state(cr: &cairo::Context, bounds: (f64, f64, f64, f64), radius: 
     cr.stroke().ok();
 }
 
-fn paint_image(
-    cr: &cairo::Context,
-    bounds: (f64, f64, f64, f64),
-    image: &Image,
-    radius: f64,
-) {
+fn paint_image(cr: &cairo::Context, bounds: (f64, f64, f64, f64), image: &Image, radius: f64) {
     let (x, y, max_width, max_height) = bounds;
     let image_w = image.width as f64;
     let image_h = image.height as f64;
@@ -157,9 +152,12 @@ fn paint_image(
 }
 
 fn make_surface(image: &Image) -> Option<cairo::ImageSurface> {
-    let mut surface =
-        cairo::ImageSurface::create(cairo::Format::ARgb32, image.width as i32, image.height as i32)
-            .ok()?;
+    let mut surface = cairo::ImageSurface::create(
+        cairo::Format::ARgb32,
+        image.width as i32,
+        image.height as i32,
+    )
+    .ok()?;
 
     {
         let stride = surface.stride() as usize;

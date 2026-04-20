@@ -4,7 +4,7 @@
 
 ---
 
-## Current Status: **M1 — Wayland Polish** 🚧 In Progress
+## Current Status: **M2 — Editor Foundation** 🚧 In Progress
 
 ---
 
@@ -60,13 +60,21 @@ snapix capture --mode full -o test.png
 
 | Task | Status | Notes |
 |------|--------|-------|
-| GTK4 editor window với `DrawingArea` | 🔲 Pending | |
-| Canvas render pipeline | 🔲 Pending | tiny-skia → cairo surface |
-| Tool: Crop | 🔲 Pending | |
-| Tool: Arrow | 🔲 Pending | |
-| Tool: Text | 🔲 Pending | |
-| Export PNG + copy clipboard | 🔲 Pending | |
-| Undo/Redo stack (command pattern) | 🔲 Pending | |
+| GTK4 editor window với `DrawingArea` | ✅ Done | `EditorWindow` + `DocumentCanvas` are live in `snapix-ui` |
+| Canvas render pipeline | ⚠️ Partial | Cairo-based document/background/image rendering is implemented; not using tiny-skia and no annotation layer yet |
+| Tool: Crop | ⚠️ Stub | Tool button exists, no interaction logic yet |
+| Tool: Arrow | ⚠️ Stub | Tool button exists, no interaction logic yet |
+| Tool: Text | ⚠️ Stub | Tool button exists, no interaction logic yet |
+| Export PNG + copy clipboard | 🔲 Pending | Header actions are visible but disabled |
+| Undo/Redo stack (command pattern) | 🔲 Pending | No history model wired yet |
+
+### M2 Snapshot
+
+- Editor shell launches as the default GUI window via `snapix_ui::SnapixApp`.
+- Canvas draws document background, frame padding, corner radius, drop shadow, and either a placeholder state or a loaded image surface.
+- Inspector controls already update `Document.frame` and `Document.background` in real time.
+- Capture flow is not wired into the editor yet, so GUI launch still starts with an empty document.
+- Annotation interactions, export, clipboard, and undo/redo remain open.
 
 ---
 
@@ -206,3 +214,10 @@ snapix/
   - Improved session detection with `SessionType` enum (WAYLAND_DISPLAY, XDG_SESSION_TYPE, DISPLAY, GDK_BACKEND)
   - Added `WaylandCaptureError` for better portal error handling (Cancelled, PortalUnavailable, PermissionDenied)
   - Added URL decoding for portal file paths
+
+- **M2 Progress**
+  - Added `EditorWindow` as the default GTK4 GUI shell
+  - Added `DocumentCanvas` with Cairo rendering for document background, frame, and image preview
+  - Added tool rail stubs for Select, Crop, Arrow, Text, and Blur
+  - Added inspector controls for padding, corner radius, shadow, and preset background styles
+  - Left capture wiring, annotation interactions, export, clipboard, and undo/redo for the next M2 steps

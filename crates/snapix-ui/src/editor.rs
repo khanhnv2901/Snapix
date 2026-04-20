@@ -2,9 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use gtk4::prelude::*;
-use libadwaita::{
-    Application, ApplicationWindow, Bin, Clamp, HeaderBar, StatusPage, ToolbarView,
-};
+use libadwaita::{Application, ApplicationWindow, Bin, Clamp, HeaderBar, StatusPage, ToolbarView};
 use snapix_core::canvas::{Background, Color, Document, FrameSettings, Image};
 
 use crate::widgets::DocumentCanvas;
@@ -399,7 +397,10 @@ fn build_inspector(
         let state = state.clone();
         let canvas = canvas.clone();
         let subtitle_label = subtitle_label.clone();
-        let button = gtk4::Button::builder().label(label).halign(gtk4::Align::Fill).build();
+        let button = gtk4::Button::builder()
+            .label(label)
+            .halign(gtk4::Align::Fill)
+            .build();
         button.connect_clicked(move |_| {
             state.borrow_mut().document.background = background.clone();
             refresh_subtitle(&state.borrow(), &subtitle_label);
@@ -426,12 +427,7 @@ fn labeled_row<W: IsA<gtk4::Widget>>(label: &str, widget: &W) -> gtk4::Widget {
         .spacing(6)
         .build();
 
-    row.append(
-        &gtk4::Label::builder()
-            .label(label)
-            .xalign(0.0)
-            .build(),
-    );
+    row.append(&gtk4::Label::builder().label(label).xalign(0.0).build());
     row.append(widget);
     row.upcast()
 }
