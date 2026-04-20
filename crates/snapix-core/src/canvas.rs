@@ -55,9 +55,24 @@ pub struct Color {
 }
 
 impl Color {
-    pub const WHITE: Self = Self { r: 255, g: 255, b: 255, a: 255 };
-    pub const BLACK: Self = Self { r: 0, g: 0, b: 0, a: 255 };
-    pub const TRANSPARENT: Self = Self { r: 0, g: 0, b: 0, a: 0 };
+    pub const WHITE: Self = Self {
+        r: 255,
+        g: 255,
+        b: 255,
+        a: 255,
+    };
+    pub const BLACK: Self = Self {
+        r: 0,
+        g: 0,
+        b: 0,
+        a: 255,
+    };
+    pub const TRANSPARENT: Self = Self {
+        r: 0,
+        g: 0,
+        b: 0,
+        a: 0,
+    };
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -116,10 +131,20 @@ pub enum Annotation {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum Background {
-    Solid { color: Color },
-    Gradient { from: Color, to: Color, angle_deg: f32 },
-    Image { path: String },
-    BlurredScreenshot { radius: f32 },
+    Solid {
+        color: Color,
+    },
+    Gradient {
+        from: Color,
+        to: Color,
+        angle_deg: f32,
+    },
+    Image {
+        path: String,
+    },
+    BlurredScreenshot {
+        radius: f32,
+    },
 }
 
 impl Default for Background {
