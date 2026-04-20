@@ -42,7 +42,7 @@ snapix capture --mode full -o test.png
 
 ---
 
-## Upcoming: M1 — Wayland Polish
+## M1 — Wayland Polish
 
 | Task | Status | Notes |
 |------|--------|-------|
@@ -176,3 +176,15 @@ snapix/
 ---
 
 *Last updated: 2026-04-20*
+
+---
+
+## Changelog
+
+### 2026-04-20
+- **M0 Complete** 🎉
+  - Implemented X11 `capture_window` with EWMH `_NET_ACTIVE_WINDOW`
+  - Added 15 unit tests for `snapix-core` (canvas, entitlements, license)
+  - Added 3 integration tests for `snapix-capture` (backend detection)
+  - Fixed `ashpd` async runtime issue (switched to `async-std` feature)
+  - Fixed Wayland detection for empty `WAYLAND_DISPLAY` env var

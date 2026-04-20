@@ -299,7 +299,9 @@ mod tests {
         let json = serde_json::to_string(&arrow).unwrap();
         let parsed: Annotation = serde_json::from_str(&json).unwrap();
         match parsed {
-            Annotation::Arrow { from, to, width, .. } => {
+            Annotation::Arrow {
+                from, to, width, ..
+            } => {
                 assert_eq!(from.x, 0.0);
                 assert_eq!(to.x, 100.0);
                 assert_eq!(width, 2.0);

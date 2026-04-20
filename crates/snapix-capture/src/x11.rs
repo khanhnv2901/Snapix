@@ -150,13 +150,7 @@ impl CaptureBackend for X11Backend {
         let width = geom.width;
         let height = geom.height;
 
-        tracing::debug!(
-            "Window geometry: {}x{} at ({}, {})",
-            width,
-            height,
-            x,
-            y
-        );
+        tracing::debug!("Window geometry: {}x{} at ({}, {})", width, height, x, y);
 
         // Capture the region from root window (includes decorations rendered by compositor)
         let image = conn
