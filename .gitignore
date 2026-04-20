@@ -1,0 +1,7 @@
+/target
+Cargo.lock
+*.snap
+.env
+dist/
+*.AppImage
+*.flatpak

@@ -1,0 +1,19 @@
+[package]
+name        = "snapix-ui"
+description = "GTK4 + libadwaita views and widgets"
+version.workspace     = true
+edition.workspace     = true
+authors.workspace     = true
+license.workspace     = true
+repository.workspace  = true
+rust-version.workspace = true
+
+[dependencies]
+snapix-core.workspace    = true
+snapix-capture.workspace = true
+gtk4.workspace           = true
+libadwaita.workspace     = true
+glib.workspace           = true
+gio.workspace            = true
+anyhow.workspace         = true
+tracing.workspace        = true

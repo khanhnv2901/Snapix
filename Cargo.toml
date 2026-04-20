@@ -1,0 +1,64 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/snapix-core",
+    "crates/snapix-capture",
+    "crates/snapix-ui",
+    "crates/snapix-app",
+]
+
+[workspace.package]
+version      = "0.1.0"
+edition      = "2021"
+authors      = ["Khanh Nguyen <khanhnv2901@gmail.com>"]
+license      = "Apache-2.0"
+repository   = "https://github.com/khanhnv2901/snapix"
+rust-version = "1.75"
+
+[workspace.dependencies]
+# Internal crates
+snapix-core    = { path = "crates/snapix-core" }
+snapix-capture = { path = "crates/snapix-capture" }
+snapix-ui      = { path = "crates/snapix-ui" }
+
+# Async
+async-trait = "0.1"
+async-std   = { version = "1", features = ["attributes"] }
+
+# Error handling
+anyhow    = "1"
+thiserror = "1"
+
+# Serialization
+serde      = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Logging
+tracing            = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Image
+image = "0.25"
+
+# Crypto / license
+ed25519-dalek = { version = "2", features = ["serde"] }
+
+# GTK
+gtk4       = "0.9"
+libadwaita = { version = "0.7", features = ["v1_5"] }
+glib       = "0.20"
+gio        = "0.20"
+
+# Platform
+x11rb      = { version = "0.13", features = ["image"] }
+ashpd      = "0.10"
+zbus       = { version = "4", default-features = false, features = ["async-io"] }
+arboard    = "3"
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+[profile.release]
+opt-level = 3
+lto       = "thin"
+strip     = true

@@ -1,0 +1,18 @@
+[package]
+name        = "snapix-core"
+description = "Domain layer: canvas model, image ops, entitlements — no GTK dependency"
+version.workspace     = true
+edition.workspace     = true
+authors.workspace     = true
+license.workspace     = true
+repository.workspace  = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow.workspace    = true
+thiserror.workspace = true
+serde.workspace     = true
+serde_json.workspace = true
+tracing.workspace   = true
+image.workspace     = true
+ed25519-dalek.workspace = true

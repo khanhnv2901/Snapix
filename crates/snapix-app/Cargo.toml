@@ -1,0 +1,25 @@
+[package]
+name        = "snapix"
+description = "Snapix — Linux screenshot beautifier"
+version.workspace     = true
+edition.workspace     = true
+authors.workspace     = true
+license.workspace     = true
+repository.workspace  = true
+rust-version.workspace = true
+
+[[bin]]
+name = "snapix"
+path = "src/main.rs"
+
+[dependencies]
+snapix-core.workspace    = true
+snapix-capture.workspace = true
+snapix-ui.workspace      = true
+
+clap.workspace              = true
+anyhow.workspace            = true
+tracing.workspace           = true
+tracing-subscriber.workspace = true
+async-std                   = { workspace = true, features = ["attributes"] }
+image.workspace             = true
