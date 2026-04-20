@@ -206,3 +206,105 @@ impl Document {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn image_new_creates_correct_dimensions() {
+        let data = vec![0u8; 100 * 50 * 4]; // 100x50 RGBA
+        let img = Image::new(100, 50, data.clone());
+        assert_eq!(img.width, 100);
+        assert_eq!(img.height, 50);
+        assert_eq!(img.data.len(), 100 * 50 * 4);
+    }
+
+    #[test]
+    fn image_roundtrip_dynamic() {
+        let data = vec![128u8; 10 * 10 * 4];
+        let img = Image::new(10, 10, data);
+        let dyn_img = img.to_dynamic();
+        let img2 = Image::from_dynamic(dyn_img);
+        assert_eq!(img2.width, 10);
+        assert_eq!(img2.height, 10);
+        assert_eq!(img2.data.len(), 10 * 10 * 4);
+    }
+
+    #[test]
+    fn color_constants() {
+        assert_eq!(Color::WHITE.r, 255);
+        assert_eq!(Color::WHITE.g, 255);
+        assert_eq!(Color::WHITE.b, 255);
+        assert_eq!(Color::WHITE.a, 255);
+
+        assert_eq!(Color::BLACK.r, 0);
+        assert_eq!(Color::BLACK.g, 0);
+        assert_eq!(Color::BLACK.b, 0);
+        assert_eq!(Color::BLACK.a, 255);
+
+        assert_eq!(Color::TRANSPARENT.a, 0);
+    }
+
+    #[test]
+    fn text_style_default() {
+        let style = TextStyle::default();
+        assert_eq!(style.font_family, "Sans");
+        assert_eq!(style.font_size, 16.0);
+        assert!(!style.bold);
+    }
+
+    #[test]
+    fn frame_settings_default() {
+        let frame = FrameSettings::default();
+        assert_eq!(frame.padding, 40.0);
+        assert_eq!(frame.corner_radius, 12.0);
+        assert!(frame.shadow);
+    }
+
+    #[test]
+    fn background_default_is_gradient() {
+        let bg = Background::default();
+        match bg {
+            Background::Gradient { angle_deg, .. } => {
+                assert_eq!(angle_deg, 135.0);
+            }
+            _ => panic!("Expected Gradient background"),
+        }
+    }
+
+    #[test]
+    fn document_new_with_image() {
+        let data = vec![0u8; 100 * 100 * 4];
+        let img = Image::new(100, 100, data);
+        let doc = Document::new(img);
+        assert!(doc.base_image.is_some());
+        assert!(doc.annotations.is_empty());
+    }
+
+    #[test]
+    fn document_default_has_no_image() {
+        let doc = Document::default();
+        assert!(doc.base_image.is_none());
+    }
+
+    #[test]
+    fn annotation_serialization_roundtrip() {
+        let arrow = Annotation::Arrow {
+            from: Point { x: 0.0, y: 0.0 },
+            to: Point { x: 100.0, y: 100.0 },
+            color: Color::WHITE,
+            width: 2.0,
+        };
+        let json = serde_json::to_string(&arrow).unwrap();
+        let parsed: Annotation = serde_json::from_str(&json).unwrap();
+        match parsed {
+            Annotation::Arrow { from, to, width, .. } => {
+                assert_eq!(from.x, 0.0);
+                assert_eq!(to.x, 100.0);
+                assert_eq!(width, 2.0);
+            }
+            _ => panic!("Expected Arrow annotation"),
+        }
+    }
+}

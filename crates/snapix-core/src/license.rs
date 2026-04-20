@@ -18,3 +18,29 @@ impl LicenseVerifier for StubVerifier {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stub_verifier_pro_key() {
+        let verifier = StubVerifier;
+        let ent = verifier.verify("SNAPIX-PRO-DEV").unwrap();
+        assert!(ent.is_pro());
+    }
+
+    #[test]
+    fn stub_verifier_invalid_key() {
+        let verifier = StubVerifier;
+        let ent = verifier.verify("invalid-key").unwrap();
+        assert!(!ent.is_pro());
+    }
+
+    #[test]
+    fn stub_verifier_empty_key() {
+        let verifier = StubVerifier;
+        let ent = verifier.verify("").unwrap();
+        assert!(!ent.is_pro());
+    }
+}

@@ -89,10 +89,87 @@ impl CaptureBackend for X11Backend {
     }
 
     async fn capture_window(&self) -> Result<Image> {
-        // For M0: capture the focused window via EWMH _NET_ACTIVE_WINDOW.
-        // Fall back to full-screen capture until interactive overlay is built.
-        tracing::warn!("capture_window: falling back to full-screen capture (M0 stub)");
-        self.capture_full().await
+        use x11rb::connection::Connection;
+        use x11rb::protocol::xproto::*;
+        use x11rb::rust_connection::RustConnection;
+
+        let (conn, screen_num) =
+            RustConnection::connect(None).context("Failed to connect to X11 display")?;
+
+        let screen = &conn.setup().roots[screen_num];
+        let root = screen.root;
+
+        // Get _NET_ACTIVE_WINDOW atom
+        let active_atom = conn
+            .intern_atom(false, b"_NET_ACTIVE_WINDOW")
+            .context("intern_atom request failed")?
+            .reply()
+            .context("intern_atom reply failed")?
+            .atom;
+
+        // Query the active window from root
+        let reply = conn
+            .get_property(false, root, active_atom, AtomEnum::WINDOW, 0, 1)
+            .context("get_property request failed")?
+            .reply()
+            .context("get_property reply failed")?;
+
+        let active_window = if reply.format == 32 && !reply.value.is_empty() {
+            let bytes: [u8; 4] = reply.value[0..4]
+                .try_into()
+                .context("Invalid window ID format")?;
+            u32::from_ne_bytes(bytes)
+        } else {
+            tracing::warn!("No active window found, falling back to full-screen capture");
+            return self.capture_full().await;
+        };
+
+        if active_window == 0 || active_window == root {
+            tracing::warn!("Active window is root, falling back to full-screen capture");
+            return self.capture_full().await;
+        }
+
+        tracing::debug!("Capturing active window: 0x{:x}", active_window);
+
+        // Get window geometry
+        let geom = conn
+            .get_geometry(active_window)
+            .context("get_geometry request failed")?
+            .reply()
+            .context("get_geometry reply failed")?;
+
+        // Translate coordinates to root window (for nested windows)
+        let coords = conn
+            .translate_coordinates(active_window, root, 0, 0)
+            .context("translate_coordinates request failed")?
+            .reply()
+            .context("translate_coordinates reply failed")?;
+
+        let x = coords.dst_x;
+        let y = coords.dst_y;
+        let width = geom.width;
+        let height = geom.height;
+
+        tracing::debug!(
+            "Window geometry: {}x{} at ({}, {})",
+            width,
+            height,
+            x,
+            y
+        );
+
+        // Capture the region from root window (includes decorations rendered by compositor)
+        let image = conn
+            .get_image(ImageFormat::Z_PIXMAP, root, x, y, width, height, !0u32)
+            .context("get_image request failed")?
+            .reply()
+            .context("get_image reply failed")?;
+
+        let raw = image.data;
+        let depth = image.depth;
+
+        let rgba = bgr_to_rgba(&raw, width as u32, height as u32, depth);
+        Ok(Image::new(width as u32, height as u32, rgba))
     }
 }
 

@@ -14,10 +14,13 @@ pub trait CaptureBackend: Send + Sync {
 /// Detect the best available backend for the running session.
 #[cfg(unix)]
 pub fn detect_backend() -> Box<dyn CaptureBackend> {
-    let is_wayland = std::env::var("WAYLAND_DISPLAY").is_ok()
-        || std::env::var("XDG_SESSION_TYPE")
-            .map(|v| v.to_lowercase() == "wayland")
-            .unwrap_or(false);
+    let wayland_display = std::env::var("WAYLAND_DISPLAY")
+        .map(|v| !v.is_empty())
+        .unwrap_or(false);
+    let xdg_session = std::env::var("XDG_SESSION_TYPE")
+        .map(|v| v.to_lowercase() == "wayland")
+        .unwrap_or(false);
+    let is_wayland = wayland_display || xdg_session;
 
     #[cfg(feature = "wayland")]
     if is_wayland {

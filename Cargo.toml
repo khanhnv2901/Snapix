@@ -51,7 +51,7 @@ gio        = "0.20"
 
 # Platform
 x11rb      = { version = "0.13", features = ["image"] }
-ashpd      = "0.10"
+ashpd      = { version = "0.10", default-features = false, features = ["async-std"] }
 zbus       = { version = "4", default-features = false, features = ["async-io"] }
 arboard    = "3"
 

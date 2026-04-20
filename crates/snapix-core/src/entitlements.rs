@@ -64,3 +64,39 @@ impl Default for Entitlements {
         Self::free()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn free_tier_has_no_features() {
+        let ent = Entitlements::free();
+        assert_eq!(ent.tier, Tier::Free);
+        assert!(!ent.is_pro());
+        assert!(!ent.has(&Feature::AiRedact));
+        assert!(!ent.has(&Feature::ScreenRecording));
+    }
+
+    #[test]
+    fn pro_tier_has_all_features() {
+        let ent = Entitlements::pro();
+        assert_eq!(ent.tier, Tier::Pro);
+        assert!(ent.is_pro());
+        assert!(ent.has(&Feature::AiRedact));
+        assert!(ent.has(&Feature::ScreenRecording));
+        assert!(ent.has(&Feature::CloudUpload));
+        assert!(ent.has(&Feature::CustomTemplates));
+        assert!(ent.has(&Feature::ScrollingCapture));
+        assert!(ent.has(&Feature::WindowMockup));
+        assert!(ent.has(&Feature::OcrCopyText));
+        assert!(ent.has(&Feature::UnlimitedExports));
+    }
+
+    #[test]
+    fn default_is_free() {
+        let ent = Entitlements::default();
+        assert_eq!(ent.tier, Tier::Free);
+        assert!(!ent.is_pro());
+    }
+}
