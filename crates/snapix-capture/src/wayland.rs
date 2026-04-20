@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::Result;
 use async_trait::async_trait;
 use snapix_core::canvas::{Image, Rect};
 
