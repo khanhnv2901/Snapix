@@ -23,7 +23,7 @@ impl DocumentCanvas {
 
         drawing_area.set_draw_func(move |_area, cr, width, height| {
             let state = state.borrow();
-            draw_canvas(cr, width, height, &state.document);
+            draw_canvas(cr, width, height, state.document());
         });
 
         Self { drawing_area }

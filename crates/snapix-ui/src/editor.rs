@@ -45,6 +45,12 @@ impl Default for EditorState {
     }
 }
 
+impl EditorState {
+    pub(crate) fn document(&self) -> &Document {
+        &self.document
+    }
+}
+
 pub struct EditorWindow {
     window: ApplicationWindow,
 }
