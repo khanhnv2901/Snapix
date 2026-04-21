@@ -75,6 +75,7 @@ fn install_editor_css() {
     color: #f5f7ff;
     border: 1px solid alpha(#ffffff, 0.08);
     border-radius: 10px;
+    box-shadow: inset 0 1px 0 alpha(#ffffff, 0.08);
 }
 
 .capture-pill.fullscreen { background: linear-gradient(135deg, #844dff, #6e3ce8); }
@@ -82,6 +83,18 @@ fn install_editor_css() {
 .capture-pill.window     { background: linear-gradient(135deg, #e54f8a, #c43c6d); }
 .capture-pill.import     { background: linear-gradient(135deg, #f0a73f, #d4791f); }
 .capture-pill.utility    { background: #1a2230; }
+
+.capture-pill:hover {
+    filter: brightness(1.08);
+}
+
+.capture-pill:active {
+    filter: brightness(0.96);
+}
+
+.capture-pill:disabled {
+    opacity: 0.45;
+}
 
 /* ── Tool row ───────────────────────────────────────────────────── */
 .tool-row {
@@ -94,6 +107,7 @@ fn install_editor_css() {
     border: 1px solid alpha(#ffffff, 0.06);
     border-radius: 14px;
     padding: 8px 12px;
+    box-shadow: inset 0 1px 0 alpha(#ffffff, 0.03);
 }
 
 .tool-pill {
@@ -102,12 +116,26 @@ fn install_editor_css() {
     color: alpha(#f5f7ff, 0.72);
     border: 1px solid transparent;
     border-radius: 10px;
+    transition: 180ms ease;
+}
+
+.tool-pill:hover {
+    background: alpha(#ffffff, 0.05);
+    color: alpha(#f5f7ff, 0.92);
+}
+
+.tool-pill:focus-visible {
+    outline: 2px solid alpha(#8d5bff, 0.65);
+    outline-offset: 1px;
 }
 
 .tool-pill:checked {
     background: linear-gradient(135deg, #8d5bff, #643bda);
     color: #ffffff;
     border-color: alpha(#ffffff, 0.16);
+    box-shadow:
+        inset 0 1px 0 alpha(#ffffff, 0.14),
+        0 0 0 1px alpha(#8d5bff, 0.28);
 }
 
 /* Color swatch dots */
@@ -118,20 +146,21 @@ fn install_editor_css() {
     border-radius: 50%;
     min-width: 24px;
     min-height: 24px;
-    max-width: 24px;
-    max-height: 24px;
+}
+
+.color-swatch-btn:hover {
+    background: alpha(#ffffff, 0.06);
 }
 
 .color-swatch-btn.active {
     border-color: white;
+    box-shadow: 0 0 0 3px alpha(#ffffff, 0.12);
 }
 
 .color-dot {
     border-radius: 50%;
     min-width: 16px;
     min-height: 16px;
-    max-width: 16px;
-    max-height: 16px;
 }
 
 .color-dot-0 { background: #ff6236; }
@@ -159,6 +188,10 @@ fn install_editor_css() {
     color: #e57373;
 }
 
+.tool-delete-btn:disabled {
+    opacity: 0.38;
+}
+
 /* ── Workspace paned handle ─────────────────────────────────────── */
 paned > separator {
     background: alpha(#ffffff, 0.07);
@@ -176,6 +209,9 @@ paned > separator:hover {
     background: #111722;
     border: 1px solid alpha(#ffffff, 0.04);
     border-radius: 12px;
+    box-shadow:
+        inset 0 1px 0 alpha(#ffffff, 0.03),
+        0 14px 36px alpha(#000000, 0.18);
 }
 
 .canvas-wrap {
@@ -209,7 +245,6 @@ paned > separator:hover {
     color: alpha(#f5f7ff, 0.65);
     font-size: smaller;
     min-height: 26px;
-    max-height: 26px;
 }
 
 .ratio-btn.selected {
@@ -228,8 +263,6 @@ paned > separator:hover {
     font-size: 18px;
     min-width: 38px;
     min-height: 38px;
-    max-width: 38px;
-    max-height: 38px;
 }
 
 .shadow-dir-btn.selected {
@@ -280,6 +313,11 @@ paned > separator:hover {
     font-size: smaller;
 }
 
+.format-pill:hover {
+    background: alpha(#ffffff, 0.10);
+    color: alpha(#f5f7ff, 0.88);
+}
+
 .format-pill:checked {
     background: alpha(#8d5bff, 0.30);
     border-color: alpha(#8d5bff, 0.55);
@@ -289,6 +327,21 @@ paned > separator:hover {
 .bottom-action-btn {
     padding: 6px 16px;
     border-radius: 8px;
+    border: 1px solid alpha(#ffffff, 0.08);
+    background: alpha(#ffffff, 0.04);
+}
+
+.bottom-action-btn:hover {
+    background: alpha(#ffffff, 0.08);
+    border-color: alpha(#ffffff, 0.14);
+}
+
+.bottom-action-btn.suggested-action {
+    box-shadow: inset 0 1px 0 alpha(#ffffff, 0.18);
+}
+
+.bottom-action-btn:disabled {
+    opacity: 0.42;
 }
 "#;
 

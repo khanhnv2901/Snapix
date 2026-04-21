@@ -4,7 +4,7 @@
 
 ---
 
-## Current Status: **M2 — Editor MVP** 🚧 In Progress
+## Current Status: **M2 — Editor MVP** ✅ Complete
 
 ---
 
@@ -62,7 +62,7 @@ snapix capture --mode full -o test.png
 |------|--------|-------|
 | GTK4 editor window với `DrawingArea` | ✅ Done | `EditorWindow` + `DocumentCanvas` are live in `snapix-ui` |
 | Canvas render pipeline | ✅ Done | Cairo-based preview/export pipeline renders background, frame, image, crop overlay, arrow, rectangle, ellipse, blur, and text annotations; PNG/JPEG export and clipboard copy use the same composition and layout rules as the preview |
-| Tool: Crop | ⚠️ Partial | Usable non-destructive crop with default selection, move/resize handles, `Enter` apply, `Esc` exit, and toast feedback; final image-bound polish is still open |
+| Tool: Crop | ✅ Done | Non-destructive crop with default selection, move/resize handles, `Enter` apply (min 4×4 px enforced, "too small" toast), `Esc` exit; selection bounds are clamped to image dimensions |
 | Tool: Arrow | ✅ Done | Drag on the image to place an arrow; preview, save/copy, undo/redo, and endpoint resize in Select mode are wired |
 | Tool: Rectangle | ✅ Done | Drag on the image to draw a rectangle annotation with color/width controls |
 | Tool: Ellipse | ✅ Done | Drag on the image to draw an ellipse annotation with color/width controls |
@@ -72,7 +72,7 @@ snapix capture --mode full -o test.png
 | Undo/Redo stack | ✅ Done | Snapshot-based history is wired for crop, frame/background changes, annotation placement, text edit, move, and resize |
 | Capture/import action row | ⚠️ Partial | Top-row `Fullscreen / Region / Import / Clear` actions are wired; Wayland fullscreen now falls back to interactive region capture, but true fullscreen/window distinction still depends on portal behavior |
 | Editor feedback polish | ✅ Done | Toasts now cover capture, import, copy, save, crop apply, and annotation placement; export actions disable when no image is loaded |
-| Annotation selection/editing | ⚠️ Partial | Existing annotations can now be selected, highlighted, recolored, moved by drag, deleted via toolbar or `Backspace/Delete`, re-edited for text, resized via drag handles for rectangle/ellipse/blur, and resized by endpoints for arrows; some editor behaviors and consistency polish are still open |
+| Annotation selection/editing | ✅ Done | Select, highlight, recolor, move, resize (rect/ellipse/blur handles, arrow endpoints), delete, re-edit text; switching tools clears selection; selecting an annotation syncs active color+width to its values (palette highlight + slider update); toast only fires on meaningful state changes |
 | Settings panel resizing | ✅ Done | Main workspace uses a draggable split view so the inspector can be widened or narrowed without breaking the editor |
 | Shadow controls | ✅ Done | Inspector supports shadow direction, shadow padding, blur, and strength; `0px` padding keeps the shadow attached to the image and directional padding now respects the chosen side |
 
@@ -211,7 +211,7 @@ snapix/
 
 ---
 
-*Last updated: 2026-04-21*
+*Last updated: 2026-04-22*
 
 ---
 

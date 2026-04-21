@@ -199,11 +199,118 @@ impl Default for FrameSettings {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum OutputRatio {
+    #[default]
+    Auto,
+    Square,
+    Landscape4x3,
+    Landscape3x2,
+    Landscape16x9,
+    Landscape5x3,
+    Portrait9x16,
+    Portrait3x4,
+    Portrait2x3,
+}
+
+impl OutputRatio {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Auto => "Auto",
+            Self::Square => "1:1",
+            Self::Landscape4x3 => "4:3",
+            Self::Landscape3x2 => "3:2",
+            Self::Landscape16x9 => "16:9",
+            Self::Landscape5x3 => "5:3",
+            Self::Portrait9x16 => "9:16",
+            Self::Portrait3x4 => "3:4",
+            Self::Portrait2x3 => "2:3",
+        }
+    }
+
+    pub fn dimensions(self) -> Option<(f64, f64)> {
+        match self {
+            Self::Auto => None,
+            Self::Square => Some((1.0, 1.0)),
+            Self::Landscape4x3 => Some((4.0, 3.0)),
+            Self::Landscape3x2 => Some((3.0, 2.0)),
+            Self::Landscape16x9 => Some((16.0, 9.0)),
+            Self::Landscape5x3 => Some((5.0, 3.0)),
+            Self::Portrait9x16 => Some((9.0, 16.0)),
+            Self::Portrait3x4 => Some((3.0, 4.0)),
+            Self::Portrait2x3 => Some((2.0, 3.0)),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum ImageScaleMode {
+    #[default]
+    Fit,
+    Fill,
+}
+
+impl ImageScaleMode {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Fit => "Fit",
+            Self::Fill => "Fill",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum ImageAnchor {
+    TopLeft,
+    Top,
+    TopRight,
+    Left,
+    #[default]
+    Center,
+    Right,
+    BottomLeft,
+    Bottom,
+    BottomRight,
+}
+
+impl ImageAnchor {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::TopLeft => "↖",
+            Self::Top => "↑",
+            Self::TopRight => "↗",
+            Self::Left => "←",
+            Self::Center => "·",
+            Self::Right => "→",
+            Self::BottomLeft => "↙",
+            Self::Bottom => "↓",
+            Self::BottomRight => "↘",
+        }
+    }
+
+    pub fn alignment(self) -> (f64, f64) {
+        match self {
+            Self::TopLeft => (0.0, 0.0),
+            Self::Top => (0.5, 0.0),
+            Self::TopRight => (1.0, 0.0),
+            Self::Left => (0.0, 0.5),
+            Self::Center => (0.5, 0.5),
+            Self::Right => (1.0, 0.5),
+            Self::BottomLeft => (0.0, 1.0),
+            Self::Bottom => (0.5, 1.0),
+            Self::BottomRight => (1.0, 1.0),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Document {
     pub base_image: Option<Image>,
     pub background: Background,
     pub frame: FrameSettings,
+    pub output_ratio: OutputRatio,
+    pub image_scale_mode: ImageScaleMode,
+    pub image_anchor: ImageAnchor,
     pub annotations: Vec<Annotation>,
 }
 
@@ -213,6 +320,9 @@ impl Document {
             base_image: Some(base_image),
             background: Background::default(),
             frame: FrameSettings::default(),
+            output_ratio: OutputRatio::Auto,
+            image_scale_mode: ImageScaleMode::Fit,
+            image_anchor: ImageAnchor::Center,
             annotations: Vec::new(),
         }
     }
@@ -302,6 +412,19 @@ mod tests {
     fn document_default_has_no_image() {
         let doc = Document::default();
         assert!(doc.base_image.is_none());
+        assert_eq!(doc.output_ratio, OutputRatio::Auto);
+        assert_eq!(doc.image_scale_mode, ImageScaleMode::Fit);
+        assert_eq!(doc.image_anchor, ImageAnchor::Center);
+    }
+
+    #[test]
+    fn document_new_defaults_to_auto_output_ratio() {
+        let data = vec![0u8; 100 * 100 * 4];
+        let img = Image::new(100, 100, data);
+        let doc = Document::new(img);
+        assert_eq!(doc.output_ratio, OutputRatio::Auto);
+        assert_eq!(doc.image_scale_mode, ImageScaleMode::Fit);
+        assert_eq!(doc.image_anchor, ImageAnchor::Center);
     }
 
     #[test]
