@@ -61,24 +61,35 @@ snapix capture --mode full -o test.png
 | Task | Status | Notes |
 |------|--------|-------|
 | GTK4 editor window với `DrawingArea` | ✅ Done | `EditorWindow` + `DocumentCanvas` are live in `snapix-ui` |
-| Canvas render pipeline | ✅ Done | Cairo-based preview/export pipeline renders background, frame, image, crop overlay, arrow, and text annotations; PNG export and clipboard copy use the same pipeline |
-| Tool: Crop | ⚠️ Partial | Usable non-destructive crop with default selection, move/resize handles, and `Enter/Esc`; UX still needs polish and clearer image-bound behavior |
+| Canvas render pipeline | ✅ Done | Cairo-based preview/export pipeline renders background, frame, image, crop overlay, arrow, rectangle, ellipse, blur, and text annotations; PNG/JPEG export and clipboard copy use the same composition and layout rules as the preview |
+| Tool: Crop | ⚠️ Partial | Usable non-destructive crop with default selection, move/resize handles, `Enter` apply, `Esc` exit, and toast feedback; final image-bound polish is still open |
 | Tool: Arrow | ✅ Done | Drag on the image to place an arrow; preview, save/copy, and undo/redo are wired |
+| Tool: Rectangle | ✅ Done | Drag on the image to draw a rectangle annotation with color/width controls |
+| Tool: Ellipse | ✅ Done | Drag on the image to draw an ellipse annotation with color/width controls |
 | Tool: Text | ✅ Done | Click on the image, enter text in a dialog, and commit a text annotation to the canvas |
-| Export PNG + copy clipboard | ✅ Done | `Save` exports PNG and `Copy` writes the rendered canvas image to the clipboard |
+| Tool: Blur | ✅ Done | Drag on the image to create a blur region annotation |
+| Export PNG/JPEG + copy clipboard | ✅ Done | `Save`, `Save As`, and `Copy` all use the same rendered canvas output |
 | Undo/Redo stack | ✅ Done | Snapshot-based history is wired for crop, frame/background changes, arrow, and text |
-| Capture/import action row | ⚠️ Partial | Top-row `Fullscreen / Region / Import / Clear` actions are wired; Wayland portal semantics still limit true fullscreen/window distinction and `Window` is disabled there |
+| Capture/import action row | ⚠️ Partial | Top-row `Fullscreen / Region / Import / Clear` actions are wired; Wayland fullscreen now falls back to interactive region capture, but true fullscreen/window distinction still depends on portal behavior |
+| Editor feedback polish | ✅ Done | Toasts now cover capture, import, copy, save, crop apply, and annotation placement; export actions disable when no image is loaded |
+| Annotation selection/editing | ⚠️ Partial | Existing annotations can now be selected, highlighted, recolored, resized via toolbar width, and deleted via toolbar or `Backspace/Delete`; direct drag-to-move/resize editing is still open |
+| Settings panel resizing | ✅ Done | Main workspace uses a draggable split view so the inspector can be widened or narrowed without breaking the editor |
+| Shadow controls | ✅ Done | Inspector supports shadow direction, shadow padding, blur, and strength; `0px` padding keeps the shadow attached to the image and directional padding now respects the chosen side |
 
 ### M2 Snapshot
 
 - Editor shell launches as the default GUI window via `snapix_ui::SnapixApp`, and startup capture loads directly into the editor.
 - The workspace UI has been reshaped toward an editor-style layout with a top action row, top tool row, central canvas, and right-side settings panel.
+- The main workspace now uses a resizable split layout so the right-side settings panel can be widened or narrowed by drag.
 - GUI startup on Wayland still falls back from failing full-screen portal capture to interactive capture so the editor opens with a real image when possible.
-- Canvas renders beautify output plus committed arrow and text annotations, while crop uses its own interaction/overlay layer.
-- Inspector controls already update `Document.frame` and `Document.background` in real time.
-- `Save` exports the rendered canvas to PNG and `Copy` writes the rendered image to the system clipboard.
-- Crop supports default selection, move/resize handles, `Enter` apply, and `Esc` cancel.
-- Arrow supports drag placement, and Text supports click-to-place plus dialog input.
+- Canvas renders beautify output plus committed arrow, rectangle, ellipse, blur, and text annotations, while crop uses its own interaction/overlay layer.
+- Inspector controls already update `Document.frame` and `Document.background` in real time, including direction-aware shadow tuning.
+- `Save`/`Save As` export the rendered canvas to PNG or JPEG and `Copy` writes the rendered image to the system clipboard.
+- Preview canvas layout is now aligned more closely with export/copy output so padding, aspect ratio, and shadow composition stay consistent.
+- Crop supports default selection, move/resize handles, `Enter` apply, and `Esc` exit back to Select mode.
+- Arrow, rectangle, ellipse, and blur support drag placement with toast feedback when placement succeeds or is too small.
+- Text supports click-to-place plus dialog input, and the empty state now guides the user toward capture/import first.
+- Select mode can highlight existing annotations, apply color/width changes, and delete the current selection from either the toolbar or the keyboard.
 - Undo/redo is working via whole-document snapshots.
 - The remaining M2 risk area is capture UX on Wayland portals, where true fullscreen/window semantics are still inconsistent.
 
@@ -91,9 +102,9 @@ snapix capture --mode full -o test.png
 | Background: gradient picker | 🔲 Pending | |
 | Background: solid color | 🔲 Pending | |
 | Background: blur of screenshot | 🔲 Pending | |
-| Frame: padding slider | 🔲 Pending | |
-| Frame: corner radius | 🔲 Pending | |
-| Frame: drop shadow | 🔲 Pending | |
+| Frame: padding slider | ✅ Done | Live frame padding control is wired in the GTK editor |
+| Frame: corner radius | ✅ Done | Live corner radius control is wired in the GTK editor |
+| Frame: drop shadow | ✅ Done | Shadow toggle, direction, padding, blur, and strength are all live in the GTK editor |
 | Preset system (save/load) | 🔲 Pending | |
 
 ---
@@ -151,8 +162,8 @@ snapix/
 │   ├── snapix-ui/                # GTK4 + libadwaita UI
 │   │   └── src/
 │   │       ├── app.rs            # SnapixApp entry point
-│   │       ├── editor.rs         # (planned) Editor window
-│   │       └── widgets.rs        # (planned) Custom widgets
+│   │       ├── editor.rs         # Editor window, actions, and interaction state
+│   │       └── widgets.rs        # Canvas rendering and input handling
 │   │
 │   └── snapix-app/               # Binary entry point
 │       └── src/
@@ -211,9 +222,19 @@ snapix/
   - Added undo/redo for document snapshots
   - Added usable Arrow tool with preview and committed annotation rendering
   - Added usable Text tool with click placement and dialog input
+  - Added usable Rectangle, Ellipse, and Blur annotation tools
   - Added top action row handlers for fullscreen/region/import/clear
   - Added import-from-file flow directly into the editor
-  - Improved crop with default selection plus move/resize handles
+  - Improved crop with default selection plus move/resize handles, `Esc` exit, and apply feedback
+  - Added empty-state guidance plus toast feedback for capture, import, save, copy, and annotation actions
+  - Disabled export actions when no image is loaded
+  - Added annotation selection, highlight, toolbar-based color/width edits, and delete-by-selection
+  - Added keyboard delete support via `Backspace` / `Delete`
+  - Switched the main editor workspace to a draggable split view so the settings panel can be resized
+  - Reworked shadow controls with direction presets, shadow padding, blur, and strength
+  - Tightened shadow rendering so `0px` padding keeps the shadow attached to the image and directional padding expands toward the chosen side
+  - Unified preview/export composition rules so canvas layout matches `Copy`/`Save` output more closely
+  - Added tests for CLI region validation, Wayland capture fallback behavior, selection/edit helpers, and editor state helpers
   - Documented current Wayland portal capture limitations in the UI behavior
 
 ### 2026-04-20

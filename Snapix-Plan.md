@@ -34,8 +34,8 @@
 ### MVP (v0.1)
 - [ ] Chụp fullscreen / region / active window
 - [ ] Hotkey toàn cục
-- [ ] Editor: crop, arrow, rectangle, text, blur region
-- [ ] Beautify: gradient/solid BG, padding, corner radius, shadow
+- [ ] Editor: crop, arrow, rectangle, ellipse, text, blur region, chọn/xóa annotation
+- [ ] Beautify: gradient/solid BG, padding, corner radius, shadow direction/padding/blur/strength
 - [ ] Export PNG/JPG, copy clipboard
 - [ ] Support X11 + Wayland (GNOME, KDE)
 

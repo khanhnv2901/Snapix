@@ -4,10 +4,12 @@ use std::rc::Rc;
 use anyhow::{Context, Result};
 use gtk4::cairo;
 use gtk4::prelude::*;
+use libadwaita::ToastOverlay;
 use snapix_core::canvas::{Annotation, Background, Color, Document, Image, TextStyle};
 
 use crate::editor::{
-    refresh_history_buttons, refresh_scope_label, CropDrag, CropSelection, EditorState, ToolKind,
+    refresh_history_buttons, refresh_scope_label, refresh_tool_actions, show_toast, CropDrag,
+    CropSelection, EditorState, ToolKind,
 };
 
 pub(crate) struct RenderedDocument {
@@ -56,10 +58,12 @@ impl DocumentCanvas {
         scope_label: gtk4::Label,
         undo_button: gtk4::Button,
         redo_button: gtk4::Button,
+        toast_overlay: ToastOverlay,
+        delete_button: gtk4::Button,
     ) -> Self {
         let drawing_area = gtk4::DrawingArea::builder()
-            .content_width(1100)
-            .content_height(760)
+            .content_width(720)
+            .content_height(480)
             .hexpand(true)
             .vexpand(true)
             .focusable(true)
@@ -269,6 +273,8 @@ impl DocumentCanvas {
             let crop_interaction = crop_interaction.clone();
             let undo_button = undo_button.clone();
             let redo_button = redo_button.clone();
+            let toast_overlay = toast_overlay.clone();
+            let delete_button = delete_button.clone();
             drag.connect_drag_end(move |_gesture, offset_x, offset_y| {
                 let width = drawing_area.allocated_width();
                 let height = drawing_area.allocated_height();
@@ -285,9 +291,14 @@ impl DocumentCanvas {
                             state.update_arrow_drag(image_x as f32, image_y as f32);
                         }
                     }
-                    state.commit_arrow_drag();
+                    if state.commit_arrow_drag() {
+                        show_toast(&toast_overlay, "Added arrow");
+                    } else {
+                        show_toast(&toast_overlay, "Arrow drag was too small");
+                    }
                     refresh_scope_label(&state, &scope_label);
                     refresh_history_buttons(&state, &undo_button, &redo_button);
+                    refresh_tool_actions(&state, &delete_button);
                 } else if let Some(rect_drag) = state.rect_drag().cloned() {
                     state.update_rect_drag(
                         rect_drag.start_x() + offset_x,
@@ -297,14 +308,22 @@ impl DocumentCanvas {
                         if let Some((rect_x, rect_y, rect_width, rect_height)) =
                             crop_rect_to_image_pixels(state.document(), layout, &rect_drag)
                         {
-                            state.commit_rect_annotation(rect_x, rect_y, rect_width, rect_height);
+                            if state.commit_rect_annotation(rect_x, rect_y, rect_width, rect_height)
+                            {
+                                show_toast(&toast_overlay, "Added rectangle");
+                            } else {
+                                show_toast(&toast_overlay, "Rectangle drag was too small");
+                            }
                             refresh_scope_label(&state, &scope_label);
                             refresh_history_buttons(&state, &undo_button, &redo_button);
+                            refresh_tool_actions(&state, &delete_button);
                         } else {
                             state.clear_rect_drag();
+                            show_toast(&toast_overlay, "Rectangle drag was too small");
                         }
                     } else {
                         state.clear_rect_drag();
+                        show_toast(&toast_overlay, "Rectangle drag was too small");
                     }
                 } else if let Some(ellipse_drag) = state.ellipse_drag().cloned() {
                     state.update_ellipse_drag(
@@ -315,19 +334,26 @@ impl DocumentCanvas {
                         if let Some((shape_x, shape_y, shape_width, shape_height)) =
                             crop_rect_to_image_pixels(state.document(), layout, &ellipse_drag)
                         {
-                            state.commit_ellipse_annotation(
+                            if state.commit_ellipse_annotation(
                                 shape_x,
                                 shape_y,
                                 shape_width,
                                 shape_height,
-                            );
+                            ) {
+                                show_toast(&toast_overlay, "Added ellipse");
+                            } else {
+                                show_toast(&toast_overlay, "Ellipse drag was too small");
+                            }
                             refresh_scope_label(&state, &scope_label);
                             refresh_history_buttons(&state, &undo_button, &redo_button);
+                            refresh_tool_actions(&state, &delete_button);
                         } else {
                             state.clear_ellipse_drag();
+                            show_toast(&toast_overlay, "Ellipse drag was too small");
                         }
                     } else {
                         state.clear_ellipse_drag();
+                        show_toast(&toast_overlay, "Ellipse drag was too small");
                     }
                 } else if let Some(blur_drag) = state.blur_drag().cloned() {
                     state.update_blur_drag(
@@ -338,14 +364,21 @@ impl DocumentCanvas {
                         if let Some((blur_x, blur_y, blur_width, blur_height)) =
                             crop_rect_to_image_pixels(state.document(), layout, &blur_drag)
                         {
-                            state.commit_blur_rect(blur_x, blur_y, blur_width, blur_height);
+                            if state.commit_blur_rect(blur_x, blur_y, blur_width, blur_height) {
+                                show_toast(&toast_overlay, "Added blur region");
+                            } else {
+                                show_toast(&toast_overlay, "Blur region was too small");
+                            }
                             refresh_scope_label(&state, &scope_label);
                             refresh_history_buttons(&state, &undo_button, &redo_button);
+                            refresh_tool_actions(&state, &delete_button);
                         } else {
                             state.clear_blur_drag();
+                            show_toast(&toast_overlay, "Blur region was too small");
                         }
                     } else {
                         state.clear_blur_drag();
+                        show_toast(&toast_overlay, "Blur region was too small");
                     }
                 } else if let Some(crop_drag) = state.crop_drag().cloned() {
                     state.update_crop_drag(
@@ -363,15 +396,22 @@ impl DocumentCanvas {
                             state.set_crop_selection(crop_x, crop_y, crop_width, crop_height);
                             refresh_scope_label(&state, &scope_label);
                             refresh_history_buttons(&state, &undo_button, &redo_button);
+                            refresh_tool_actions(&state, &delete_button);
                         } else {
                             state.clear_crop_drag();
+                            state.ensure_default_crop_selection();
                             refresh_scope_label(&state, &scope_label);
                             refresh_history_buttons(&state, &undo_button, &redo_button);
+                            refresh_tool_actions(&state, &delete_button);
+                            show_toast(&toast_overlay, "Crop selection was too small");
                         }
                     } else {
                         state.clear_crop_drag();
+                        state.ensure_default_crop_selection();
                         refresh_scope_label(&state, &scope_label);
                         refresh_history_buttons(&state, &undo_button, &redo_button);
+                        refresh_tool_actions(&state, &delete_button);
+                        show_toast(&toast_overlay, "Crop selection was too small");
                     }
                 }
                 *crop_interaction.borrow_mut() = None;
@@ -391,10 +431,36 @@ impl DocumentCanvas {
             let scope_label = scope_label.clone();
             let undo_button = undo_button.clone();
             let redo_button = redo_button.clone();
+            let toast_overlay = toast_overlay.clone();
+            let delete_button = delete_button.clone();
             click.connect_pressed(move |_gesture, _n_press, x, y| {
                 let width = drawing_area.allocated_width();
                 let height = drawing_area.allocated_height();
-                let state_ref = state.borrow();
+                let mut state_ref = state.borrow_mut();
+                if state_ref.active_tool() == ToolKind::Select {
+                    let Some(layout) = preview_canvas_layout(state_ref.document(), width, height)
+                    else {
+                        state_ref.set_selected_annotation(None);
+                        refresh_tool_actions(&state_ref, &delete_button);
+                        drawing_area.queue_draw();
+                        return;
+                    };
+                    let selected = hit_test_annotation(state_ref.document(), layout, x, y);
+                    state_ref.set_selected_annotation(selected);
+                    refresh_scope_label(&state_ref, &scope_label);
+                    refresh_tool_actions(&state_ref, &delete_button);
+                    show_toast(
+                        &toast_overlay,
+                        if selected.is_some() {
+                            "Annotation selected"
+                        } else {
+                            "Selection cleared"
+                        },
+                    );
+                    drawing_area.queue_draw();
+                    return;
+                }
+
                 if state_ref.active_tool() != ToolKind::Text {
                     return;
                 }
@@ -408,6 +474,8 @@ impl DocumentCanvas {
                 else {
                     return;
                 };
+                state_ref.set_selected_annotation(None);
+                refresh_tool_actions(&state_ref, &delete_button);
                 drop(state_ref);
 
                 let Some(root) = drawing_area.root() else {
@@ -451,6 +519,8 @@ impl DocumentCanvas {
                 let scope_label = scope_label.clone();
                 let undo_button = undo_button.clone();
                 let redo_button = redo_button.clone();
+                let response_toast_overlay = toast_overlay.clone();
+                let response_delete_button = delete_button.clone();
                 dialog.connect_response(move |dialog, response| {
                     if response == gtk4::ResponseType::Accept {
                         let mut state = state.borrow_mut();
@@ -461,8 +531,12 @@ impl DocumentCanvas {
                         ) {
                             refresh_scope_label(&state, &scope_label);
                             refresh_history_buttons(&state, &undo_button, &redo_button);
+                            refresh_tool_actions(&state, &response_delete_button);
                             crate::editor::refresh_subtitle(&state, &subtitle_label);
                             drawing_area.queue_draw();
+                            show_toast(&response_toast_overlay, "Added text label");
+                        } else if !entry.text().trim().is_empty() {
+                            show_toast(&response_toast_overlay, "Text label could not be added");
                         }
                     }
                     dialog.close();
@@ -532,28 +606,27 @@ pub(crate) fn render_document_rgba(document: &Document) -> Result<RenderedDocume
 fn export_size(document: &Document) -> (i32, i32) {
     const MIN_EXPORT_WIDTH: i32 = 1200;
     const MIN_EXPORT_HEIGHT: i32 = 800;
-    const OUTER_MARGIN: i32 = 80;
+    let (natural_width, natural_height) = composition_size(document);
+    let scale = f64::max(
+        f64::max(
+            MIN_EXPORT_WIDTH as f64 / natural_width,
+            MIN_EXPORT_HEIGHT as f64 / natural_height,
+        ),
+        1.0,
+    );
 
-    match document.base_image.as_ref() {
-        Some(image) => {
-            let padding = document.frame.padding.max(0.0).round() as i32;
-            let width = image.width as i32 + padding * 2 + OUTER_MARGIN;
-            let height = image.height as i32 + padding * 2 + OUTER_MARGIN;
-            (width.max(MIN_EXPORT_WIDTH), height.max(MIN_EXPORT_HEIGHT))
-        }
-        None => (MIN_EXPORT_WIDTH, MIN_EXPORT_HEIGHT),
-    }
+    (
+        (natural_width * scale).round() as i32,
+        (natural_height * scale).round() as i32,
+    )
 }
 
 fn draw_canvas(cr: &cairo::Context, width: i32, height: i32, document: &Document) {
     cr.set_source_rgb(0.09, 0.10, 0.13);
     cr.paint().ok();
 
-    let margin = 40.0;
-    let frame_x = margin;
-    let frame_y = margin;
-    let frame_w = (width as f64 - margin * 2.0).max(160.0);
-    let frame_h = (height as f64 - margin * 2.0).max(160.0);
+    let (frame_x, frame_y, frame_w, frame_h) = composition_frame_bounds(document, width, height);
+    let composition_scale = composition_scale(document, width, height);
 
     paint_background(cr, frame_x, frame_y, frame_w, frame_h, &document.background);
 
@@ -562,24 +635,70 @@ fn draw_canvas(cr: &cairo::Context, width: i32, height: i32, document: &Document
         frame_y,
         frame_w,
         frame_h,
-        document.frame.padding as f64,
+        document.frame.padding as f64 * composition_scale,
     );
 
+    // Compute the actual rendered image bounds (aspect-ratio scaled + centered)
+    // so the shadow tracks the image itself, not the full container rectangle.
+    let shadow_target = match document.base_image.as_ref() {
+        Some(img) => {
+            let (bx, by, bw, bh) = image_bounds;
+            let scale = f64::min(bw / img.width as f64, bh / img.height as f64);
+            let dw = img.width as f64 * scale;
+            let dh = img.height as f64 * scale;
+            (bx + (bw - dw) / 2.0, by + (bh - dh) / 2.0, dw, dh)
+        }
+        None => image_bounds,
+    };
+
     if document.frame.shadow {
-        cr.set_source_rgba(0.0, 0.0, 0.0, 0.18);
-        rounded_rect(
-            cr,
-            image_bounds.0 + 10.0,
-            image_bounds.1 + 16.0,
-            image_bounds.2,
-            image_bounds.3,
-            document.frame.corner_radius as f64,
-        );
+        let blur = document.frame.shadow_blur.max(0.0) as f64 * composition_scale;
+        let offset_x = document.frame.shadow_offset_x as f64 * composition_scale;
+        let offset_y = document.frame.shadow_offset_y as f64 * composition_scale;
+        let shadow_padding = document.frame.shadow_padding.max(0.0) as f64 * composition_scale;
+        let strength = document.frame.shadow_strength.clamp(0.0, 1.0) as f64;
+        let shadow_steps = ((blur / 2.5).round() as i32).clamp(8, 24);
+        let max_expand = blur.max(6.0);
+        let left_pad = directional_shadow_padding(offset_x, false, shadow_padding);
+        let right_pad = directional_shadow_padding(offset_x, true, shadow_padding);
+        let top_pad = directional_shadow_padding(offset_y, false, shadow_padding);
+        let bottom_pad = directional_shadow_padding(offset_y, true, shadow_padding);
+        let shadow_x = shadow_target.0 - left_pad;
+        let shadow_y = shadow_target.1 - top_pad;
+        let shadow_w = shadow_target.2 + left_pad + right_pad;
+        let shadow_h = shadow_target.3 + top_pad + bottom_pad;
+        let shadow_radius = document.frame.corner_radius as f64 * composition_scale
+            + shadow_padding.max(left_pad.max(right_pad).max(top_pad).max(bottom_pad)) * 0.35;
+
+        for i in 1..=shadow_steps {
+            let t = i as f64 / shadow_steps as f64;
+            let expand = t * max_expand;
+            let alpha = (0.10 * strength) * (1.0 - t).powf(1.7);
+            let drift = t.powf(1.2);
+            cr.set_source_rgba(0.0, 0.0, 0.0, alpha);
+            rounded_rect(
+                cr,
+                shadow_x - expand + offset_x * drift,
+                shadow_y - expand + offset_y * drift,
+                shadow_w + expand * 2.0,
+                shadow_h + expand * 2.0,
+                shadow_radius + expand * 0.45,
+            );
+            cr.fill().ok();
+        }
+
+        cr.set_source_rgba(0.0, 0.0, 0.0, 0.08 * strength);
+        rounded_rect(cr, shadow_x, shadow_y, shadow_w, shadow_h, shadow_radius);
         cr.fill().ok();
     }
 
     if let Some(image) = document.base_image.as_ref() {
-        paint_image(cr, image_bounds, image, document.frame.corner_radius as f64);
+        paint_image(
+            cr,
+            image_bounds,
+            image,
+            document.frame.corner_radius as f64 * composition_scale,
+        );
         if let Some(layout) = preview_canvas_layout(document, width, height) {
             draw_annotations(cr, document, layout);
         }
@@ -590,6 +709,11 @@ fn draw_canvas(cr: &cairo::Context, width: i32, height: i32, document: &Document
 
 fn draw_editor_canvas(cr: &cairo::Context, width: i32, height: i32, state: &EditorState) {
     draw_canvas(cr, width, height, state.document());
+    if let Some(layout) = preview_canvas_layout(state.document(), width, height) {
+        if let Some(index) = state.selected_annotation() {
+            draw_selected_annotation(cr, state.document(), layout, index);
+        }
+    }
     if state.active_tool() == ToolKind::Arrow {
         if let Some(layout) = preview_canvas_layout(state.document(), width, height) {
             if let Some(arrow_drag) = state.arrow_drag() {
@@ -636,6 +760,25 @@ fn draw_editor_canvas(cr: &cairo::Context, width: i32, height: i32, state: &Edit
             }
         }
     }
+}
+
+fn draw_selected_annotation(
+    cr: &cairo::Context,
+    document: &Document,
+    layout: CanvasLayout,
+    index: usize,
+) {
+    let Some(bounds) = annotation_widget_bounds(document, layout, index) else {
+        return;
+    };
+    let (x, y, width, height) = bounds;
+    cr.save().ok();
+    cr.set_source_rgba(0.55, 0.78, 1.0, 0.95);
+    cr.set_line_width(2.0);
+    cr.set_dash(&[6.0, 4.0], 0.0);
+    rounded_rect(cr, x, y, width, height, 10.0);
+    cr.stroke().ok();
+    cr.restore().ok();
 }
 
 fn draw_annotations(cr: &cairo::Context, document: &Document, layout: CanvasLayout) {
@@ -956,18 +1099,36 @@ fn draw_arrow(
     cr.restore().ok();
 }
 
+fn hit_test_annotation(
+    document: &Document,
+    layout: CanvasLayout,
+    pointer_x: f64,
+    pointer_y: f64,
+) -> Option<usize> {
+    for index in (0..document.annotations.len()).rev() {
+        if annotation_widget_bounds(document, layout, index).is_some_and(|bounds| {
+            point_in_bounds(pointer_x, pointer_y, expand_bounds(bounds, 10.0))
+        }) {
+            if let Some(annotation) = document.annotations.get(index) {
+                if matches!(annotation, Annotation::Arrow { .. }) {
+                    if arrow_hit_test(layout, annotation, pointer_x, pointer_y) {
+                        return Some(index);
+                    }
+                } else {
+                    return Some(index);
+                }
+            }
+        }
+    }
+    None
+}
+
 fn draw_crop_mode_canvas(cr: &cairo::Context, width: i32, height: i32, document: &Document) {
     cr.set_source_rgb(0.07, 0.08, 0.10);
     cr.paint().ok();
 
     let Some(image) = document.base_image.as_ref() else {
-        let margin = 40.0;
-        let bounds = (
-            margin,
-            margin,
-            (width as f64 - margin * 2.0).max(160.0),
-            (height as f64 - margin * 2.0).max(160.0),
-        );
+        let bounds = composition_frame_bounds(document, width, height);
         paint_empty_state(cr, bounds, 16.0);
         return;
     };
@@ -1002,17 +1163,14 @@ fn draw_crop_mode_canvas(cr: &cairo::Context, width: i32, height: i32, document:
 
 fn preview_canvas_layout(document: &Document, width: i32, height: i32) -> Option<CanvasLayout> {
     let image = document.base_image.as_ref()?;
-    let margin = 40.0;
-    let frame_x = margin;
-    let frame_y = margin;
-    let frame_w = (width as f64 - margin * 2.0).max(160.0);
-    let frame_h = (height as f64 - margin * 2.0).max(160.0);
+    let (frame_x, frame_y, frame_w, frame_h) = composition_frame_bounds(document, width, height);
+    let composition_scale = composition_scale(document, width, height);
     let image_bounds = inset_frame(
         frame_x,
         frame_y,
         frame_w,
         frame_h,
-        document.frame.padding as f64,
+        document.frame.padding as f64 * composition_scale,
     );
 
     layout_for_bounds(image, image_bounds)
@@ -1304,6 +1462,32 @@ fn paint_empty_state(cr: &cairo::Context, bounds: (f64, f64, f64, f64), radius: 
     cr.move_to(x + width * 0.72, y + height * 0.32);
     cr.line_to(x + width * 0.28, y + height * 0.68);
     cr.stroke().ok();
+
+    let title_y = y + height * 0.76;
+    let subtitle_y = title_y + 28.0;
+    let hint_y = subtitle_y + 24.0;
+
+    cr.select_font_face("Sans", cairo::FontSlant::Normal, cairo::FontWeight::Bold);
+    cr.set_font_size((width.min(height) * 0.05).clamp(18.0, 28.0));
+    cr.set_source_rgb(0.20, 0.24, 0.30);
+    center_text(cr, x + width / 2.0, title_y, "No image loaded");
+
+    cr.select_font_face("Sans", cairo::FontSlant::Normal, cairo::FontWeight::Normal);
+    cr.set_font_size((width.min(height) * 0.028).clamp(12.0, 18.0));
+    cr.set_source_rgb(0.38, 0.42, 0.48);
+    center_text(
+        cr,
+        x + width / 2.0,
+        subtitle_y,
+        "Use Fullscreen, Region, or Import to start editing.",
+    );
+    cr.set_source_rgb(0.46, 0.49, 0.55);
+    center_text(
+        cr,
+        x + width / 2.0,
+        hint_y,
+        "Then annotate, copy, or export from the bottom bar.",
+    );
 }
 
 fn paint_image(cr: &cairo::Context, bounds: (f64, f64, f64, f64), image: &Image, radius: f64) {
@@ -1365,6 +1549,17 @@ fn make_surface(image: &Image) -> Option<cairo::ImageSurface> {
     Some(surface)
 }
 
+fn center_text(cr: &cairo::Context, center_x: f64, baseline_y: f64, text: &str) {
+    let Ok(extents) = cr.text_extents(text) else {
+        return;
+    };
+    cr.move_to(
+        center_x - extents.width() / 2.0 - extents.x_bearing(),
+        baseline_y,
+    );
+    let _ = cr.show_text(text);
+}
+
 fn blurred_region_image(
     image: &Image,
     x: u32,
@@ -1392,14 +1587,65 @@ fn blurred_region_image(
 }
 
 fn canvas_layout(document: &Document, width: i32, height: i32) -> Option<CanvasLayout> {
-    let stage_margin_x = 56.0;
-    let stage_margin_y = 52.0;
-    let x = stage_margin_x;
-    let y = stage_margin_y;
-    let max_width = (width as f64 - stage_margin_x * 2.0).max(160.0);
-    let max_height = (height as f64 - stage_margin_y * 2.0).max(160.0);
-    let image = document.base_image.as_ref()?;
-    layout_for_bounds(image, (x, y, max_width, max_height))
+    preview_canvas_layout(document, width, height)
+}
+
+fn composition_size(document: &Document) -> (f64, f64) {
+    const OUTER_MARGIN: f64 = 3.0;
+    match document.base_image.as_ref() {
+        Some(image) => {
+            let padding = document.frame.padding.max(0.0) as f64;
+            (
+                image.width as f64 + padding * 2.0 + OUTER_MARGIN * 2.0,
+                image.height as f64 + padding * 2.0 + OUTER_MARGIN * 2.0,
+            )
+        }
+        None => (480.0, 320.0),
+    }
+}
+
+fn composition_frame_bounds(document: &Document, width: i32, height: i32) -> (f64, f64, f64, f64) {
+    let (natural_width, natural_height) = composition_size(document);
+    let available_width = (width as f64).max(160.0);
+    let available_height = (height as f64).max(160.0);
+    let scale = composition_scale(document, width, height);
+    let frame_width = (natural_width * scale).max(160.0);
+    let frame_height = (natural_height * scale).max(160.0);
+    let frame_x = (available_width - frame_width) / 2.0;
+    let frame_y = (available_height - frame_height) / 2.0;
+    (frame_x, frame_y, frame_width, frame_height)
+}
+
+fn composition_scale(document: &Document, width: i32, height: i32) -> f64 {
+    let (natural_width, natural_height) = composition_size(document);
+    let available_width = (width as f64).max(160.0);
+    let available_height = (height as f64).max(160.0);
+    f64::min(
+        available_width / natural_width,
+        available_height / natural_height,
+    )
+}
+
+fn directional_shadow_padding(offset: f64, positive_side: bool, padding: f64) -> f64 {
+    if padding <= 0.0 {
+        return 0.0;
+    }
+
+    if offset > 0.0 {
+        if positive_side {
+            padding
+        } else {
+            0.0
+        }
+    } else if offset < 0.0 {
+        if positive_side {
+            0.0
+        } else {
+            padding
+        }
+    } else {
+        padding * 0.5
+    }
 }
 
 fn layout_for_bounds(image: &Image, bounds: (f64, f64, f64, f64)) -> Option<CanvasLayout> {
@@ -1429,6 +1675,112 @@ fn point_in_layout(x: f64, y: f64, layout: CanvasLayout) -> bool {
         && y >= layout.image_y
         && x <= layout.image_x + layout.image_width
         && y <= layout.image_y + layout.image_height
+}
+
+fn point_in_bounds(x: f64, y: f64, bounds: (f64, f64, f64, f64)) -> bool {
+    let (left, top, width, height) = bounds;
+    x >= left && y >= top && x <= left + width && y <= top + height
+}
+
+fn expand_bounds(bounds: (f64, f64, f64, f64), padding: f64) -> (f64, f64, f64, f64) {
+    (
+        bounds.0 - padding,
+        bounds.1 - padding,
+        bounds.2 + padding * 2.0,
+        bounds.3 + padding * 2.0,
+    )
+}
+
+fn annotation_widget_bounds(
+    document: &Document,
+    layout: CanvasLayout,
+    index: usize,
+) -> Option<(f64, f64, f64, f64)> {
+    let annotation = document.annotations.get(index)?;
+    match annotation {
+        Annotation::Arrow {
+            from, to, width, ..
+        } => {
+            let start_x = layout.image_x + from.x as f64 * layout.image_scale;
+            let start_y = layout.image_y + from.y as f64 * layout.image_scale;
+            let end_x = layout.image_x + to.x as f64 * layout.image_scale;
+            let end_y = layout.image_y + to.y as f64 * layout.image_scale;
+            let padding = (*width as f64).max(12.0);
+            let left = start_x.min(end_x) - padding;
+            let top = start_y.min(end_y) - padding;
+            let width = (start_x - end_x).abs() + padding * 2.0;
+            let height = (start_y - end_y).abs() + padding * 2.0;
+            Some((left, top, width.max(24.0), height.max(24.0)))
+        }
+        Annotation::Rect { bounds, stroke, .. } | Annotation::Ellipse { bounds, stroke, .. } => {
+            let padding = (stroke.width as f64).max(8.0);
+            Some(expand_bounds(
+                annotation_rect_to_widget_bounds(layout, bounds),
+                padding,
+            ))
+        }
+        Annotation::Blur { bounds, .. } | Annotation::Redact { bounds } => Some(expand_bounds(
+            annotation_rect_to_widget_bounds(layout, bounds),
+            8.0,
+        )),
+        Annotation::Text {
+            pos,
+            content,
+            style,
+        } => {
+            let draw_x = layout.image_x + pos.x as f64 * layout.image_scale;
+            let draw_y = layout.image_y + pos.y as f64 * layout.image_scale;
+            let font_size = (style.font_size as f64 * layout.image_scale).max(14.0);
+            let width = (content.chars().count() as f64 * font_size * 0.62).max(font_size * 1.2);
+            let height = font_size * 1.3;
+            Some((draw_x - 8.0, draw_y - height, width + 16.0, height + 12.0))
+        }
+    }
+}
+
+fn annotation_rect_to_widget_bounds(
+    layout: CanvasLayout,
+    bounds: &snapix_core::canvas::Rect,
+) -> (f64, f64, f64, f64) {
+    (
+        layout.image_x + bounds.x as f64 * layout.image_scale,
+        layout.image_y + bounds.y as f64 * layout.image_scale,
+        bounds.width as f64 * layout.image_scale,
+        bounds.height as f64 * layout.image_scale,
+    )
+}
+
+fn arrow_hit_test(
+    layout: CanvasLayout,
+    annotation: &Annotation,
+    pointer_x: f64,
+    pointer_y: f64,
+) -> bool {
+    let Annotation::Arrow {
+        from, to, width, ..
+    } = annotation
+    else {
+        return false;
+    };
+    let start_x = layout.image_x + from.x as f64 * layout.image_scale;
+    let start_y = layout.image_y + from.y as f64 * layout.image_scale;
+    let end_x = layout.image_x + to.x as f64 * layout.image_scale;
+    let end_y = layout.image_y + to.y as f64 * layout.image_scale;
+    let tolerance = (*width as f64).max(12.0);
+    distance_to_segment(pointer_x, pointer_y, start_x, start_y, end_x, end_y) <= tolerance
+}
+
+fn distance_to_segment(px: f64, py: f64, x1: f64, y1: f64, x2: f64, y2: f64) -> f64 {
+    let dx = x2 - x1;
+    let dy = y2 - y1;
+    if dx == 0.0 && dy == 0.0 {
+        return ((px - x1).powi(2) + (py - y1).powi(2)).sqrt();
+    }
+    let t = (((px - x1) * dx) + ((py - y1) * dy)) / (dx * dx + dy * dy);
+    let t = t.clamp(0.0, 1.0);
+    let proj_x = x1 + t * dx;
+    let proj_y = y1 + t * dy;
+    ((px - proj_x).powi(2) + (py - proj_y).powi(2)).sqrt()
 }
 
 fn widget_point_to_image_pixel(

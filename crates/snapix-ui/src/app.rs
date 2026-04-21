@@ -97,7 +97,7 @@ fn install_editor_css() {
 }
 
 .tool-pill {
-    padding: 7px 12px;
+    padding: 8px;
     background: transparent;
     color: alpha(#f5f7ff, 0.72);
     border: 1px solid transparent;
@@ -112,12 +112,14 @@ fn install_editor_css() {
 
 /* Color swatch dots */
 .color-swatch-btn {
-    padding: 4px;
+    padding: 2px;
     background: transparent;
     border: 2px solid transparent;
     border-radius: 50%;
-    min-width: 28px;
-    min-height: 28px;
+    min-width: 24px;
+    min-height: 24px;
+    max-width: 24px;
+    max-height: 24px;
 }
 
 .color-swatch-btn.active {
@@ -126,8 +128,10 @@ fn install_editor_css() {
 
 .color-dot {
     border-radius: 50%;
-    min-width: 18px;
-    min-height: 18px;
+    min-width: 16px;
+    min-height: 16px;
+    max-width: 16px;
+    max-height: 16px;
 }
 
 .color-dot-0 { background: #ff6236; }
@@ -140,34 +144,6 @@ fn install_editor_css() {
 .color-dot-7 { background: #ffd600; }
 .color-dot-8 { background: #f0f0f0; }
 .color-dot-9 { background: #1e1e2e; border: 1px solid alpha(white, 0.25); }
-
-/* Width selector dots */
-.width-btn {
-    padding: 6px 8px;
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: 8px;
-    min-width: 32px;
-    min-height: 32px;
-}
-
-.width-btn.active {
-    border-color: alpha(white, 0.4);
-}
-
-.width-dot-inner {
-    border-radius: 50%;
-    background: alpha(white, 0.40);
-}
-
-.width-dot-inner.active {
-    background: white;
-}
-
-.wd-sm { min-width: 6px;  min-height: 6px;  }
-.wd-md { min-width: 10px; min-height: 10px; }
-.wd-lg { min-width: 14px; min-height: 14px; }
-.wd-xl { min-width: 18px; min-height: 18px; }
 
 /* Delete button */
 .tool-delete-btn {
@@ -183,15 +159,27 @@ fn install_editor_css() {
     color: #e57373;
 }
 
+/* ── Workspace paned handle ─────────────────────────────────────── */
+paned > separator {
+    background: alpha(#ffffff, 0.07);
+    min-width: 4px;
+    margin: 4px 2px;
+    border-radius: 2px;
+}
+
+paned > separator:hover {
+    background: alpha(#8d5bff, 0.55);
+}
+
 /* ── Canvas ──────────────────────────────────────────────────────── */
 .canvas-card {
     background: #111722;
-    border: 1px solid alpha(#ffffff, 0.06);
-    border-radius: 18px;
+    border: 1px solid alpha(#ffffff, 0.04);
+    border-radius: 12px;
 }
 
 .canvas-wrap {
-    padding: 14px;
+    padding: 4px;
 }
 
 /* ── Inspector ───────────────────────────────────────────────────── */
@@ -214,12 +202,14 @@ fn install_editor_css() {
 
 /* Output ratio buttons */
 .ratio-btn {
-    padding: 5px 4px;
+    padding: 3px 6px;
     background: alpha(#ffffff, 0.05);
     border: 1px solid alpha(#ffffff, 0.08);
-    border-radius: 8px;
+    border-radius: 6px;
     color: alpha(#f5f7ff, 0.65);
     font-size: smaller;
+    min-height: 26px;
+    max-height: 26px;
 }
 
 .ratio-btn.selected {
@@ -228,12 +218,32 @@ fn install_editor_css() {
     color: #d0c0ff;
 }
 
+/* Shadow direction grid buttons */
+.shadow-dir-btn {
+    padding: 0;
+    background: alpha(#ffffff, 0.05);
+    border: 1px solid alpha(#ffffff, 0.08);
+    border-radius: 8px;
+    color: alpha(#f5f7ff, 0.80);
+    font-size: 18px;
+    min-width: 38px;
+    min-height: 38px;
+    max-width: 38px;
+    max-height: 38px;
+}
+
+.shadow-dir-btn.selected {
+    background: alpha(#8d5bff, 0.35);
+    border-color: alpha(#8d5bff, 0.6);
+    color: #d0c0ff;
+}
+
 /* Background swatches */
 .background-swatch {
-    min-height: 38px;
-    min-width: 38px;
+    min-height: 36px;
+    min-width: 36px;
     border: 2px solid transparent;
-    border-radius: 10px;
+    border-radius: 8px;
 }
 
 .background-swatch.selected {

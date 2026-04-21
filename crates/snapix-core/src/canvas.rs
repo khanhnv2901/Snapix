@@ -177,8 +177,11 @@ pub struct FrameSettings {
     pub padding: f32,
     pub corner_radius: f32,
     pub shadow: bool,
+    pub shadow_offset_x: f32,
+    pub shadow_padding: f32,
     pub shadow_blur: f32,
     pub shadow_offset_y: f32,
+    pub shadow_strength: f32,
 }
 
 impl Default for FrameSettings {
@@ -187,8 +190,11 @@ impl Default for FrameSettings {
             padding: 40.0,
             corner_radius: 12.0,
             shadow: true,
-            shadow_blur: 20.0,
-            shadow_offset_y: 8.0,
+            shadow_offset_x: 18.0,
+            shadow_padding: 5.0,
+            shadow_blur: 28.0,
+            shadow_offset_y: 18.0,
+            shadow_strength: 0.28,
         }
     }
 }
@@ -265,6 +271,11 @@ mod tests {
         assert_eq!(frame.padding, 40.0);
         assert_eq!(frame.corner_radius, 12.0);
         assert!(frame.shadow);
+        assert_eq!(frame.shadow_offset_x, 18.0);
+        assert_eq!(frame.shadow_padding, 5.0);
+        assert_eq!(frame.shadow_blur, 28.0);
+        assert_eq!(frame.shadow_offset_y, 18.0);
+        assert_eq!(frame.shadow_strength, 0.28);
     }
 
     #[test]

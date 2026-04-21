@@ -8,9 +8,9 @@
 ## Features
 
 - Capture fullscreen / region / active window
-- Global hotkey support (X11 native, Wayland via XDG portal)
-- Annotation: crop, arrow, rectangle, text, blur
-- **Beautify**: gradient/solid background, padding, corner radius, drop shadow
+- Annotation: crop, arrow, rectangle, ellipse, text, blur
+- **Beautify**: gradient/solid background, padding, corner radius, direction-aware drop shadow
+- In-editor keyboard shortcuts for crop and undo/redo
 - Export PNG/JPG, copy to clipboard
 - Freemium: powerful free tier + Pro features via one-time license key
 
@@ -26,7 +26,7 @@
 
 See [PROGRESS.md](PROGRESS.md) for detailed progress tracking.
 
-Current M2 progress includes a live GTK4 editor shell, startup capture wired into the editor, a redesigned workspace UI, `DrawingArea` canvas rendering, padding/corner-radius/shadow/background controls, PNG export, clipboard copy, undo/redo, usable crop, arrow, and text tools, plus top-row actions for fullscreen/region capture, import, and clear. The main open M2 gaps are richer annotation editing, better crop polish, and Wayland capture limitations for true fullscreen/window distinctions.
+Current M2 progress includes a live GTK4 editor shell, startup capture wired into the editor, a redesigned workspace UI, `DrawingArea` canvas rendering, padding/corner-radius/shadow/background controls, PNG/JPEG export, clipboard copy, undo/redo, usable crop, arrow, rectangle, ellipse, text, and blur tools, plus top-row actions for fullscreen/region capture, import, and clear. Recent polish added clearer empty-state guidance, toast feedback for capture/export/annotation actions, selection for existing annotations, inline editing via color/width controls, keyboard deletion with `Backspace`/`Delete`, a resizable settings panel, direction-aware shadow controls with shadow padding, and a unified preview/export composition so the canvas matches `Copy`/`Save` output more closely. The main open M2 gaps are deeper annotation editing, final crop polish, and Wayland capture limitations for true fullscreen/window distinctions.
 
 ## Building
 
@@ -53,12 +53,17 @@ cargo build --release
 # Capture full screen to PNG
 snapix capture --mode full --output screenshot.png
 
+# Capture a region on X11 by explicit bounds
+snapix capture --mode region --x 100 --y 80 --width 1280 --height 720 --output region.png
+
 # Capture active window
 snapix capture --mode window --output window.png
 
 # Launch GUI
 snapix
 ```
+
+On Wayland, CLI region capture uses the XDG portal picker when bounds are not provided. CLI window capture is still better handled through the GUI because portal behavior differs across desktops.
 
 ## Project Structure
 

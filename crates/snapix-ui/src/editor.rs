@@ -3,10 +3,14 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use anyhow::Result;
 use gio::prelude::FileExt;
 use gtk4::cairo;
 use gtk4::prelude::*;
-use libadwaita::{Application, ApplicationWindow, Bin, HeaderBar, ToolbarView};
+use libadwaita::{
+    Application, ApplicationWindow, Bin, HeaderBar, Toast, ToastOverlay, ToolbarView,
+};
+use snapix_capture::{CaptureBackend, SessionType};
 use snapix_core::canvas::{
     Annotation, Background, Color, Document, FrameSettings, Image, Point, Rect, TextStyle,
 };
@@ -128,6 +132,7 @@ pub(crate) struct EditorState {
     active_tool: ToolKind,
     active_color: Color,
     active_width: f32,
+    selected_annotation: Option<usize>,
     crop_drag: Option<CropDrag>,
     crop_selection: Option<CropSelection>,
     arrow_drag: Option<ArrowDrag>,
@@ -150,6 +155,7 @@ impl Default for EditorState {
                 a: 255,
             },
             active_width: 6.0,
+            selected_annotation: None,
             crop_drag: None,
             crop_selection: None,
             arrow_drag: None,
@@ -181,6 +187,9 @@ impl EditorState {
     }
     pub(crate) fn active_width(&self) -> f32 {
         self.active_width
+    }
+    pub(crate) fn selected_annotation(&self) -> Option<usize> {
+        self.selected_annotation
     }
     pub(crate) fn crop_drag(&self) -> Option<&CropDrag> {
         self.crop_drag.as_ref()
@@ -219,7 +228,68 @@ impl EditorState {
         }
     }
 
-    fn ensure_default_crop_selection(&mut self) {
+    pub(crate) fn set_selected_annotation(&mut self, selected: Option<usize>) {
+        self.selected_annotation =
+            selected.filter(|index| *index < self.document.annotations.len());
+    }
+
+    pub(crate) fn delete_selected_annotation(&mut self) -> bool {
+        let Some(index) = self.selected_annotation else {
+            return false;
+        };
+        let changed = self.update_document(|document| {
+            if index < document.annotations.len() {
+                document.annotations.remove(index);
+            }
+        });
+        if changed {
+            self.selected_annotation = None;
+        }
+        changed
+    }
+
+    pub(crate) fn apply_active_color_to_selected(&mut self) -> bool {
+        let Some(index) = self.selected_annotation else {
+            return false;
+        };
+        let color = self.active_color.clone();
+        self.update_document(|document| {
+            let Some(annotation) = document.annotations.get_mut(index) else {
+                return;
+            };
+            match annotation {
+                Annotation::Arrow { color: current, .. } => *current = color,
+                Annotation::Rect { stroke, .. } | Annotation::Ellipse { stroke, .. } => {
+                    stroke.color = color
+                }
+                Annotation::Text { style, .. } => style.color = color,
+                Annotation::Blur { .. } | Annotation::Redact { .. } => {}
+            }
+        })
+    }
+
+    pub(crate) fn apply_active_width_to_selected(&mut self) -> bool {
+        let Some(index) = self.selected_annotation else {
+            return false;
+        };
+        let width = self.active_width;
+        self.update_document(|document| {
+            let Some(annotation) = document.annotations.get_mut(index) else {
+                return;
+            };
+            match annotation {
+                Annotation::Arrow { width: current, .. } => *current = width,
+                Annotation::Rect { stroke, .. } | Annotation::Ellipse { stroke, .. } => {
+                    stroke.width = width
+                }
+                Annotation::Blur { radius, .. } => *radius = width.max(6.0) * 1.6,
+                Annotation::Text { style, .. } => style.font_size = width.max(4.0) * 4.0,
+                Annotation::Redact { .. } => {}
+            }
+        })
+    }
+
+    pub(crate) fn ensure_default_crop_selection(&mut self) {
         if self.crop_selection.is_some() || self.crop_drag.is_some() {
             return;
         }
@@ -351,9 +421,10 @@ impl EditorState {
         });
     }
 
-    pub(crate) fn clear_crop_selection(&mut self) {
+    pub(crate) fn cancel_crop_mode(&mut self) {
         self.crop_drag = None;
         self.crop_selection = None;
+        self.active_tool = ToolKind::Select;
     }
 
     pub(crate) fn has_pending_crop(&self) -> bool {
@@ -387,6 +458,7 @@ impl EditorState {
         };
         self.redo_stack.push(self.document.clone());
         self.document = previous;
+        self.selected_annotation = None;
         self.crop_drag = None;
         self.crop_selection = None;
         self.rect_drag = None;
@@ -401,6 +473,7 @@ impl EditorState {
         };
         self.undo_stack.push(self.document.clone());
         self.document = next;
+        self.selected_annotation = None;
         self.crop_drag = None;
         self.crop_selection = None;
         self.rect_drag = None;
@@ -448,6 +521,9 @@ impl EditorState {
             });
         });
         self.arrow_drag = None;
+        if changed {
+            self.selected_annotation = self.document.annotations.len().checked_sub(1);
+        }
         changed
     }
 
@@ -469,6 +545,9 @@ impl EditorState {
             });
         });
         self.blur_drag = None;
+        if changed {
+            self.selected_annotation = self.document.annotations.len().checked_sub(1);
+        }
         changed
     }
 
@@ -501,6 +580,9 @@ impl EditorState {
             });
         });
         self.rect_drag = None;
+        if changed {
+            self.selected_annotation = self.document.annotations.len().checked_sub(1);
+        }
         changed
     }
 
@@ -533,6 +615,9 @@ impl EditorState {
             });
         });
         self.ellipse_drag = None;
+        if changed {
+            self.selected_annotation = self.document.annotations.len().checked_sub(1);
+        }
         changed
     }
 
@@ -542,7 +627,7 @@ impl EditorState {
             return false;
         }
         let color = self.active_color.clone();
-        self.update_document(|document| {
+        let changed = self.update_document(|document| {
             document.annotations.push(Annotation::Text {
                 pos: Point { x, y },
                 content: trimmed.to_string(),
@@ -553,7 +638,11 @@ impl EditorState {
                     bold: true,
                 },
             });
-        })
+        });
+        if changed {
+            self.selected_annotation = self.document.annotations.len().checked_sub(1);
+        }
+        changed
     }
 
     pub(crate) fn replace_base_image(&mut self, image: Image) -> bool {
@@ -569,6 +658,7 @@ impl EditorState {
             self.ellipse_drag = None;
             self.blur_drag = None;
             self.active_tool = ToolKind::Select;
+            self.selected_annotation = None;
         }
         changed
     }
@@ -586,6 +676,7 @@ impl EditorState {
             self.ellipse_drag = None;
             self.blur_drag = None;
             self.active_tool = ToolKind::Select;
+            self.selected_annotation = None;
         }
         changed
     }
@@ -617,6 +708,7 @@ impl EditorState {
             self.rect_drag = None;
             self.ellipse_drag = None;
             self.blur_drag = None;
+            self.selected_annotation = None;
         }
         changed
     }
@@ -628,6 +720,11 @@ impl EditorState {
             || self.document.frame.padding != previous.frame.padding
             || self.document.frame.corner_radius != previous.frame.corner_radius
             || self.document.frame.shadow != previous.frame.shadow
+            || self.document.frame.shadow_offset_x != previous.frame.shadow_offset_x
+            || self.document.frame.shadow_padding != previous.frame.shadow_padding
+            || self.document.frame.shadow_blur != previous.frame.shadow_blur
+            || self.document.frame.shadow_offset_y != previous.frame.shadow_offset_y
+            || self.document.frame.shadow_strength != previous.frame.shadow_strength
             || format!("{:?}", self.document.annotations) != format!("{:?}", previous.annotations)
             || !same_background(&self.document.background, &previous.background)
     }
@@ -659,6 +756,77 @@ struct BottomBar {
     copy_button: gtk4::Button,
     quick_save_button: gtk4::Button,
     save_as_button: gtk4::Button,
+}
+
+#[derive(Clone)]
+struct InspectorControls {
+    widget: gtk4::Widget,
+    padding_scale: gtk4::Scale,
+    padding_value: gtk4::Label,
+    radius_scale: gtk4::Scale,
+    radius_value: gtk4::Label,
+    shadow_switch: gtk4::Switch,
+    shadow_direction_buttons: Rc<RefCell<Vec<gtk4::Button>>>,
+    shadow_padding_scale: gtk4::Scale,
+    shadow_padding_value: gtk4::Label,
+    shadow_blur_scale: gtk4::Scale,
+    shadow_blur_value: gtk4::Label,
+    shadow_strength_scale: gtk4::Scale,
+    shadow_strength_value: gtk4::Label,
+    background_buttons: Rc<RefCell<Vec<(Background, gtk4::Button)>>>,
+}
+
+impl InspectorControls {
+    fn widget(&self) -> gtk4::Widget {
+        self.widget.clone()
+    }
+
+    fn refresh_from_state(&self, state: &EditorState) {
+        let frame = &state.document().frame;
+        self.padding_scale.set_value(frame.padding as f64);
+        self.padding_value
+            .set_label(&format!("{}px", frame.padding as u32));
+
+        self.radius_scale.set_value(frame.corner_radius as f64);
+        self.radius_value
+            .set_label(&format!("{}px", frame.corner_radius as u32));
+
+        self.shadow_switch.set_active(frame.shadow);
+
+        let selected_shadow_direction =
+            nearest_shadow_direction_index(frame.shadow_offset_x, frame.shadow_offset_y);
+        for (index, button) in self.shadow_direction_buttons.borrow().iter().enumerate() {
+            if index == selected_shadow_direction {
+                button.add_css_class("selected");
+            } else {
+                button.remove_css_class("selected");
+            }
+        }
+
+        self.shadow_padding_scale
+            .set_value(frame.shadow_padding as f64);
+        self.shadow_padding_value
+            .set_label(&format!("{}px", frame.shadow_padding as u32));
+
+        self.shadow_blur_scale.set_value(frame.shadow_blur as f64);
+        self.shadow_blur_value
+            .set_label(&format!("{}px", frame.shadow_blur as u32));
+
+        self.shadow_strength_scale
+            .set_value((frame.shadow_strength * 100.0) as f64);
+        self.shadow_strength_value.set_label(&format!(
+            "{}%",
+            (frame.shadow_strength * 100.0).round() as u32
+        ));
+
+        for (background, button) in self.background_buttons.borrow().iter() {
+            if same_background(background, &state.document().background) {
+                button.add_css_class("selected");
+            } else {
+                button.remove_css_class("selected");
+            }
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -697,6 +865,16 @@ impl EditorWindow {
             .tooltip_text("Redo (Ctrl+Shift+Z)")
             .sensitive(false)
             .build();
+        let delete_button = gtk4::Button::builder()
+            .icon_name("edit-delete-symbolic")
+            .tooltip_text("Delete selected annotation (Backspace/Delete)")
+            .css_classes(["tool-delete-btn"])
+            .sensitive(false)
+            .build();
+
+        let toast_overlay = ToastOverlay::new();
+
+        let save_format = Rc::new(RefCell::new(SaveFormat::Png));
 
         let canvas = DocumentCanvas::new(
             state.clone(),
@@ -704,10 +882,10 @@ impl EditorWindow {
             scope_label.clone(),
             undo_button.clone(),
             redo_button.clone(),
+            toast_overlay.clone(),
+            delete_button.clone(),
         );
         let canvas_widget = canvas.widget().clone();
-
-        let save_format = Rc::new(RefCell::new(SaveFormat::Png));
 
         let inspector = build_inspector(
             state.clone(),
@@ -716,23 +894,35 @@ impl EditorWindow {
             &undo_button,
             &redo_button,
         );
-        let tool_row = build_tool_row(state.clone(), canvas.clone(), &title_label, &scope_label);
+        let tool_row = build_tool_row(
+            state.clone(),
+            canvas.clone(),
+            &title_label,
+            &scope_label,
+            &undo_button,
+            &redo_button,
+            &delete_button,
+        );
         let capture_row = build_capture_row();
         let canvas_panel = build_canvas_panel(canvas_widget);
         let bottom_bar = build_bottom_bar(&subtitle_label, save_format.clone());
 
-        let workspace = gtk4::Box::builder()
+        let workspace = gtk4::Paned::builder()
             .orientation(gtk4::Orientation::Horizontal)
-            .spacing(16)
             .margin_top(0)
-            .margin_start(16)
-            .margin_end(16)
+            .margin_start(8)
+            .margin_end(8)
             .margin_bottom(0)
             .hexpand(true)
             .vexpand(true)
+            .wide_handle(false)
             .build();
-        workspace.append(&canvas_panel);
-        workspace.append(&inspector);
+        workspace.set_resize_start_child(true);
+        workspace.set_resize_end_child(false);
+        workspace.set_shrink_start_child(false);
+        workspace.set_shrink_end_child(false);
+        workspace.set_start_child(Some(&canvas_panel));
+        workspace.set_end_child(Some(&inspector.widget()));
 
         let content = gtk4::Box::builder()
             .orientation(gtk4::Orientation::Vertical)
@@ -748,9 +938,11 @@ impl EditorWindow {
         header.pack_end(&redo_button);
         header.pack_end(&undo_button);
 
+        toast_overlay.set_child(Some(&content));
+
         let toolbar_view = ToolbarView::new();
         toolbar_view.add_top_bar(&header);
-        toolbar_view.set_content(Some(&content));
+        toolbar_view.set_content(Some(&toast_overlay));
 
         let window = ApplicationWindow::builder()
             .application(app)
@@ -762,6 +954,7 @@ impl EditorWindow {
 
         connect_crop_shortcuts(
             &window,
+            &toast_overlay,
             state.clone(),
             canvas.clone(),
             &title_label,
@@ -769,6 +962,9 @@ impl EditorWindow {
             &scope_label,
             &undo_button,
             &redo_button,
+            &bottom_bar,
+            &delete_button,
+            &inspector,
         );
         connect_history_button(
             &undo_button,
@@ -779,6 +975,9 @@ impl EditorWindow {
             &scope_label,
             &undo_button,
             &redo_button,
+            &bottom_bar,
+            &delete_button,
+            &inspector,
             HistoryAction::Undo,
         );
         connect_history_button(
@@ -790,6 +989,9 @@ impl EditorWindow {
             &scope_label,
             &undo_button,
             &redo_button,
+            &bottom_bar,
+            &delete_button,
+            &inspector,
             HistoryAction::Redo,
         );
         connect_capture_actions(
@@ -800,25 +1002,43 @@ impl EditorWindow {
             &title_label,
             &subtitle_label,
             &scope_label,
+            &toast_overlay,
             &undo_button,
             &redo_button,
+            &bottom_bar,
+            &delete_button,
+            &inspector,
         );
-        connect_copy_button(&bottom_bar.copy_button, &window, state.clone());
+        connect_copy_button(
+            &bottom_bar.copy_button,
+            &window,
+            &toast_overlay,
+            state.clone(),
+        );
         connect_quick_save_button(
             &bottom_bar.quick_save_button,
             &window,
+            &toast_overlay,
             state.clone(),
             save_format.clone(),
         );
         connect_save_as_button(
             &bottom_bar.save_as_button,
             &window,
+            &toast_overlay,
             state.clone(),
             save_format,
         );
 
+        if let Some(banner) = context.banner {
+            show_toast(&toast_overlay, &banner.text);
+        }
+
         refresh_subtitle(&state.borrow(), &subtitle_label);
         refresh_history_buttons(&state.borrow(), &undo_button, &redo_button);
+        refresh_export_actions(&state.borrow(), &bottom_bar);
+        refresh_tool_actions(&state.borrow(), &delete_button);
+        inspector.refresh_from_state(&state.borrow());
         canvas.refresh();
 
         Self { window }
@@ -833,6 +1053,7 @@ impl EditorWindow {
 
 fn connect_crop_shortcuts(
     window: &ApplicationWindow,
+    toast_overlay: &ToastOverlay,
     state: Rc<RefCell<EditorState>>,
     canvas: DocumentCanvas,
     title_label: &gtk4::Label,
@@ -840,21 +1061,33 @@ fn connect_crop_shortcuts(
     scope_label: &gtk4::Label,
     undo_button: &gtk4::Button,
     redo_button: &gtk4::Button,
+    bottom_bar: &BottomBar,
+    delete_button: &gtk4::Button,
+    inspector: &InspectorControls,
 ) {
     let controller = gtk4::EventControllerKey::new();
+    let toast_overlay = toast_overlay.clone();
     let title_label = title_label.clone();
     let subtitle_label = subtitle_label.clone();
     let scope_label = scope_label.clone();
     let undo_button = undo_button.clone();
     let redo_button = redo_button.clone();
+    let bottom_bar = bottom_bar.clone();
+    let delete_button = delete_button.clone();
+    let inspector = inspector.clone();
     controller.connect_key_pressed(move |_controller, key, _keycode, mods| {
         let mut state = state.borrow_mut();
         match key {
             gtk4::gdk::Key::Escape if state.active_tool() == ToolKind::Crop => {
-                state.clear_crop_selection();
+                state.cancel_crop_mode();
+                refresh_labels(&state, &title_label, &subtitle_label);
                 refresh_scope_label(&state, &scope_label);
                 refresh_history_buttons(&state, &undo_button, &redo_button);
+                refresh_export_actions(&state, &bottom_bar);
+                refresh_tool_actions(&state, &delete_button);
+                inspector.refresh_from_state(&state);
                 canvas.refresh();
+                show_toast(&toast_overlay, "Crop cancelled");
                 glib::Propagation::Stop
             }
             gtk4::gdk::Key::Return | gtk4::gdk::Key::KP_Enter
@@ -864,7 +1097,27 @@ fn connect_crop_shortcuts(
                     refresh_labels(&state, &title_label, &subtitle_label);
                     refresh_scope_label(&state, &scope_label);
                     refresh_history_buttons(&state, &undo_button, &redo_button);
+                    refresh_export_actions(&state, &bottom_bar);
+                    refresh_tool_actions(&state, &delete_button);
+                    inspector.refresh_from_state(&state);
                     canvas.refresh();
+                    show_toast(&toast_overlay, "Crop applied");
+                }
+                glib::Propagation::Stop
+            }
+            gtk4::gdk::Key::BackSpace | gtk4::gdk::Key::Delete
+                if state.active_tool() != ToolKind::Crop
+                    && state.selected_annotation().is_some() =>
+            {
+                if state.delete_selected_annotation() {
+                    refresh_labels(&state, &title_label, &subtitle_label);
+                    refresh_scope_label(&state, &scope_label);
+                    refresh_history_buttons(&state, &undo_button, &redo_button);
+                    refresh_export_actions(&state, &bottom_bar);
+                    refresh_tool_actions(&state, &delete_button);
+                    inspector.refresh_from_state(&state);
+                    canvas.refresh();
+                    show_toast(&toast_overlay, "Deleted selected annotation");
                 }
                 glib::Propagation::Stop
             }
@@ -877,6 +1130,9 @@ fn connect_crop_shortcuts(
                     refresh_labels(&state, &title_label, &subtitle_label);
                     refresh_scope_label(&state, &scope_label);
                     refresh_history_buttons(&state, &undo_button, &redo_button);
+                    refresh_export_actions(&state, &bottom_bar);
+                    refresh_tool_actions(&state, &delete_button);
+                    inspector.refresh_from_state(&state);
                     canvas.refresh();
                 }
                 glib::Propagation::Stop
@@ -886,6 +1142,9 @@ fn connect_crop_shortcuts(
                     refresh_labels(&state, &title_label, &subtitle_label);
                     refresh_scope_label(&state, &scope_label);
                     refresh_history_buttons(&state, &undo_button, &redo_button);
+                    refresh_export_actions(&state, &bottom_bar);
+                    refresh_tool_actions(&state, &delete_button);
+                    inspector.refresh_from_state(&state);
                     canvas.refresh();
                 }
                 glib::Propagation::Stop
@@ -905,6 +1164,9 @@ fn connect_history_button(
     scope_label: &gtk4::Label,
     undo_button: &gtk4::Button,
     redo_button: &gtk4::Button,
+    bottom_bar: &BottomBar,
+    delete_button: &gtk4::Button,
+    inspector: &InspectorControls,
     action: HistoryAction,
 ) {
     let title_label = title_label.clone();
@@ -912,6 +1174,9 @@ fn connect_history_button(
     let scope_label = scope_label.clone();
     let undo_button = undo_button.clone();
     let redo_button = redo_button.clone();
+    let bottom_bar = bottom_bar.clone();
+    let delete_button = delete_button.clone();
+    let inspector = inspector.clone();
     button.connect_clicked(move |_| {
         let mut state = state.borrow_mut();
         let changed = match action {
@@ -922,9 +1187,23 @@ fn connect_history_button(
             refresh_labels(&state, &title_label, &subtitle_label);
             refresh_scope_label(&state, &scope_label);
             refresh_history_buttons(&state, &undo_button, &redo_button);
+            refresh_export_actions(&state, &bottom_bar);
+            refresh_tool_actions(&state, &delete_button);
+            inspector.refresh_from_state(&state);
             canvas.refresh();
         }
     });
+}
+
+fn refresh_export_actions(state: &EditorState, bottom_bar: &BottomBar) {
+    let has_image = export_actions_enabled(state.document());
+    bottom_bar.copy_button.set_sensitive(has_image);
+    bottom_bar.quick_save_button.set_sensitive(has_image);
+    bottom_bar.save_as_button.set_sensitive(has_image);
+}
+
+pub(crate) fn refresh_tool_actions(state: &EditorState, delete_button: &gtk4::Button) {
+    delete_button.set_sensitive(state.selected_annotation().is_some());
 }
 
 // ─── Capture actions ──────────────────────────────────────────────────────────
@@ -937,15 +1216,22 @@ fn connect_capture_actions(
     title_label: &gtk4::Label,
     subtitle_label: &gtk4::Label,
     scope_label: &gtk4::Label,
+    toast_overlay: &ToastOverlay,
     undo_button: &gtk4::Button,
     redo_button: &gtk4::Button,
+    bottom_bar: &BottomBar,
+    delete_button: &gtk4::Button,
+    inspector: &InspectorControls,
 ) {
     let session = snapix_capture::detect_session();
     let backend = snapix_capture::detect_backend();
     if session == snapix_capture::SessionType::Wayland && backend.name() == "ashpd-portal" {
         actions.window_button.set_sensitive(false);
         actions.window_button.set_tooltip_text(Some(
-            "Window capture is not available via Wayland portal. Use Region instead.",
+            "Window capture is not exposed as a distinct action here on Wayland. Use Region and choose a window in the portal picker.",
+        ));
+        actions.fullscreen_button.set_tooltip_text(Some(
+            "Fullscreen capture can fail on some Wayland portal setups. Snapix will fall back to interactive region capture if needed.",
         ));
         actions
             .region_button
@@ -965,8 +1251,12 @@ fn connect_capture_actions(
             title_label,
             subtitle_label,
             scope_label,
+            toast_overlay,
             undo_button,
             redo_button,
+            bottom_bar,
+            delete_button,
+            inspector,
             action,
         );
     }
@@ -978,11 +1268,16 @@ fn connect_capture_actions(
         title_label,
         subtitle_label,
         scope_label,
+        toast_overlay,
         undo_button,
         redo_button,
+        bottom_bar,
+        delete_button,
+        inspector,
     );
     connect_clear_button(
         &actions.clear_button,
+        toast_overlay,
         state,
         canvas,
         title_label,
@@ -990,6 +1285,9 @@ fn connect_capture_actions(
         scope_label,
         undo_button,
         redo_button,
+        bottom_bar,
+        delete_button,
+        inspector,
     );
 }
 
@@ -1008,35 +1306,52 @@ fn connect_capture_button(
     title_label: &gtk4::Label,
     subtitle_label: &gtk4::Label,
     scope_label: &gtk4::Label,
+    toast_overlay: &ToastOverlay,
     undo_button: &gtk4::Button,
     redo_button: &gtk4::Button,
+    bottom_bar: &BottomBar,
+    delete_button: &gtk4::Button,
+    inspector: &InspectorControls,
     action: CaptureAction,
 ) {
     let window = window.clone();
     let title_label = title_label.clone();
     let subtitle_label = subtitle_label.clone();
     let scope_label = scope_label.clone();
+    let toast_overlay = toast_overlay.clone();
     let undo_button = undo_button.clone();
     let redo_button = redo_button.clone();
+    let bottom_bar = bottom_bar.clone();
+    let delete_button = delete_button.clone();
+    let inspector = inspector.clone();
     button.connect_clicked(move |_| {
-        let backend = snapix_capture::detect_backend();
+        let session = snapix_capture::detect_session();
         let result = async_std::task::block_on(async {
-            match action {
-                CaptureAction::Fullscreen => backend.capture_full().await,
-                CaptureAction::Region => backend
-                    .capture_region(Rect { x: 0.0, y: 0.0, width: 0.0, height: 0.0 })
-                    .await,
-                CaptureAction::Window => backend.capture_window().await,
-            }
+            let backend = snapix_capture::detect_backend();
+            perform_capture_action(backend.as_ref(), session, action).await
         });
         match result {
-            Ok(image) => {
+            Ok((image, message)) => {
                 let mut state = state.borrow_mut();
                 if state.replace_base_image(image) {
                     refresh_labels(&state, &title_label, &subtitle_label);
                     refresh_scope_label(&state, &scope_label);
                     refresh_history_buttons(&state, &undo_button, &redo_button);
+                    refresh_export_actions(&state, &bottom_bar);
+                    refresh_tool_actions(&state, &delete_button);
+                    inspector.refresh_from_state(&state);
                     canvas.refresh();
+                }
+                drop(state);
+                if let Some(message) = message {
+                    show_toast(&toast_overlay, &message);
+                } else {
+                    let message = match action {
+                        CaptureAction::Fullscreen => "Captured full screen",
+                        CaptureAction::Region => "Captured selection",
+                        CaptureAction::Window => "Captured active window",
+                    };
+                    show_toast(&toast_overlay, message);
                 }
             }
             Err(error) => {
@@ -1053,6 +1368,53 @@ fn connect_capture_button(
     });
 }
 
+async fn perform_capture_action(
+    backend: &dyn CaptureBackend,
+    session: SessionType,
+    action: CaptureAction,
+) -> Result<(Image, Option<String>)> {
+    match action {
+        CaptureAction::Fullscreen => match backend.capture_full().await {
+            Ok(image) => Ok((image, None)),
+            Err(full_error)
+                if session == SessionType::Wayland && backend.name() == "ashpd-portal" =>
+            {
+                tracing::warn!(
+                    "Fullscreen portal capture failed on Wayland, retrying with interactive region capture: {full_error:#}"
+                );
+                match backend
+                    .capture_region(Rect {
+                        x: 0.0,
+                        y: 0.0,
+                        width: 0.0,
+                        height: 0.0,
+                    })
+                    .await
+                {
+                    Ok(image) => Ok((
+                        image,
+                        Some("Fullscreen capture failed, switched to region capture.".to_string()),
+                    )),
+                    Err(region_error) => Err(anyhow::anyhow!(
+                        "Fullscreen capture failed: {full_error}. Interactive region fallback also failed: {region_error}"
+                    )),
+                }
+            }
+            Err(error) => Err(error),
+        },
+        CaptureAction::Region => backend
+            .capture_region(Rect {
+                x: 0.0,
+                y: 0.0,
+                width: 0.0,
+                height: 0.0,
+            })
+            .await
+            .map(|image| (image, None)),
+        CaptureAction::Window => backend.capture_window().await.map(|image| (image, None)),
+    }
+}
+
 fn connect_import_button(
     button: &gtk4::Button,
     window: &ApplicationWindow,
@@ -1061,15 +1423,23 @@ fn connect_import_button(
     title_label: &gtk4::Label,
     subtitle_label: &gtk4::Label,
     scope_label: &gtk4::Label,
+    toast_overlay: &ToastOverlay,
     undo_button: &gtk4::Button,
     redo_button: &gtk4::Button,
+    bottom_bar: &BottomBar,
+    delete_button: &gtk4::Button,
+    inspector: &InspectorControls,
 ) {
     let window = window.clone();
     let title_label = title_label.clone();
     let subtitle_label = subtitle_label.clone();
     let scope_label = scope_label.clone();
+    let toast_overlay = toast_overlay.clone();
     let undo_button = undo_button.clone();
     let redo_button = redo_button.clone();
+    let bottom_bar = bottom_bar.clone();
+    let delete_button = delete_button.clone();
+    let inspector = inspector.clone();
     button.connect_clicked(move |_| {
         let chooser = gtk4::FileChooserNative::builder()
             .title("Import image")
@@ -1097,6 +1467,10 @@ fn connect_import_button(
         let scope_label = scope_label.clone();
         let undo_button = undo_button.clone();
         let redo_button = redo_button.clone();
+        let response_toast_overlay = toast_overlay.clone();
+        let response_bottom_bar = bottom_bar.clone();
+        let response_delete_button = delete_button.clone();
+        let response_inspector = inspector.clone();
         chooser.connect_response(move |chooser, response| {
             if response == gtk4::ResponseType::Accept {
                 if let Some(file) = chooser.file() {
@@ -1108,8 +1482,15 @@ fn connect_import_button(
                                     refresh_labels(&state, &title_label, &subtitle_label);
                                     refresh_scope_label(&state, &scope_label);
                                     refresh_history_buttons(&state, &undo_button, &redo_button);
+                                    refresh_export_actions(&state, &response_bottom_bar);
+                                    refresh_tool_actions(&state, &response_delete_button);
+                                    response_inspector.refresh_from_state(&state);
                                     canvas.refresh();
                                 }
+                                show_toast(
+                                    &response_toast_overlay,
+                                    &format!("Imported {}", path.display()),
+                                );
                             }
                             Err(error) => show_error(
                                 &window,
@@ -1133,6 +1514,7 @@ fn connect_import_button(
 
 fn connect_clear_button(
     button: &gtk4::Button,
+    toast_overlay: &ToastOverlay,
     state: Rc<RefCell<EditorState>>,
     canvas: DocumentCanvas,
     title_label: &gtk4::Label,
@@ -1140,19 +1522,30 @@ fn connect_clear_button(
     scope_label: &gtk4::Label,
     undo_button: &gtk4::Button,
     redo_button: &gtk4::Button,
+    bottom_bar: &BottomBar,
+    delete_button: &gtk4::Button,
+    inspector: &InspectorControls,
 ) {
+    let toast_overlay = toast_overlay.clone();
     let title_label = title_label.clone();
     let subtitle_label = subtitle_label.clone();
     let scope_label = scope_label.clone();
     let undo_button = undo_button.clone();
     let redo_button = redo_button.clone();
+    let bottom_bar = bottom_bar.clone();
+    let delete_button = delete_button.clone();
+    let inspector = inspector.clone();
     button.connect_clicked(move |_| {
         let mut state = state.borrow_mut();
         if state.clear_document_contents() {
             refresh_labels(&state, &title_label, &subtitle_label);
             refresh_scope_label(&state, &scope_label);
             refresh_history_buttons(&state, &undo_button, &redo_button);
+            refresh_export_actions(&state, &bottom_bar);
+            refresh_tool_actions(&state, &delete_button);
+            inspector.refresh_from_state(&state);
             canvas.refresh();
+            show_toast(&toast_overlay, "Cleared current image");
         }
     });
 }
@@ -1162,9 +1555,11 @@ fn connect_clear_button(
 fn connect_copy_button(
     button: &gtk4::Button,
     window: &ApplicationWindow,
+    toast_overlay: &ToastOverlay,
     state: Rc<RefCell<EditorState>>,
 ) {
     let window = window.clone();
+    let toast_overlay = toast_overlay.clone();
     button.connect_clicked(move |_| {
         let document = state.borrow().document().clone();
         match render_document_rgba(&document) {
@@ -1190,6 +1585,8 @@ fn connect_copy_button(
                         "Copy failed",
                         &format!("Clipboard write failed: {error}"),
                     );
+                } else {
+                    show_toast(&toast_overlay, "Copied image to clipboard");
                 }
             }
             Err(error) => show_error(&window, "Copy failed", &error.to_string()),
@@ -1200,10 +1597,12 @@ fn connect_copy_button(
 fn connect_quick_save_button(
     button: &gtk4::Button,
     window: &ApplicationWindow,
+    toast_overlay: &ToastOverlay,
     state: Rc<RefCell<EditorState>>,
     save_format: Rc<RefCell<SaveFormat>>,
 ) {
     let window = window.clone();
+    let toast_overlay = toast_overlay.clone();
     button.connect_clicked(move |_| {
         let document = state.borrow().document().clone();
         let format = *save_format.borrow();
@@ -1221,6 +1620,8 @@ fn connect_quick_save_button(
         let path = pictures_dir.join(format!("snapix-{ts}.{ext}"));
         if let Err(error) = save_image_to_path(&document, &path, format) {
             show_error(&window, "Quick save failed", &error.to_string());
+        } else {
+            show_toast(&toast_overlay, &format!("Saved to {}", path.display()));
         }
     });
 }
@@ -1228,10 +1629,12 @@ fn connect_quick_save_button(
 fn connect_save_as_button(
     button: &gtk4::Button,
     window: &ApplicationWindow,
+    toast_overlay: &ToastOverlay,
     state: Rc<RefCell<EditorState>>,
     save_format: Rc<RefCell<SaveFormat>>,
 ) {
     let window = window.clone();
+    let toast_overlay = toast_overlay.clone();
     button.connect_clicked(move |_| {
         let format = *save_format.borrow();
         let (title_str, accept_str, default_name, mime, pattern) = match format {
@@ -1267,6 +1670,7 @@ fn connect_save_as_button(
 
         let state = state.clone();
         let window = window.clone();
+        let toast_overlay = toast_overlay.clone();
         let save_format = save_format.clone();
         chooser.connect_response(move |chooser, response| {
             if response == gtk4::ResponseType::Accept {
@@ -1277,6 +1681,11 @@ fn connect_save_as_button(
                             let fmt = *save_format.borrow();
                             if let Err(error) = save_image_to_path(&document, &path, fmt) {
                                 show_error(&window, "Export failed", &error.to_string());
+                            } else {
+                                show_toast(
+                                    &toast_overlay,
+                                    &format!("Exported to {}", path.display()),
+                                );
                             }
                         }
                         None => show_error(
@@ -1329,17 +1738,30 @@ fn save_image_to_path(
     Ok(())
 }
 
-fn show_error(window: &ApplicationWindow, title: &str, detail: &str) {
+fn show_dialog(
+    window: &ApplicationWindow,
+    message_type: gtk4::MessageType,
+    title: &str,
+    detail: &str,
+) {
     let dialog = gtk4::MessageDialog::builder()
         .transient_for(window)
         .modal(true)
-        .message_type(gtk4::MessageType::Error)
+        .message_type(message_type)
         .buttons(gtk4::ButtonsType::Ok)
         .text(title)
         .secondary_text(detail)
         .build();
     dialog.connect_response(|dialog, _| dialog.close());
     dialog.show();
+}
+
+fn show_error(window: &ApplicationWindow, title: &str, detail: &str) {
+    show_dialog(window, gtk4::MessageType::Error, title, detail);
+}
+
+pub(crate) fn show_toast(toast_overlay: &ToastOverlay, message: &str) {
+    toast_overlay.add_toast(Toast::new(message));
 }
 
 // ─── UI builders ──────────────────────────────────────────────────────────────
@@ -1397,6 +1819,9 @@ fn build_tool_row(
     canvas: DocumentCanvas,
     title_label: &gtk4::Label,
     scope_label: &gtk4::Label,
+    undo_button: &gtk4::Button,
+    redo_button: &gtk4::Button,
+    delete_button: &gtk4::Button,
 ) -> gtk4::Widget {
     let row = gtk4::Box::builder()
         .orientation(gtk4::Orientation::Horizontal)
@@ -1488,14 +1913,20 @@ fn build_tool_row(
             b: *b,
             a: 255,
         };
-        let dot = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
-        dot.set_size_request(18, 18);
+        let dot = gtk4::Box::builder()
+            .orientation(gtk4::Orientation::Horizontal)
+            .halign(gtk4::Align::Center)
+            .valign(gtk4::Align::Center)
+            .build();
+        dot.set_size_request(16, 16);
         dot.add_css_class("color-dot");
         dot.add_css_class(dot_class);
 
         let btn = gtk4::Button::builder()
             .tooltip_text(*tooltip)
             .child(&dot)
+            .valign(gtk4::Align::Center)
+            .halign(gtk4::Align::Center)
             .build();
         btn.add_css_class("color-swatch-btn");
         if same_color_rgb(*r, *g, *b, &init_color) {
@@ -1504,15 +1935,22 @@ fn build_tool_row(
 
         let state = state.clone();
         let canvas = canvas.clone();
+        let undo_button = undo_button.clone();
+        let redo_button = redo_button.clone();
         let color_btns_ref = color_btns.clone();
         btn.connect_clicked(move |_| {
-            state.borrow_mut().set_active_color(color.clone());
+            let mut state = state.borrow_mut();
+            state.set_active_color(color.clone());
+            let changed = state.apply_active_color_to_selected();
             for (j, b) in color_btns_ref.borrow().iter().enumerate() {
                 if j == i {
                     b.add_css_class("active");
                 } else {
                     b.remove_css_class("active");
                 }
+            }
+            if changed {
+                refresh_history_buttons(&state, &undo_button, &redo_button);
             }
             canvas.refresh();
         });
@@ -1530,80 +1968,61 @@ fn build_tool_row(
     );
 
     // ── Width selector ───────────────────────────────────────────────────────
-    let widths: &[(f32, &str, &str)] = &[
-        (3.0, "wd-sm", "Thin (3px)"),
-        (6.0, "wd-md", "Medium (6px)"),
-        (10.0, "wd-lg", "Thick (10px)"),
-        (16.0, "wd-xl", "Extra thick (16px)"),
-    ];
     let init_width = state.borrow().active_width();
-    let width_btns: Rc<RefCell<Vec<gtk4::Button>>> = Rc::new(RefCell::new(Vec::new()));
 
-    for (i, (w, size_class, tooltip)) in widths.iter().enumerate() {
-        let dot = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
-        dot.add_css_class("width-dot-inner");
-        dot.add_css_class(size_class);
-        if (*w - init_width).abs() < 0.1 {
-            dot.add_css_class("active");
+    let width_label = gtk4::Label::builder()
+        .label("Width:")
+        .margin_start(12)
+        .margin_end(2)
+        .css_classes(["dim-copy"])
+        .valign(gtk4::Align::Center)
+        .build();
+    card.append(&width_label);
+
+    let width_scale = gtk4::Scale::with_range(gtk4::Orientation::Horizontal, 1.0, 30.0, 1.0);
+    width_scale.set_value(init_width as f64);
+    width_scale.set_size_request(200, -1);
+    width_scale.set_valign(gtk4::Align::Center);
+    card.append(&width_scale);
+
+    let state_w = state.clone();
+    let canvas_w = canvas.clone();
+    let undo_w = undo_button.clone();
+    let redo_w = redo_button.clone();
+    width_scale.connect_value_changed(move |scale| {
+        let val = scale.value() as f32;
+        let mut s = state_w.borrow_mut();
+        s.set_active_width(val);
+        if s.apply_active_width_to_selected() {
+            refresh_history_buttons(&s, &undo_w, &redo_w);
         }
-
-        let btn = gtk4::Button::builder()
-            .tooltip_text(*tooltip)
-            .child(&dot)
-            .build();
-        btn.add_css_class("width-btn");
-
-        let state = state.clone();
-        let canvas = canvas.clone();
-        let width_btns_ref = width_btns.clone();
-        let width_val = *w;
-        btn.connect_clicked(move |_| {
-            state.borrow_mut().set_active_width(width_val);
-            for j in 0..widths.len() {
-                if let Some(b) = width_btns_ref.borrow().get(j) {
-                    if let Some(child) = b.child() {
-                        if let Ok(bx) = child.downcast::<gtk4::Box>() {
-                            if j == i {
-                                bx.add_css_class("active");
-                            } else {
-                                bx.remove_css_class("active");
-                            }
-                        }
-                    }
-                }
-            }
-            canvas.refresh();
-        });
-        width_btns.borrow_mut().push(btn.clone());
-        card.append(&btn);
-    }
+        canvas_w.refresh();
+    });
 
     // ── Spacer + Delete ───────────────────────────────────────────────────────
     let spacer = gtk4::Box::builder().hexpand(true).build();
     card.append(&spacer);
 
-    let delete_btn = gtk4::Button::builder()
-        .icon_name("edit-delete-symbolic")
-        .tooltip_text("Delete last annotation")
-        .css_classes(["tool-delete-btn"])
-        .build();
     {
         let state = state.clone();
         let canvas = canvas.clone();
         let title_label = title_label.clone();
         let scope_label = scope_label.clone();
-        delete_btn.connect_clicked(move |_| {
+        let undo_button = undo_button.clone();
+        let redo_button = redo_button.clone();
+        let delete_btn_ref = delete_button.clone();
+        delete_button.connect_clicked(move |_| {
             let mut s = state.borrow_mut();
-            if s.update_document(|doc| {
-                doc.annotations.pop();
-            }) {
+            if s.delete_selected_annotation() {
                 refresh_scope_label(&s, &scope_label);
+                refresh_history_buttons(&s, &undo_button, &redo_button);
+                delete_btn_ref.set_sensitive(false);
                 title_label.set_label(&format!("Editor • {}", s.active_tool().label()));
                 canvas.refresh();
             }
         });
     }
-    card.append(&delete_btn);
+    card.append(delete_button);
 
     row.append(&card);
     row.upcast()
@@ -1611,73 +2030,106 @@ fn build_tool_row(
 
 fn build_tool_icon(tool: ToolKind) -> gtk4::Widget {
     let icon = gtk4::DrawingArea::builder()
-        .content_width(18)
-        .content_height(18)
+        .content_width(24)
+        .content_height(24)
         .build();
     icon.set_draw_func(move |_area, cr, width, height| {
-        let w = width as f64;
-        let h = height as f64;
-        cr.set_source_rgb(0.95, 0.97, 1.0);
-        cr.set_line_width(1.8);
+        let actual_w = width as f64;
+        let actual_h = height as f64;
+        cr.scale(actual_w / 20.0, actual_h / 20.0);
+        let w = 20.0;
+        let h = 20.0;
         cr.set_line_cap(cairo::LineCap::Round);
         cr.set_line_join(cairo::LineJoin::Round);
 
         match tool {
             ToolKind::Select => {
-                cr.move_to(3.0, 3.0);
-                cr.line_to(13.0, 9.0);
-                cr.line_to(8.0, 10.0);
-                cr.line_to(10.5, 15.0);
-                cr.line_to(8.5, 16.0);
-                cr.line_to(6.0, 10.8);
-                cr.line_to(3.0, 13.0);
+                // Cursor arrow pointing top-left
+                cr.set_source_rgba(0.93, 0.95, 1.0, 0.92);
+                cr.set_line_width(1.6);
+                cr.move_to(3.5, 2.0); // tip
+                cr.line_to(3.5, 14.5); // bottom-left
+                cr.line_to(7.0, 11.0); // notch
+                cr.line_to(9.5, 16.5); // spike bottom
+                cr.line_to(11.5, 15.0); // spike right
+                cr.line_to(8.5, 9.5); // spike top join
+                cr.line_to(13.5, 9.5); // right side
                 cr.close_path();
                 cr.stroke_preserve().ok();
-                cr.set_source_rgba(0.95, 0.97, 1.0, 0.15);
+                cr.set_source_rgba(0.93, 0.95, 1.0, 0.20);
                 cr.fill().ok();
             }
             ToolKind::Crop => {
-                cr.move_to(5.0, 3.0);
-                cr.line_to(5.0, 13.0);
-                cr.line_to(15.0, 13.0);
-                cr.move_to(8.0, 5.0);
-                cr.line_to(15.0, 5.0);
-                cr.line_to(15.0, 10.0);
+                // Two L-bracket corners (standard crop icon)
+                cr.set_source_rgba(0.93, 0.95, 1.0, 0.92);
+                cr.set_line_width(1.9);
+                cr.move_to(4.5, 9.5);
+                cr.line_to(4.5, 4.5);
+                cr.line_to(9.5, 4.5);
+                cr.move_to(10.5, 15.5);
+                cr.line_to(15.5, 15.5);
+                cr.line_to(15.5, 10.5);
                 cr.stroke().ok();
             }
             ToolKind::Arrow => {
-                cr.move_to(3.0, h - 4.0);
-                cr.line_to(w - 5.0, 5.0);
+                cr.set_source_rgba(0.93, 0.95, 1.0, 0.92);
+                cr.set_line_width(1.8);
+                // Shaft from bottom-left up to arrowhead base
+                cr.move_to(4.0, 16.0);
+                cr.line_to(11.0, 9.0);
                 cr.stroke().ok();
-                cr.move_to(w - 8.5, 5.0);
-                cr.line_to(w - 5.0, 5.0);
-                cr.line_to(w - 5.0, 8.5);
-                cr.stroke().ok();
+                // Filled arrowhead triangle (45° direction, tip at top-right)
+                // tip=(15.5,4.5), wings symmetric around 45° axis
+                cr.move_to(15.5, 4.5);
+                cr.line_to(13.0, 10.5);
+                cr.line_to(9.5, 7.0);
+                cr.close_path();
+                cr.fill().ok();
             }
             ToolKind::Rectangle => {
-                cr.rectangle(3.5, 4.0, w - 7.0, h - 8.0);
+                cr.set_source_rgba(0.93, 0.95, 1.0, 0.92);
+                cr.set_line_width(1.8);
+                cr.rectangle(3.5, 5.0, w - 7.0, h - 10.0);
                 cr.stroke().ok();
             }
             ToolKind::Ellipse => {
+                cr.set_source_rgba(0.93, 0.95, 1.0, 0.92);
+                cr.set_line_width(1.8);
                 cr.save().ok();
                 cr.translate(w / 2.0, h / 2.0);
-                cr.scale((w - 7.0) / 2.0, (h - 8.0) / 2.0);
+                cr.scale(7.0, 5.5);
                 cr.arc(0.0, 0.0, 1.0, 0.0, std::f64::consts::TAU);
                 cr.restore().ok();
                 cr.stroke().ok();
             }
             ToolKind::Text => {
-                cr.select_font_face("Sans", cairo::FontSlant::Normal, cairo::FontWeight::Bold);
-                cr.set_font_size(13.0);
-                cr.move_to(4.5, 14.0);
-                cr.show_text("T").ok();
+                // Stroke-based T (consistent with other icons, no font rendering)
+                cr.set_source_rgba(0.93, 0.95, 1.0, 0.92);
+                cr.set_line_width(2.0);
+                cr.move_to(4.5, 5.5);
+                cr.line_to(15.5, 5.5);
+                cr.stroke().ok();
+                cr.move_to(10.0, 5.5);
+                cr.line_to(10.0, 16.0);
+                cr.stroke().ok();
+                cr.set_line_width(1.8);
+                cr.move_to(7.5, 16.0);
+                cr.line_to(12.5, 16.0);
+                cr.stroke().ok();
             }
             ToolKind::Blur => {
-                cr.rectangle(4.0, 4.5, 10.0, 9.0);
+                cr.set_source_rgba(0.93, 0.95, 1.0, 0.92);
+                cr.set_line_width(1.7);
+                // Outer rectangle
+                cr.rectangle(3.5, 5.5, 13.0, 9.0);
                 cr.stroke().ok();
-                for x in [6.0, 9.0, 12.0] {
-                    cr.arc(x, 9.0, 1.1, 0.0, std::f64::consts::TAU);
-                    cr.fill().ok();
+                // Horizontal lines inside suggesting blur/scan effect
+                cr.set_source_rgba(0.93, 0.95, 1.0, 0.55);
+                cr.set_line_width(1.1);
+                for y_pos in [8.0_f64, 10.0, 12.0] {
+                    cr.move_to(5.5, y_pos);
+                    cr.line_to(14.5, y_pos);
+                    cr.stroke().ok();
                 }
             }
         }
@@ -1775,17 +2227,17 @@ fn build_bottom_bar(
     let copy_btn = gtk4::Button::builder()
         .label("Copy")
         .css_classes(["bottom-action-btn"])
-        .tooltip_text("Copy canvas image to clipboard")
+        .tooltip_text("Copy the current image to the clipboard")
         .build();
     let quick_save_btn = gtk4::Button::builder()
         .label("Save")
         .css_classes(["bottom-action-btn", "suggested-action"])
-        .tooltip_text("Quick save to Pictures folder")
+        .tooltip_text("Save to the Pictures folder")
         .build();
     let save_as_btn = gtk4::Button::builder()
         .label("Save As…")
         .css_classes(["bottom-action-btn"])
-        .tooltip_text("Save to a specific location")
+        .tooltip_text("Export to a specific location")
         .build();
 
     actions_box.append(&copy_btn);
@@ -1809,12 +2261,12 @@ fn build_inspector(
     subtitle_label: &gtk4::Label,
     undo_button: &gtk4::Button,
     redo_button: &gtk4::Button,
-) -> gtk4::Widget {
+) -> InspectorControls {
     let panel = gtk4::Box::builder()
         .orientation(gtk4::Orientation::Vertical)
         .spacing(16)
         .width_request(260)
-        .valign(gtk4::Align::Fill)
+        .valign(gtk4::Align::Start)
         .build();
     panel.add_css_class("inspector-card");
 
@@ -1906,6 +2358,149 @@ fn build_inspector(
     }
     panel.append(&labeled_row("Shadow", &shadow));
 
+    let shadow_direction_grid = gtk4::Grid::builder()
+        .row_spacing(5)
+        .column_spacing(5)
+        .halign(gtk4::Align::Center)
+        .build();
+    let shadow_direction_buttons: Rc<RefCell<Vec<gtk4::Button>>> =
+        Rc::new(RefCell::new(Vec::new()));
+    let selected_shadow_direction = nearest_shadow_direction_index(
+        state.borrow().document.frame.shadow_offset_x,
+        state.borrow().document.frame.shadow_offset_y,
+    );
+    for (index, preset) in SHADOW_DIRECTION_PRESETS.iter().enumerate() {
+        let btn = gtk4::Button::builder()
+            .label(preset.label)
+            .tooltip_text(preset.tooltip)
+            .build();
+        btn.add_css_class("shadow-dir-btn");
+        if index == selected_shadow_direction {
+            btn.add_css_class("selected");
+        }
+
+        let all_buttons = shadow_direction_buttons.clone();
+        let state = state.clone();
+        let canvas = canvas.clone();
+        let subtitle_label = subtitle_label.clone();
+        let undo_button = undo_button.clone();
+        let redo_button = redo_button.clone();
+        let offset_x = preset.offset_x;
+        let offset_y = preset.offset_y;
+        btn.connect_clicked(move |_| {
+            let mut state = state.borrow_mut();
+            if state.update_document(|doc| {
+                doc.frame.shadow_offset_x = offset_x;
+                doc.frame.shadow_offset_y = offset_y;
+            }) {
+                for (button_index, button) in all_buttons.borrow().iter().enumerate() {
+                    if button_index == index {
+                        button.add_css_class("selected");
+                    } else {
+                        button.remove_css_class("selected");
+                    }
+                }
+                refresh_subtitle(&state, &subtitle_label);
+                refresh_history_buttons(&state, &undo_button, &redo_button);
+                canvas.refresh();
+            }
+        });
+
+        shadow_direction_buttons.borrow_mut().push(btn.clone());
+        shadow_direction_grid.attach(&btn, (index % 3) as i32, (index / 3) as i32, 1, 1);
+    }
+    panel.append(&labeled_row("Shadow Direction", &shadow_direction_grid));
+
+    let shadow_padding_val = gtk4::Label::builder()
+        .label(&format!(
+            "{}px",
+            state.borrow().document.frame.shadow_padding as u32
+        ))
+        .css_classes(["dim-copy"])
+        .build();
+    let shadow_padding = gtk4::Scale::with_range(gtk4::Orientation::Horizontal, 0.0, 32.0, 1.0);
+    shadow_padding.set_value(state.borrow().document.frame.shadow_padding as f64);
+    {
+        let value_label = shadow_padding_val.clone();
+        connect_frame_slider(
+            &shadow_padding,
+            state.clone(),
+            canvas.clone(),
+            subtitle_label,
+            undo_button,
+            redo_button,
+            move |frame, value| {
+                frame.shadow_padding = value;
+                value_label.set_label(&format!("{}px", value as u32));
+            },
+        );
+    }
+    panel.append(&labeled_row_with_value(
+        "Shadow Padding",
+        &shadow_padding,
+        &shadow_padding_val,
+    ));
+
+    let shadow_blur_val = gtk4::Label::builder()
+        .label(&format!(
+            "{}px",
+            state.borrow().document.frame.shadow_blur as u32
+        ))
+        .css_classes(["dim-copy"])
+        .build();
+    let shadow_blur = gtk4::Scale::with_range(gtk4::Orientation::Horizontal, 0.0, 64.0, 1.0);
+    shadow_blur.set_value(state.borrow().document.frame.shadow_blur as f64);
+    {
+        let value_label = shadow_blur_val.clone();
+        connect_frame_slider(
+            &shadow_blur,
+            state.clone(),
+            canvas.clone(),
+            subtitle_label,
+            undo_button,
+            redo_button,
+            move |frame, value| {
+                frame.shadow_blur = value;
+                value_label.set_label(&format!("{}px", value as u32));
+            },
+        );
+    }
+    panel.append(&labeled_row_with_value(
+        "Shadow Blur",
+        &shadow_blur,
+        &shadow_blur_val,
+    ));
+
+    let shadow_strength_val = gtk4::Label::builder()
+        .label(&format!(
+            "{}%",
+            (state.borrow().document.frame.shadow_strength * 100.0).round() as u32
+        ))
+        .css_classes(["dim-copy"])
+        .build();
+    let shadow_strength = gtk4::Scale::with_range(gtk4::Orientation::Horizontal, 0.0, 100.0, 1.0);
+    shadow_strength.set_value((state.borrow().document.frame.shadow_strength * 100.0) as f64);
+    {
+        let value_label = shadow_strength_val.clone();
+        connect_frame_slider(
+            &shadow_strength,
+            state.clone(),
+            canvas.clone(),
+            subtitle_label,
+            undo_button,
+            redo_button,
+            move |frame, value| {
+                frame.shadow_strength = (value / 100.0).clamp(0.0, 1.0);
+                value_label.set_label(&format!("{}%", value.round() as u32));
+            },
+        );
+    }
+    panel.append(&labeled_row_with_value(
+        "Shadow Strength",
+        &shadow_strength,
+        &shadow_strength_val,
+    ));
+
     panel.append(
         &gtk4::Separator::builder()
             .margin_top(2)
@@ -1925,8 +2520,9 @@ fn build_inspector(
         "Auto", "1:1", "4:3", "3:2", "16:9", "5:3", "9:16", "3:4", "2:3",
     ];
     let ratio_grid = gtk4::Grid::builder()
-        .row_spacing(6)
-        .column_spacing(6)
+        .row_spacing(4)
+        .column_spacing(4)
+        .hexpand(true)
         .build();
     let ratio_btns: Rc<RefCell<Vec<gtk4::Button>>> = Rc::new(RefCell::new(Vec::new()));
     for (i, lbl) in ratio_labels.iter().enumerate() {
@@ -2189,8 +2785,8 @@ fn build_inspector(
     ];
 
     let swatch_grid = gtk4::Grid::builder()
-        .row_spacing(8)
-        .column_spacing(8)
+        .row_spacing(6)
+        .column_spacing(6)
         .build();
 
     for (index, (label, css_class, background)) in bg_presets.into_iter().enumerate() {
@@ -2230,11 +2826,34 @@ fn build_inspector(
                 canvas.refresh();
             }
         });
-        swatch_grid.attach(&btn, (index % 3) as i32, (index / 3) as i32, 1, 1);
+        swatch_grid.attach(&btn, (index % 4) as i32, (index / 4) as i32, 1, 1);
     }
     panel.append(&swatch_grid);
 
-    panel.upcast()
+    let scroller = gtk4::ScrolledWindow::builder()
+        .hscrollbar_policy(gtk4::PolicyType::Never)
+        .vscrollbar_policy(gtk4::PolicyType::Automatic)
+        .min_content_height(0)
+        .propagate_natural_height(false)
+        .width_request(260)
+        .build();
+    scroller.set_child(Some(&panel));
+    InspectorControls {
+        widget: scroller.upcast(),
+        padding_scale: padding,
+        padding_value: padding_val,
+        radius_scale: radius,
+        radius_value: radius_val,
+        shadow_switch: shadow,
+        shadow_direction_buttons,
+        shadow_padding_scale: shadow_padding,
+        shadow_padding_value: shadow_padding_val,
+        shadow_blur_scale: shadow_blur,
+        shadow_blur_value: shadow_blur_val,
+        shadow_strength_scale: shadow_strength,
+        shadow_strength_value: shadow_strength_val,
+        background_buttons: swatch_buttons,
+    }
 }
 
 fn labeled_row<W: IsA<gtk4::Widget>>(label: &str, widget: &W) -> gtk4::Widget {
@@ -2306,30 +2925,13 @@ fn refresh_labels(state: &EditorState, title_label: &gtk4::Label, subtitle_label
 }
 
 pub(crate) fn refresh_subtitle(state: &EditorState, subtitle_label: &gtk4::Label) {
-    let text = match state.document.base_image.as_ref() {
-        Some(Image { width, height, .. }) => format!("Image: {width}×{height}"),
-        None => "No image loaded".to_string(),
-    };
+    let text = subtitle_text(state.document());
     subtitle_label.set_label(&text);
 }
 
 pub(crate) fn refresh_scope_label(state: &EditorState, scope_label: &gtk4::Label) {
-    let text = match state.active_tool() {
-        ToolKind::Crop => {
-            if state.has_pending_crop() {
-                "Crop ready — drag handles to resize, Enter to apply, Esc to cancel."
-            } else {
-                "Crop mode: default selection shown. Esc to cancel."
-            }
-        }
-        ToolKind::Arrow => "Arrow: drag on the image to place an arrow.",
-        ToolKind::Rectangle => "Rectangle: drag on the image to draw a box.",
-        ToolKind::Ellipse => "Ellipse: drag on the image to draw an oval.",
-        ToolKind::Text => "Text: click on the image to place a label.",
-        ToolKind::Blur => "Blur: drag on the image to create a blur region.",
-        _ => "",
-    };
-    scope_label.set_label(text);
+    let text = scope_text(state);
+    scope_label.set_label(&text);
 }
 
 pub(crate) fn refresh_history_buttons(
@@ -2348,6 +2950,404 @@ fn same_optional_image(current: Option<&Image>, previous: Option<&Image>) -> boo
         (Some(c), Some(p)) => c.width == p.width && c.height == p.height && c.data == p.data,
         (None, None) => true,
         _ => false,
+    }
+}
+
+fn subtitle_text(document: &Document) -> String {
+    match document.base_image.as_ref() {
+        Some(Image { width, height, .. }) => format!("Image: {width}×{height}"),
+        None => "No image loaded. Capture or import an image to begin.".to_string(),
+    }
+}
+
+fn export_actions_enabled(document: &Document) -> bool {
+    document.base_image.is_some()
+}
+
+#[derive(Clone, Copy)]
+struct ShadowDirectionPreset {
+    label: &'static str,
+    tooltip: &'static str,
+    offset_x: f32,
+    offset_y: f32,
+}
+
+const SHADOW_DIRECTION_PRESETS: [ShadowDirectionPreset; 9] = [
+    ShadowDirectionPreset {
+        label: "↖",
+        tooltip: "Shadow toward top left",
+        offset_x: -18.0,
+        offset_y: -18.0,
+    },
+    ShadowDirectionPreset {
+        label: "↑",
+        tooltip: "Shadow toward top",
+        offset_x: 0.0,
+        offset_y: -22.0,
+    },
+    ShadowDirectionPreset {
+        label: "↗",
+        tooltip: "Shadow toward top right",
+        offset_x: 18.0,
+        offset_y: -18.0,
+    },
+    ShadowDirectionPreset {
+        label: "←",
+        tooltip: "Shadow toward left",
+        offset_x: -24.0,
+        offset_y: 0.0,
+    },
+    ShadowDirectionPreset {
+        label: "·",
+        tooltip: "Centered glow shadow",
+        offset_x: 0.0,
+        offset_y: 0.0,
+    },
+    ShadowDirectionPreset {
+        label: "→",
+        tooltip: "Shadow toward right",
+        offset_x: 24.0,
+        offset_y: 0.0,
+    },
+    ShadowDirectionPreset {
+        label: "↙",
+        tooltip: "Shadow toward bottom left",
+        offset_x: -18.0,
+        offset_y: 18.0,
+    },
+    ShadowDirectionPreset {
+        label: "↓",
+        tooltip: "Shadow toward bottom",
+        offset_x: 0.0,
+        offset_y: 22.0,
+    },
+    ShadowDirectionPreset {
+        label: "↘",
+        tooltip: "Shadow toward bottom right",
+        offset_x: 18.0,
+        offset_y: 18.0,
+    },
+];
+
+fn nearest_shadow_direction_index(offset_x: f32, offset_y: f32) -> usize {
+    SHADOW_DIRECTION_PRESETS
+        .iter()
+        .enumerate()
+        .min_by(|(_, left), (_, right)| {
+            let left_distance =
+                ((offset_x - left.offset_x).powi(2) + (offset_y - left.offset_y).powi(2)) as i32;
+            let right_distance =
+                ((offset_x - right.offset_x).powi(2) + (offset_y - right.offset_y).powi(2)) as i32;
+            left_distance.cmp(&right_distance)
+        })
+        .map(|(index, _)| index)
+        .unwrap_or(4)
+}
+
+fn scope_text(state: &EditorState) -> String {
+    match state.active_tool() {
+        ToolKind::Select => match state.selected_annotation() {
+            Some(index) => format!(
+                "Selected {}. Use the color, width, toolbar delete button, or Backspace/Delete.",
+                annotation_kind_label(state.document(), index)
+            ),
+            None => {
+                "Select: click an annotation to edit it, then press Backspace/Delete to remove it."
+                    .to_string()
+            }
+        },
+        ToolKind::Crop => {
+            if state.document().base_image.is_none() {
+                "Crop: capture or import an image first.".to_string()
+            } else if state.has_pending_crop() {
+                "Crop ready. Drag the handles, press Enter to apply, or Esc to exit crop mode."
+                    .to_string()
+            } else {
+                "Crop mode: drag on the image to create a selection, or press Esc to exit."
+                    .to_string()
+            }
+        }
+        ToolKind::Arrow => "Arrow: drag on the image to place an arrow.".to_string(),
+        ToolKind::Rectangle => "Rectangle: drag on the image to draw a box.".to_string(),
+        ToolKind::Ellipse => "Ellipse: drag on the image to draw an oval.".to_string(),
+        ToolKind::Text => "Text: click on the image to place a label.".to_string(),
+        ToolKind::Blur => "Blur: drag on the image to create a blur region.".to_string(),
+    }
+}
+
+fn annotation_kind_label(document: &Document, index: usize) -> &'static str {
+    match document.annotations.get(index) {
+        Some(Annotation::Arrow { .. }) => "arrow",
+        Some(Annotation::Rect { .. }) => "rectangle",
+        Some(Annotation::Ellipse { .. }) => "ellipse",
+        Some(Annotation::Text { .. }) => "text label",
+        Some(Annotation::Blur { .. }) => "blur region",
+        Some(Annotation::Redact { .. }) => "redaction",
+        None => "annotation",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        export_actions_enabled, nearest_shadow_direction_index, perform_capture_action, scope_text,
+        subtitle_text, CaptureAction, EditorState, ToolKind,
+    };
+    use anyhow::{anyhow, Result};
+    use snapix_capture::{CaptureBackend, SessionType};
+    use snapix_core::canvas::{Annotation, Document, Image, Rect};
+    use std::sync::{Arc, Mutex};
+
+    #[derive(Clone)]
+    struct MockBackend {
+        name: &'static str,
+        full_result: Result<Image, String>,
+        region_result: Result<Image, String>,
+        window_result: Result<Image, String>,
+        region_calls: Arc<Mutex<Vec<Rect>>>,
+    }
+
+    impl MockBackend {
+        fn with_results(
+            name: &'static str,
+            full_result: Result<Image, String>,
+            region_result: Result<Image, String>,
+            window_result: Result<Image, String>,
+        ) -> Self {
+            Self {
+                name,
+                full_result,
+                region_result,
+                window_result,
+                region_calls: Arc::new(Mutex::new(Vec::new())),
+            }
+        }
+
+        fn region_calls(&self) -> Vec<Rect> {
+            self.region_calls.lock().unwrap().clone()
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl CaptureBackend for MockBackend {
+        async fn capture_full(&self) -> Result<Image> {
+            self.full_result.clone().map_err(|err| anyhow!(err))
+        }
+
+        async fn capture_region(&self, region: Rect) -> Result<Image> {
+            self.region_calls.lock().unwrap().push(region);
+            self.region_result.clone().map_err(|err| anyhow!(err))
+        }
+
+        async fn capture_window(&self) -> Result<Image> {
+            self.window_result.clone().map_err(|err| anyhow!(err))
+        }
+
+        fn supports_interactive(&self) -> bool {
+            false
+        }
+
+        fn name(&self) -> &'static str {
+            self.name
+        }
+    }
+
+    fn sample_image() -> Image {
+        Image::new(2, 2, vec![255; 16])
+    }
+
+    #[test]
+    fn cancel_crop_mode_returns_to_select_tool() {
+        let mut state = EditorState::with_document(Document::new(sample_image()));
+        state.set_active_tool(ToolKind::Crop);
+        assert_eq!(state.active_tool(), ToolKind::Crop);
+        assert!(state.has_pending_crop());
+
+        state.cancel_crop_mode();
+
+        assert_eq!(state.active_tool(), ToolKind::Select);
+        assert!(!state.has_pending_crop());
+        assert!(state.crop_drag().is_none());
+    }
+
+    #[test]
+    fn crop_scope_text_requires_image_when_empty() {
+        let mut state = EditorState::default();
+        state.set_active_tool(ToolKind::Crop);
+
+        assert_eq!(
+            scope_text(&state),
+            "Crop: capture or import an image first."
+        );
+    }
+
+    #[test]
+    fn subtitle_text_guides_empty_state() {
+        let text = subtitle_text(&Document::default());
+
+        assert_eq!(
+            text,
+            "No image loaded. Capture or import an image to begin."
+        );
+    }
+
+    #[test]
+    fn selected_annotation_can_be_deleted() {
+        let mut state = EditorState::with_document(Document::new(sample_image()));
+        state.commit_rect_annotation(10, 10, 40, 30);
+        assert_eq!(state.selected_annotation(), Some(0));
+
+        assert!(state.delete_selected_annotation());
+        assert!(state.document().annotations.is_empty());
+        assert_eq!(state.selected_annotation(), None);
+    }
+
+    #[test]
+    fn active_color_updates_selected_rect_annotation() {
+        let mut state = EditorState::with_document(Document::new(sample_image()));
+        state.commit_rect_annotation(10, 10, 40, 30);
+        state.set_active_color(snapix_core::canvas::Color {
+            r: 10,
+            g: 20,
+            b: 30,
+            a: 255,
+        });
+
+        assert!(state.apply_active_color_to_selected());
+
+        let Annotation::Rect { stroke, .. } = &state.document().annotations[0] else {
+            panic!("expected rectangle annotation");
+        };
+        assert_eq!(stroke.color.r, 10);
+        assert_eq!(stroke.color.g, 20);
+        assert_eq!(stroke.color.b, 30);
+    }
+
+    #[test]
+    fn active_width_updates_selected_arrow_annotation() {
+        let mut state = EditorState::with_document(Document::new(sample_image()));
+        state.begin_arrow_drag(0.0, 0.0, 5.0, 5.0);
+        state.update_arrow_drag(50.0, 45.0);
+        assert!(state.commit_arrow_drag());
+        state.set_active_width(16.0);
+
+        assert!(state.apply_active_width_to_selected());
+
+        let Annotation::Arrow { width, .. } = &state.document().annotations[0] else {
+            panic!("expected arrow annotation");
+        };
+        assert_eq!(*width, 16.0);
+    }
+
+    #[test]
+    fn export_actions_disabled_without_image() {
+        assert!(!export_actions_enabled(&Document::default()));
+    }
+
+    #[test]
+    fn export_actions_enabled_with_image() {
+        assert!(export_actions_enabled(&Document::new(sample_image())));
+    }
+
+    #[test]
+    fn fullscreen_wayland_portal_falls_back_to_region() {
+        let backend = MockBackend::with_results(
+            "ashpd-portal",
+            Err("portal fullscreen failed".into()),
+            Ok(sample_image()),
+            Err("unused".into()),
+        );
+
+        let (image, message) = async_std::task::block_on(async {
+            perform_capture_action(&backend, SessionType::Wayland, CaptureAction::Fullscreen)
+                .await
+                .expect("expected fallback to succeed")
+        });
+
+        assert_eq!(image.width, 2);
+        assert!(message.is_some());
+        assert_eq!(
+            message.unwrap(),
+            "Fullscreen capture failed, switched to region capture."
+        );
+
+        let calls = backend.region_calls();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].x, 0.0);
+        assert_eq!(calls[0].y, 0.0);
+        assert_eq!(calls[0].width, 0.0);
+        assert_eq!(calls[0].height, 0.0);
+    }
+
+    #[test]
+    fn fullscreen_wayland_portal_reports_both_failures() {
+        let backend = MockBackend::with_results(
+            "ashpd-portal",
+            Err("portal fullscreen failed".into()),
+            Err("portal region failed".into()),
+            Err("unused".into()),
+        );
+
+        let error = async_std::task::block_on(async {
+            perform_capture_action(&backend, SessionType::Wayland, CaptureAction::Fullscreen)
+                .await
+                .expect_err("expected fallback chain to fail")
+        });
+
+        let text = error.to_string();
+        assert!(text.contains("Fullscreen capture failed"));
+        assert!(text.contains("Interactive region fallback also failed"));
+    }
+
+    #[test]
+    fn fullscreen_x11_does_not_use_region_fallback() {
+        let backend = MockBackend::with_results(
+            "x11rb",
+            Err("x11 fullscreen failed".into()),
+            Ok(sample_image()),
+            Err("unused".into()),
+        );
+
+        let error = async_std::task::block_on(async {
+            perform_capture_action(&backend, SessionType::X11, CaptureAction::Fullscreen)
+                .await
+                .expect_err("expected fullscreen error to be returned directly")
+        });
+
+        assert!(error.to_string().contains("x11 fullscreen failed"));
+        assert!(backend.region_calls().is_empty());
+    }
+
+    #[test]
+    fn region_action_uses_zero_rect_interactive_request() {
+        let backend = MockBackend::with_results(
+            "ashpd-portal",
+            Err("unused".into()),
+            Ok(sample_image()),
+            Err("unused".into()),
+        );
+
+        let (_image, message) = async_std::task::block_on(async {
+            perform_capture_action(&backend, SessionType::Wayland, CaptureAction::Region)
+                .await
+                .expect("expected region capture to succeed")
+        });
+
+        assert!(message.is_none());
+        let calls = backend.region_calls();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].width, 0.0);
+        assert_eq!(calls[0].height, 0.0);
+    }
+
+    #[test]
+    fn nearest_shadow_direction_prefers_bottom_for_default_shadow() {
+        assert_eq!(nearest_shadow_direction_index(18.0, 18.0), 8);
+    }
+
+    #[test]
+    fn nearest_shadow_direction_prefers_center_for_zero_offset() {
+        assert_eq!(nearest_shadow_direction_index(0.0, 0.0), 4);
     }
 }
 
