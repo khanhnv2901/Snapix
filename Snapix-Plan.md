@@ -329,8 +329,9 @@ Dùng `AdwOverlaySplitView` + `AdwToolbarView` cho layout adaptive.
 ### M2 — Editor MVP
 - GTK4 editor window với `DrawingArea`
 - Canvas model + render pipeline
-- 3 tools: crop, arrow, text
-- Export PNG + copy clipboard
+- Core annotation tools: crop, arrow, rectangle, ellipse, text, blur
+- Export PNG/JPEG + copy clipboard
+- Undo/redo + basic annotation selection/edit/delete
 
 **Ship criteria:** User flow complete: hotkey → chụp → edit → copy.
 
@@ -338,15 +339,19 @@ Dùng `AdwOverlaySplitView` + `AdwToolbarView` cho layout adaptive.
 - Editor shell đã chạy được làm cửa sổ GUI mặc định của app, và startup capture đã được nối vào editor.
 - Trên Wayland portal, nếu full-screen capture fail thì app fallback sang interactive window capture để vẫn nạp ảnh vào editor.
 - Layout editor đã được làm lại theo hướng dễ dùng hơn: top action row, top tool row, canvas trung tâm, settings panel bên phải.
-- `DrawingArea` canvas đã render background, frame padding, corner radius, shadow, crop overlay, arrow, text, và image surface nếu `Document.base_image` có dữ liệu.
-- Inspector controls cho padding/radius/shadow/background đang update `Document` realtime.
-- `Save` đã export PNG và `Copy` đã copy ảnh render hiện tại vào clipboard.
+- Workspace hiện đã có split layout có thể resize cho settings panel, giúp canvas usable hơn khi chỉnh sửa ảnh lớn.
+- `DrawingArea` canvas đã render background, frame padding, corner radius, direction-aware shadow, crop overlay, arrow, rectangle, ellipse, blur, text, và image surface nếu `Document.base_image` có dữ liệu.
+- Inspector controls cho padding/radius/shadow/background đang update `Document` realtime; shadow đã có direction, padding, blur, và strength.
+- Top action row đã nối được `Fullscreen / Region / Import / Clear`; `Save`, `Save As`, và `Copy` cùng dùng một render pipeline để preview gần khớp output hơn.
 - Crop đã usable với default crop box, move/resize handles, `Enter` để apply, `Esc` để cancel; tuy nhiên UX/polish vẫn chưa thật sự tốt.
-- Arrow đã usable theo flow drag-to-place.
-- Text đã usable theo flow click-to-place + dialog nhập nội dung.
-- Undo/redo đã hoạt động bằng snapshot toàn `Document`.
-- Top action row đã nối được `Fullscreen / Region / Import / Clear`, nhưng capture semantics trên Wayland portal vẫn chưa ổn định: `Fullscreen` có thể fail, `Region` là interactive path chính, và `Window` hiện không nên coi là fully supported trên portal hiện tại.
-- Vì vậy ship criteria của M2 vẫn chưa đạt hoàn toàn; phần còn thiếu chính là capture UX ổn định hơn và annotation editing/polish.
+- Arrow, rectangle, ellipse, blur đã usable theo flow drag-to-place / drag-to-draw.
+- Arrow hiện đã có resize qua endpoint handles trong Select mode.
+- Text đã usable theo flow click-to-place + dialog nhập nội dung, và text đang chọn có thể mở lại dialog để sửa nội dung.
+- Undo/redo đã hoạt động bằng snapshot toàn `Document`, gồm cả placement, move, resize, và text edit.
+- Select mode đã có annotation editing ở mức usable: highlight object, chỉnh color/width hoặc size từ toolbar, move object bằng drag, resize rectangle/ellipse/blur bằng corner handles, resize arrow bằng endpoint handles, và xoá object đang chọn bằng toolbar hoặc phím `Backspace/Delete`.
+- Toolbar hiện đã phân biệt tốt hơn giữa shape/text bằng việc đổi nhãn slider giữa `Width` và `Size` theo tool hoặc selection context.
+- Toast feedback và empty-state guidance đã có để user dễ hiểu hơn khi capture/import/save/copy/đặt annotation.
+- Ship criteria của M2 vẫn chưa đạt hoàn toàn; phần còn thiếu chính là capture UX ổn định hơn trên Wayland portal, polish/cursor behavior cho crop và annotation editing, và làm đồng đều interaction UX giữa các loại annotation còn lại.
 
 ### M3 — Beautify
 - Background: gradient picker, solid, image, blur-of-screenshot

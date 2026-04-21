@@ -8,8 +8,8 @@ use libadwaita::ToastOverlay;
 use snapix_core::canvas::{Annotation, Background, Color, Document, Image, TextStyle};
 
 use crate::editor::{
-    refresh_history_buttons, refresh_scope_label, refresh_tool_actions, show_toast, CropDrag,
-    CropSelection, EditorState, ToolKind,
+    refresh_history_buttons, refresh_scope_label, refresh_tool_actions, refresh_width_label,
+    show_toast, CropDrag, CropSelection, EditorState, ToolKind,
 };
 
 pub(crate) struct RenderedDocument {
@@ -47,6 +47,38 @@ struct CropInteractionSession {
 }
 
 #[derive(Clone)]
+struct AnnotationMoveSession {
+    index: usize,
+    widget_start_x: f64,
+    widget_start_y: f64,
+    image_start_x: u32,
+    image_start_y: u32,
+    original: Annotation,
+    before_document: Document,
+}
+
+const ANNOTATION_MOVE_THRESHOLD: f64 = 4.0;
+
+#[derive(Clone)]
+struct AnnotationResizeSession {
+    index: usize,
+    mode: CropInteractionMode,
+    initial_bounds: (f64, f64, f64, f64),
+    original: Annotation,
+    before_document: Document,
+}
+
+#[derive(Clone)]
+struct ArrowResizeSession {
+    index: usize,
+    move_start: bool,
+    widget_start_x: f64,
+    widget_start_y: f64,
+    original: Annotation,
+    before_document: Document,
+}
+
+#[derive(Clone)]
 pub struct DocumentCanvas {
     drawing_area: gtk4::DrawingArea,
 }
@@ -56,6 +88,7 @@ impl DocumentCanvas {
         state: Rc<RefCell<EditorState>>,
         subtitle_label: gtk4::Label,
         scope_label: gtk4::Label,
+        width_label: gtk4::Label,
         undo_button: gtk4::Button,
         redo_button: gtk4::Button,
         toast_overlay: ToastOverlay,
@@ -81,18 +114,104 @@ impl DocumentCanvas {
         });
 
         let crop_interaction = Rc::new(RefCell::new(None::<CropInteractionSession>));
+        let annotation_move = Rc::new(RefCell::new(None::<AnnotationMoveSession>));
+        let annotation_resize = Rc::new(RefCell::new(None::<AnnotationResizeSession>));
+        let arrow_resize = Rc::new(RefCell::new(None::<ArrowResizeSession>));
         let drag = gtk4::GestureDrag::new();
         {
             let state = state.clone();
             let drawing_area = drawing_area.clone();
             let scope_label = scope_label.clone();
             let crop_interaction = crop_interaction.clone();
+            let annotation_move = annotation_move.clone();
+            let annotation_resize = annotation_resize.clone();
+            let arrow_resize = arrow_resize.clone();
             let undo_button = undo_button.clone();
             let redo_button = redo_button.clone();
             drag.connect_drag_begin(move |_gesture, x, y| {
                 let width = drawing_area.allocated_width();
                 let height = drawing_area.allocated_height();
                 let mut state = state.borrow_mut();
+
+                if state.active_tool() == ToolKind::Select {
+                    let Some(layout) = preview_canvas_layout(state.document(), width, height)
+                    else {
+                        return;
+                    };
+                    if let Some(index) = state.selected_annotation() {
+                        if let Some(annotation) = state.document().annotations.get(index) {
+                            if let Some(move_start) =
+                                hit_arrow_resize_handle(layout, annotation, x, y)
+                            {
+                                *arrow_resize.borrow_mut() = Some(ArrowResizeSession {
+                                    index,
+                                    move_start,
+                                    widget_start_x: x,
+                                    widget_start_y: y,
+                                    original: annotation.clone(),
+                                    before_document: state.document().clone(),
+                                });
+                                refresh_scope_label(&state, &scope_label);
+                                refresh_history_buttons(&state, &undo_button, &redo_button);
+                                drawing_area.grab_focus();
+                                drawing_area.queue_draw();
+                                return;
+                            }
+                        }
+                    }
+                    if let Some(index) = state.selected_annotation() {
+                        if let Some(bounds) =
+                            resizable_annotation_widget_bounds(state.document(), layout, index)
+                        {
+                            if let Some(mode) = hit_resize_handle(bounds, x, y) {
+                                let Some(original) =
+                                    state.document().annotations.get(index).cloned()
+                                else {
+                                    return;
+                                };
+                                *annotation_resize.borrow_mut() = Some(AnnotationResizeSession {
+                                    index,
+                                    mode,
+                                    initial_bounds: bounds,
+                                    original,
+                                    before_document: state.document().clone(),
+                                });
+                                refresh_scope_label(&state, &scope_label);
+                                refresh_history_buttons(&state, &undo_button, &redo_button);
+                                drawing_area.grab_focus();
+                                drawing_area.queue_draw();
+                                return;
+                            }
+                        }
+                    }
+                    let Some(index) = hit_test_annotation(state.document(), layout, x, y) else {
+                        return;
+                    };
+                    let Some((image_x, image_y)) =
+                        widget_point_to_image_pixel(state.document(), layout, x, y)
+                    else {
+                        return;
+                    };
+                    let Some(original) = state.document().annotations.get(index).cloned() else {
+                        return;
+                    };
+
+                    state.set_selected_annotation(Some(index));
+                    *annotation_move.borrow_mut() = Some(AnnotationMoveSession {
+                        index,
+                        widget_start_x: x,
+                        widget_start_y: y,
+                        image_start_x: image_x,
+                        image_start_y: image_y,
+                        original,
+                        before_document: state.document().clone(),
+                    });
+                    refresh_scope_label(&state, &scope_label);
+                    refresh_history_buttons(&state, &undo_button, &redo_button);
+                    drawing_area.grab_focus();
+                    drawing_area.queue_draw();
+                    return;
+                }
 
                 if state.active_tool() == ToolKind::Arrow {
                     let Some(layout) = preview_canvas_layout(state.document(), width, height)
@@ -194,10 +313,85 @@ impl DocumentCanvas {
             let state = state.clone();
             let drawing_area = drawing_area.clone();
             let crop_interaction = crop_interaction.clone();
+            let annotation_move = annotation_move.clone();
+            let annotation_resize = annotation_resize.clone();
+            let arrow_resize = arrow_resize.clone();
             drag.connect_drag_update(move |_gesture, offset_x, offset_y| {
                 let mut state = state.borrow_mut();
 
-                if let Some(arrow_drag) = state.arrow_drag().cloned() {
+                if let Some(session) = arrow_resize.borrow().clone() {
+                    let width = drawing_area.allocated_width();
+                    let height = drawing_area.allocated_height();
+                    if let Some(layout) = preview_canvas_layout(state.document(), width, height) {
+                        if let Some((image_x, image_y)) = widget_point_to_image_pixel(
+                            state.document(),
+                            layout,
+                            session.widget_start_x + offset_x,
+                            session.widget_start_y + offset_y,
+                        ) {
+                            state.preview_resize_arrow_endpoint(
+                                session.index,
+                                &session.original,
+                                session.move_start,
+                                image_x as f32,
+                                image_y as f32,
+                            );
+                        }
+                    }
+                } else if let Some(session) = annotation_resize.borrow().clone() {
+                    let width = drawing_area.allocated_width();
+                    let height = drawing_area.allocated_height();
+                    if let Some(layout) = preview_canvas_layout(state.document(), width, height) {
+                        if let Some((x, y, shape_width, shape_height)) = adjusted_crop_bounds(
+                            layout,
+                            session.initial_bounds,
+                            session.mode,
+                            offset_x,
+                            offset_y,
+                        ) {
+                            if let Some((image_x, image_y, image_width, image_height)) =
+                                widget_rect_to_image_pixels(
+                                    state.document(),
+                                    layout,
+                                    x,
+                                    y,
+                                    shape_width,
+                                    shape_height,
+                                )
+                            {
+                                state.preview_resize_annotation(
+                                    session.index,
+                                    &session.original,
+                                    image_x,
+                                    image_y,
+                                    image_width,
+                                    image_height,
+                                );
+                            }
+                        }
+                    }
+                } else if let Some(session) = annotation_move.borrow().clone() {
+                    if offset_x.hypot(offset_y) < ANNOTATION_MOVE_THRESHOLD {
+                        return;
+                    }
+                    let width = drawing_area.allocated_width();
+                    let height = drawing_area.allocated_height();
+                    if let Some(layout) = preview_canvas_layout(state.document(), width, height) {
+                        if let Some((image_x, image_y)) = widget_point_to_image_pixel(
+                            state.document(),
+                            layout,
+                            session.widget_start_x + offset_x,
+                            session.widget_start_y + offset_y,
+                        ) {
+                            state.preview_move_annotation(
+                                session.index,
+                                &session.original,
+                                image_x as f32 - session.image_start_x as f32,
+                                image_y as f32 - session.image_start_y as f32,
+                            );
+                        }
+                    }
+                } else if let Some(arrow_drag) = state.arrow_drag().cloned() {
                     let width = drawing_area.allocated_width();
                     let height = drawing_area.allocated_height();
                     if let Some(layout) = preview_canvas_layout(state.document(), width, height) {
@@ -271,6 +465,9 @@ impl DocumentCanvas {
             let drawing_area = drawing_area.clone();
             let scope_label = scope_label.clone();
             let crop_interaction = crop_interaction.clone();
+            let annotation_move = annotation_move.clone();
+            let annotation_resize = annotation_resize.clone();
+            let arrow_resize = arrow_resize.clone();
             let undo_button = undo_button.clone();
             let redo_button = redo_button.clone();
             let toast_overlay = toast_overlay.clone();
@@ -280,7 +477,91 @@ impl DocumentCanvas {
                 let height = drawing_area.allocated_height();
                 let mut state = state.borrow_mut();
 
-                if let Some(arrow_drag) = state.arrow_drag().cloned() {
+                if let Some(session) = arrow_resize.borrow_mut().take() {
+                    if let Some(layout) = preview_canvas_layout(state.document(), width, height) {
+                        if let Some((image_x, image_y)) = widget_point_to_image_pixel(
+                            state.document(),
+                            layout,
+                            session.widget_start_x + offset_x,
+                            session.widget_start_y + offset_y,
+                        ) {
+                            state.preview_resize_arrow_endpoint(
+                                session.index,
+                                &session.original,
+                                session.move_start,
+                                image_x as f32,
+                                image_y as f32,
+                            );
+                        }
+                    }
+                    if state.finalize_annotation_move(session.before_document) {
+                        show_toast(&toast_overlay, "Resized arrow");
+                    }
+                    refresh_scope_label(&state, &scope_label);
+                    refresh_history_buttons(&state, &undo_button, &redo_button);
+                    refresh_tool_actions(&state, &delete_button);
+                } else if let Some(session) = annotation_resize.borrow_mut().take() {
+                    if let Some(layout) = preview_canvas_layout(state.document(), width, height) {
+                        if let Some((x, y, shape_width, shape_height)) = adjusted_crop_bounds(
+                            layout,
+                            session.initial_bounds,
+                            session.mode,
+                            offset_x,
+                            offset_y,
+                        ) {
+                            if let Some((image_x, image_y, image_width, image_height)) =
+                                widget_rect_to_image_pixels(
+                                    state.document(),
+                                    layout,
+                                    x,
+                                    y,
+                                    shape_width,
+                                    shape_height,
+                                )
+                            {
+                                state.preview_resize_annotation(
+                                    session.index,
+                                    &session.original,
+                                    image_x,
+                                    image_y,
+                                    image_width,
+                                    image_height,
+                                );
+                            }
+                        }
+                    }
+                    if state.finalize_annotation_move(session.before_document) {
+                        show_toast(&toast_overlay, "Resized annotation");
+                    }
+                    refresh_scope_label(&state, &scope_label);
+                    refresh_history_buttons(&state, &undo_button, &redo_button);
+                    refresh_tool_actions(&state, &delete_button);
+                } else if let Some(session) = annotation_move.borrow_mut().take() {
+                    if offset_x.hypot(offset_y) >= ANNOTATION_MOVE_THRESHOLD {
+                        if let Some(layout) = preview_canvas_layout(state.document(), width, height)
+                        {
+                            if let Some((image_x, image_y)) = widget_point_to_image_pixel(
+                                state.document(),
+                                layout,
+                                session.widget_start_x + offset_x,
+                                session.widget_start_y + offset_y,
+                            ) {
+                                state.preview_move_annotation(
+                                    session.index,
+                                    &session.original,
+                                    image_x as f32 - session.image_start_x as f32,
+                                    image_y as f32 - session.image_start_y as f32,
+                                );
+                            }
+                        }
+                        if state.finalize_annotation_move(session.before_document) {
+                            show_toast(&toast_overlay, "Moved annotation");
+                        }
+                    }
+                    refresh_scope_label(&state, &scope_label);
+                    refresh_history_buttons(&state, &undo_button, &redo_button);
+                    refresh_tool_actions(&state, &delete_button);
+                } else if let Some(arrow_drag) = state.arrow_drag().cloned() {
                     if let Some(layout) = preview_canvas_layout(state.document(), width, height) {
                         if let Some((image_x, image_y)) = widget_point_to_image_pixel(
                             state.document(),
@@ -429,11 +710,12 @@ impl DocumentCanvas {
             let drawing_area = drawing_area.clone();
             let subtitle_label = subtitle_label.clone();
             let scope_label = scope_label.clone();
+            let width_label = width_label.clone();
             let undo_button = undo_button.clone();
             let redo_button = redo_button.clone();
             let toast_overlay = toast_overlay.clone();
             let delete_button = delete_button.clone();
-            click.connect_pressed(move |_gesture, _n_press, x, y| {
+            click.connect_pressed(move |_gesture, n_press, x, y| {
                 let width = drawing_area.allocated_width();
                 let height = drawing_area.allocated_height();
                 let mut state_ref = state.borrow_mut();
@@ -441,23 +723,72 @@ impl DocumentCanvas {
                     let Some(layout) = preview_canvas_layout(state_ref.document(), width, height)
                     else {
                         state_ref.set_selected_annotation(None);
+                        refresh_width_label(&state_ref, &width_label);
                         refresh_tool_actions(&state_ref, &delete_button);
                         drawing_area.queue_draw();
                         return;
                     };
                     let selected = hit_test_annotation(state_ref.document(), layout, x, y);
                     state_ref.set_selected_annotation(selected);
+                    let initial_text = if n_press == 2 {
+                        state_ref.selected_text_content()
+                    } else {
+                        None
+                    };
                     refresh_scope_label(&state_ref, &scope_label);
+                    refresh_width_label(&state_ref, &width_label);
                     refresh_tool_actions(&state_ref, &delete_button);
-                    show_toast(
-                        &toast_overlay,
-                        if selected.is_some() {
-                            "Annotation selected"
-                        } else {
-                            "Selection cleared"
-                        },
-                    );
+                    if initial_text.is_none() {
+                        show_toast(
+                            &toast_overlay,
+                            if selected.is_some() {
+                                "Annotation selected"
+                            } else {
+                                "Selection cleared"
+                            },
+                        );
+                    }
                     drawing_area.queue_draw();
+                    drop(state_ref);
+
+                    if let Some(initial_text) = initial_text {
+                        let Some(root) = drawing_area.root() else {
+                            return;
+                        };
+                        let Ok(window) = root.downcast::<gtk4::ApplicationWindow>() else {
+                            return;
+                        };
+                        present_text_dialog(
+                            &window,
+                            "Edit Text",
+                            "Update",
+                            "Text content",
+                            &initial_text,
+                            {
+                                let state = state.clone();
+                                let drawing_area = drawing_area.clone();
+                                let subtitle_label = subtitle_label.clone();
+                                let scope_label = scope_label.clone();
+                                let undo_button = undo_button.clone();
+                                let redo_button = redo_button.clone();
+                                let toast_overlay = toast_overlay.clone();
+                                let delete_button = delete_button.clone();
+                                move |content| {
+                                    let mut state = state.borrow_mut();
+                                    if state.update_selected_text_content(content) {
+                                        refresh_scope_label(&state, &scope_label);
+                                        refresh_history_buttons(&state, &undo_button, &redo_button);
+                                        refresh_tool_actions(&state, &delete_button);
+                                        crate::editor::refresh_subtitle(&state, &subtitle_label);
+                                        drawing_area.queue_draw();
+                                        show_toast(&toast_overlay, "Updated text label");
+                                    } else {
+                                        show_toast(&toast_overlay, "Text label was unchanged");
+                                    }
+                                }
+                            },
+                        );
+                    }
                     return;
                 }
 
@@ -475,6 +806,7 @@ impl DocumentCanvas {
                     return;
                 };
                 state_ref.set_selected_annotation(None);
+                refresh_width_label(&state_ref, &width_label);
                 refresh_tool_actions(&state_ref, &delete_button);
                 drop(state_ref);
 
@@ -485,63 +817,29 @@ impl DocumentCanvas {
                     return;
                 };
 
-                let dialog = gtk4::Dialog::builder()
-                    .title("Add Text")
-                    .transient_for(&window)
-                    .modal(true)
-                    .build();
-                dialog.add_button("Cancel", gtk4::ResponseType::Cancel);
-                dialog.add_button("Add", gtk4::ResponseType::Accept);
-                dialog.set_default_response(gtk4::ResponseType::Accept);
-
-                let content = dialog.content_area();
-                content.set_spacing(10);
-                content.set_margin_top(12);
-                content.set_margin_bottom(12);
-                content.set_margin_start(12);
-                content.set_margin_end(12);
-
-                let entry = gtk4::Entry::builder()
-                    .placeholder_text("Type a short label")
-                    .activates_default(true)
-                    .build();
-                content.append(
-                    &gtk4::Label::builder()
-                        .label("Text content")
-                        .xalign(0.0)
-                        .build(),
-                );
-                content.append(&entry);
-
-                let state = state.clone();
-                let drawing_area = drawing_area.clone();
-                let subtitle_label = subtitle_label.clone();
-                let scope_label = scope_label.clone();
-                let undo_button = undo_button.clone();
-                let redo_button = redo_button.clone();
-                let response_toast_overlay = toast_overlay.clone();
-                let response_delete_button = delete_button.clone();
-                dialog.connect_response(move |dialog, response| {
-                    if response == gtk4::ResponseType::Accept {
+                present_text_dialog(&window, "Add Text", "Add", "Text content", "", {
+                    let state = state.clone();
+                    let drawing_area = drawing_area.clone();
+                    let subtitle_label = subtitle_label.clone();
+                    let scope_label = scope_label.clone();
+                    let undo_button = undo_button.clone();
+                    let redo_button = redo_button.clone();
+                    let response_toast_overlay = toast_overlay.clone();
+                    let response_delete_button = delete_button.clone();
+                    move |content| {
                         let mut state = state.borrow_mut();
-                        if state.add_text_annotation(
-                            image_x as f32,
-                            image_y as f32,
-                            entry.text().to_string(),
-                        ) {
+                        if state.add_text_annotation(image_x as f32, image_y as f32, content) {
                             refresh_scope_label(&state, &scope_label);
                             refresh_history_buttons(&state, &undo_button, &redo_button);
                             refresh_tool_actions(&state, &response_delete_button);
                             crate::editor::refresh_subtitle(&state, &subtitle_label);
                             drawing_area.queue_draw();
                             show_toast(&response_toast_overlay, "Added text label");
-                        } else if !entry.text().trim().is_empty() {
+                        } else {
                             show_toast(&response_toast_overlay, "Text label could not be added");
                         }
                     }
-                    dialog.close();
                 });
-                dialog.present();
             });
         }
         drawing_area.add_controller(click);
@@ -556,6 +854,55 @@ impl DocumentCanvas {
     pub fn refresh(&self) {
         self.drawing_area.queue_draw();
     }
+}
+
+fn present_text_dialog<F>(
+    window: &gtk4::ApplicationWindow,
+    title: &str,
+    accept_label: &str,
+    field_label: &str,
+    initial_text: &str,
+    on_accept: F,
+) where
+    F: Fn(String) + 'static,
+{
+    let dialog = gtk4::Dialog::builder()
+        .title(title)
+        .transient_for(window)
+        .modal(true)
+        .build();
+    dialog.add_button("Cancel", gtk4::ResponseType::Cancel);
+    dialog.add_button(accept_label, gtk4::ResponseType::Accept);
+    dialog.set_default_response(gtk4::ResponseType::Accept);
+
+    let content = dialog.content_area();
+    content.set_spacing(10);
+    content.set_margin_top(12);
+    content.set_margin_bottom(12);
+    content.set_margin_start(12);
+    content.set_margin_end(12);
+
+    let entry = gtk4::Entry::builder()
+        .text(initial_text)
+        .placeholder_text("Type a short label")
+        .activates_default(true)
+        .build();
+    entry.select_region(0, -1);
+    content.append(
+        &gtk4::Label::builder()
+            .label(field_label)
+            .xalign(0.0)
+            .build(),
+    );
+    content.append(&entry);
+
+    dialog.connect_response(move |dialog, response| {
+        if response == gtk4::ResponseType::Accept {
+            on_accept(entry.text().to_string());
+        }
+        dialog.close();
+    });
+    dialog.present();
 }
 
 pub(crate) fn render_document_rgba(document: &Document) -> Result<RenderedDocument> {
@@ -768,7 +1115,7 @@ fn draw_selected_annotation(
     layout: CanvasLayout,
     index: usize,
 ) {
-    let Some(bounds) = annotation_widget_bounds(document, layout, index) else {
+    let Some(bounds) = selection_annotation_widget_bounds(document, layout, index) else {
         return;
     };
     let (x, y, width, height) = bounds;
@@ -778,6 +1125,15 @@ fn draw_selected_annotation(
     cr.set_dash(&[6.0, 4.0], 0.0);
     rounded_rect(cr, x, y, width, height, 10.0);
     cr.stroke().ok();
+    cr.set_dash(&[], 0.0);
+    if let Some(annotation) = document.annotations.get(index) {
+        if let Annotation::Arrow { .. } = annotation {
+            draw_arrow_resize_handles(cr, layout, annotation);
+        }
+    }
+    if resizable_annotation_widget_bounds(document, layout, index).is_some() {
+        draw_resize_handles(cr, bounds);
+    }
     cr.restore().ok();
 }
 
@@ -1105,6 +1461,19 @@ fn hit_test_annotation(
     pointer_x: f64,
     pointer_y: f64,
 ) -> Option<usize> {
+    for index in (0..document.annotations.len()).rev() {
+        let Some(annotation) = document.annotations.get(index) else {
+            continue;
+        };
+        if matches!(annotation, Annotation::Text { .. })
+            && annotation_widget_bounds(document, layout, index).is_some_and(|bounds| {
+                point_in_bounds(pointer_x, pointer_y, expand_bounds(bounds, 6.0))
+            })
+        {
+            return Some(index);
+        }
+    }
+
     for index in (0..document.annotations.len()).rev() {
         if annotation_widget_bounds(document, layout, index).is_some_and(|bounds| {
             point_in_bounds(pointer_x, pointer_y, expand_bounds(bounds, 10.0))
@@ -1735,6 +2104,113 @@ fn annotation_widget_bounds(
             let height = font_size * 1.3;
             Some((draw_x - 8.0, draw_y - height, width + 16.0, height + 12.0))
         }
+    }
+}
+
+fn selection_annotation_widget_bounds(
+    document: &Document,
+    layout: CanvasLayout,
+    index: usize,
+) -> Option<(f64, f64, f64, f64)> {
+    resizable_annotation_widget_bounds(document, layout, index)
+        .or_else(|| annotation_widget_bounds(document, layout, index))
+}
+
+fn resizable_annotation_widget_bounds(
+    document: &Document,
+    layout: CanvasLayout,
+    index: usize,
+) -> Option<(f64, f64, f64, f64)> {
+    let annotation = document.annotations.get(index)?;
+    match annotation {
+        Annotation::Rect { bounds, .. }
+        | Annotation::Ellipse { bounds, .. }
+        | Annotation::Blur { bounds, .. }
+        | Annotation::Redact { bounds } => Some(annotation_rect_to_widget_bounds(layout, bounds)),
+        _ => None,
+    }
+}
+
+fn hit_resize_handle(
+    bounds: (f64, f64, f64, f64),
+    pointer_x: f64,
+    pointer_y: f64,
+) -> Option<CropInteractionMode> {
+    let (x, y, width, height) = bounds;
+    let right = x + width;
+    let bottom = y + height;
+    if near_handle(pointer_x, pointer_y, x, y) {
+        return Some(CropInteractionMode::ResizeTopLeft);
+    }
+    if near_handle(pointer_x, pointer_y, right, y) {
+        return Some(CropInteractionMode::ResizeTopRight);
+    }
+    if near_handle(pointer_x, pointer_y, x, bottom) {
+        return Some(CropInteractionMode::ResizeBottomLeft);
+    }
+    if near_handle(pointer_x, pointer_y, right, bottom) {
+        return Some(CropInteractionMode::ResizeBottomRight);
+    }
+    None
+}
+
+fn draw_resize_handles(cr: &cairo::Context, bounds: (f64, f64, f64, f64)) {
+    let (x, y, width, height) = bounds;
+    let right = x + width;
+    let bottom = y + height;
+    for (hx, hy) in [(x, y), (right, y), (x, bottom), (right, bottom)] {
+        cr.set_source_rgba(0.07, 0.10, 0.14, 0.96);
+        cr.arc(hx, hy, 6.5, 0.0, std::f64::consts::TAU);
+        cr.fill_preserve().ok();
+        cr.set_source_rgba(0.95, 0.98, 1.0, 1.0);
+        cr.set_line_width(2.0);
+        cr.stroke().ok();
+    }
+}
+
+fn draw_arrow_resize_handles(cr: &cairo::Context, layout: CanvasLayout, annotation: &Annotation) {
+    let Annotation::Arrow { from, to, .. } = annotation else {
+        return;
+    };
+    let handles = [
+        (
+            layout.image_x + from.x as f64 * layout.image_scale,
+            layout.image_y + from.y as f64 * layout.image_scale,
+        ),
+        (
+            layout.image_x + to.x as f64 * layout.image_scale,
+            layout.image_y + to.y as f64 * layout.image_scale,
+        ),
+    ];
+    for (hx, hy) in handles {
+        cr.set_source_rgba(0.07, 0.10, 0.14, 0.96);
+        cr.arc(hx, hy, 6.5, 0.0, std::f64::consts::TAU);
+        cr.fill_preserve().ok();
+        cr.set_source_rgba(0.95, 0.98, 1.0, 1.0);
+        cr.set_line_width(2.0);
+        cr.stroke().ok();
+    }
+}
+
+fn hit_arrow_resize_handle(
+    layout: CanvasLayout,
+    annotation: &Annotation,
+    pointer_x: f64,
+    pointer_y: f64,
+) -> Option<bool> {
+    let Annotation::Arrow { from, to, .. } = annotation else {
+        return None;
+    };
+    let start_x = layout.image_x + from.x as f64 * layout.image_scale;
+    let start_y = layout.image_y + from.y as f64 * layout.image_scale;
+    let end_x = layout.image_x + to.x as f64 * layout.image_scale;
+    let end_y = layout.image_y + to.y as f64 * layout.image_scale;
+    if near_handle(pointer_x, pointer_y, start_x, start_y) {
+        Some(true)
+    } else if near_handle(pointer_x, pointer_y, end_x, end_y) {
+        Some(false)
+    } else {
+        None
     }
 }
 

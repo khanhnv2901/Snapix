@@ -289,6 +289,91 @@ impl EditorState {
         })
     }
 
+    pub(crate) fn selected_text_content(&self) -> Option<String> {
+        let index = self.selected_annotation?;
+        match self.document.annotations.get(index) {
+            Some(Annotation::Text { content, .. }) => Some(content.clone()),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn update_selected_text_content(&mut self, content: String) -> bool {
+        let Some(index) = self.selected_annotation else {
+            return false;
+        };
+        let trimmed = content.trim().to_string();
+        if trimmed.is_empty() {
+            return false;
+        }
+        self.update_document(|document| {
+            let Some(annotation) = document.annotations.get_mut(index) else {
+                return;
+            };
+            if let Annotation::Text {
+                content: current, ..
+            } = annotation
+            {
+                *current = trimmed;
+            }
+        })
+    }
+
+    pub(crate) fn preview_move_annotation(
+        &mut self,
+        index: usize,
+        original: &Annotation,
+        delta_x: f32,
+        delta_y: f32,
+    ) {
+        let Some(image) = self.document.base_image.as_ref() else {
+            return;
+        };
+        let moved =
+            move_annotation_within_image(original, delta_x, delta_y, image.width, image.height);
+        if let Some(slot) = self.document.annotations.get_mut(index) {
+            *slot = moved;
+        }
+    }
+
+    pub(crate) fn preview_resize_annotation(
+        &mut self,
+        index: usize,
+        original: &Annotation,
+        x: u32,
+        y: u32,
+        width: u32,
+        height: u32,
+    ) {
+        let resized = resize_annotation_bounds(original, x, y, width, height);
+        if let Some(slot) = self.document.annotations.get_mut(index) {
+            *slot = resized;
+        }
+    }
+
+    pub(crate) fn preview_resize_arrow_endpoint(
+        &mut self,
+        index: usize,
+        original: &Annotation,
+        move_start: bool,
+        x: f32,
+        y: f32,
+    ) {
+        let resized = resize_arrow_endpoint(original, move_start, x, y);
+        if let Some(slot) = self.document.annotations.get_mut(index) {
+            *slot = resized;
+        }
+    }
+
+    pub(crate) fn finalize_annotation_move(&mut self, before: Document) -> bool {
+        if self.document_changed(&before) {
+            self.undo_stack.push(before);
+            self.redo_stack.clear();
+            true
+        } else {
+            false
+        }
+    }
+
     pub(crate) fn ensure_default_crop_selection(&mut self) {
         if self.crop_selection.is_some() || self.crop_drag.is_some() {
             return;
@@ -871,6 +956,13 @@ impl EditorWindow {
             .css_classes(["tool-delete-btn"])
             .sensitive(false)
             .build();
+        let width_label = gtk4::Label::builder()
+            .label(width_label_text(&state.borrow()))
+            .margin_start(12)
+            .margin_end(2)
+            .css_classes(["dim-copy"])
+            .valign(gtk4::Align::Center)
+            .build();
 
         let toast_overlay = ToastOverlay::new();
 
@@ -880,12 +972,23 @@ impl EditorWindow {
             state.clone(),
             subtitle_label.clone(),
             scope_label.clone(),
+            width_label.clone(),
             undo_button.clone(),
             redo_button.clone(),
             toast_overlay.clone(),
             delete_button.clone(),
         );
         let canvas_widget = canvas.widget().clone();
+        let tool_row = build_tool_row(
+            state.clone(),
+            canvas.clone(),
+            &title_label,
+            &scope_label,
+            &width_label,
+            &undo_button,
+            &redo_button,
+            &delete_button,
+        );
 
         let inspector = build_inspector(
             state.clone(),
@@ -893,15 +996,6 @@ impl EditorWindow {
             &subtitle_label,
             &undo_button,
             &redo_button,
-        );
-        let tool_row = build_tool_row(
-            state.clone(),
-            canvas.clone(),
-            &title_label,
-            &scope_label,
-            &undo_button,
-            &redo_button,
-            &delete_button,
         );
         let capture_row = build_capture_row();
         let canvas_panel = build_canvas_panel(canvas_widget);
@@ -1204,6 +1298,10 @@ fn refresh_export_actions(state: &EditorState, bottom_bar: &BottomBar) {
 
 pub(crate) fn refresh_tool_actions(state: &EditorState, delete_button: &gtk4::Button) {
     delete_button.set_sensitive(state.selected_annotation().is_some());
+}
+
+pub(crate) fn refresh_width_label(state: &EditorState, width_label: &gtk4::Label) {
+    width_label.set_label(width_label_text(state));
 }
 
 // ─── Capture actions ──────────────────────────────────────────────────────────
@@ -1819,6 +1917,7 @@ fn build_tool_row(
     canvas: DocumentCanvas,
     title_label: &gtk4::Label,
     scope_label: &gtk4::Label,
+    width_label: &gtk4::Label,
     undo_button: &gtk4::Button,
     redo_button: &gtk4::Button,
     delete_button: &gtk4::Button,
@@ -1837,6 +1936,8 @@ fn build_tool_row(
         .valign(gtk4::Align::Center)
         .build();
     card.add_css_class("tool-row-card");
+
+    let width_label = width_label.clone();
 
     // ── Tool toggle buttons ──────────────────────────────────────────────────
     let mut tool_buttons: Vec<(ToolKind, gtk4::ToggleButton)> = Vec::new();
@@ -1866,6 +1967,7 @@ fn build_tool_row(
         let canvas = canvas.clone();
         let title_label = title_label.clone();
         let scope_label = scope_label.clone();
+        let width_label = width_label.clone();
         let all = btn_refs.clone();
         let tool = *tool;
         btn.connect_clicked(move |_| {
@@ -1873,6 +1975,7 @@ fn build_tool_row(
             state.set_active_tool(tool);
             title_label.set_label(&format!("Editor • {}", tool.label()));
             refresh_scope_label(&state, &scope_label);
+            refresh_width_label(&state, &width_label);
             for (bt, b) in &all {
                 b.set_active(*bt == state.active_tool());
             }
@@ -1969,14 +2072,6 @@ fn build_tool_row(
 
     // ── Width selector ───────────────────────────────────────────────────────
     let init_width = state.borrow().active_width();
-
-    let width_label = gtk4::Label::builder()
-        .label("Width:")
-        .margin_start(12)
-        .margin_end(2)
-        .css_classes(["dim-copy"])
-        .valign(gtk4::Align::Center)
-        .build();
     card.append(&width_label);
 
     let width_scale = gtk4::Scale::with_range(gtk4::Orientation::Horizontal, 1.0, 30.0, 1.0);
@@ -1989,10 +2084,12 @@ fn build_tool_row(
     let canvas_w = canvas.clone();
     let undo_w = undo_button.clone();
     let redo_w = redo_button.clone();
+    let width_label_ref = width_label.clone();
     width_scale.connect_value_changed(move |scale| {
         let val = scale.value() as f32;
         let mut s = state_w.borrow_mut();
         s.set_active_width(val);
+        refresh_width_label(&s, &width_label_ref);
         if s.apply_active_width_to_selected() {
             refresh_history_buttons(&s, &undo_w, &redo_w);
         }
@@ -2010,12 +2107,14 @@ fn build_tool_row(
         let scope_label = scope_label.clone();
         let undo_button = undo_button.clone();
         let redo_button = redo_button.clone();
+        let width_label = width_label.clone();
         let delete_btn_ref = delete_button.clone();
         delete_button.connect_clicked(move |_| {
             let mut s = state.borrow_mut();
             if s.delete_selected_annotation() {
                 refresh_scope_label(&s, &scope_label);
                 refresh_history_buttons(&s, &undo_button, &redo_button);
+                refresh_width_label(&s, &width_label);
                 delete_btn_ref.set_sensitive(false);
                 title_label.set_label(&format!("Editor • {}", s.active_tool().label()));
                 canvas.refresh();
@@ -3044,6 +3143,17 @@ fn nearest_shadow_direction_index(offset_x: f32, offset_y: f32) -> usize {
         .unwrap_or(4)
 }
 
+fn width_label_text(state: &EditorState) -> &'static str {
+    match state
+        .selected_annotation()
+        .and_then(|index| state.document().annotations.get(index))
+    {
+        Some(Annotation::Text { .. }) => "Size:",
+        _ if state.active_tool() == ToolKind::Text => "Size:",
+        _ => "Width:",
+    }
+}
+
 fn scope_text(state: &EditorState) -> String {
     match state.active_tool() {
         ToolKind::Select => match state.selected_annotation() {
@@ -3200,6 +3310,16 @@ mod tests {
         assert!(state.delete_selected_annotation());
         assert!(state.document().annotations.is_empty());
         assert_eq!(state.selected_annotation(), None);
+    }
+
+    #[test]
+    fn selected_text_annotation_can_be_edited() {
+        let mut state = EditorState::with_document(Document::new(sample_image()));
+        assert!(state.add_text_annotation(24.0, 42.0, "Old".into()));
+        assert_eq!(state.selected_text_content().as_deref(), Some("Old"));
+
+        assert!(state.update_selected_text_content("New value".into()));
+        assert_eq!(state.selected_text_content().as_deref(), Some("New value"));
     }
 
     #[test]
@@ -3381,4 +3501,148 @@ fn same_color(l: &Color, r: &Color) -> bool {
 
 fn same_color_rgb(r: u8, g: u8, b: u8, color: &Color) -> bool {
     color.r == r && color.g == g && color.b == b
+}
+
+fn move_annotation_within_image(
+    annotation: &Annotation,
+    delta_x: f32,
+    delta_y: f32,
+    image_width: u32,
+    image_height: u32,
+) -> Annotation {
+    let max_x = image_width.saturating_sub(1) as f32;
+    let max_y = image_height.saturating_sub(1) as f32;
+
+    match annotation {
+        Annotation::Arrow {
+            from,
+            to,
+            color,
+            width,
+        } => Annotation::Arrow {
+            from: Point {
+                x: (from.x + delta_x).clamp(0.0, max_x),
+                y: (from.y + delta_y).clamp(0.0, max_y),
+            },
+            to: Point {
+                x: (to.x + delta_x).clamp(0.0, max_x),
+                y: (to.y + delta_y).clamp(0.0, max_y),
+            },
+            color: color.clone(),
+            width: *width,
+        },
+        Annotation::Rect {
+            bounds,
+            stroke,
+            fill,
+        } => Annotation::Rect {
+            bounds: move_rect_within_image(bounds, delta_x, delta_y, image_width, image_height),
+            stroke: stroke.clone(),
+            fill: fill.clone(),
+        },
+        Annotation::Ellipse {
+            bounds,
+            stroke,
+            fill,
+        } => Annotation::Ellipse {
+            bounds: move_rect_within_image(bounds, delta_x, delta_y, image_width, image_height),
+            stroke: stroke.clone(),
+            fill: fill.clone(),
+        },
+        Annotation::Blur { bounds, radius } => Annotation::Blur {
+            bounds: move_rect_within_image(bounds, delta_x, delta_y, image_width, image_height),
+            radius: *radius,
+        },
+        Annotation::Redact { bounds } => Annotation::Redact {
+            bounds: move_rect_within_image(bounds, delta_x, delta_y, image_width, image_height),
+        },
+        Annotation::Text {
+            pos,
+            content,
+            style,
+        } => Annotation::Text {
+            pos: Point {
+                x: (pos.x + delta_x).clamp(0.0, max_x),
+                y: (pos.y + delta_y).clamp(0.0, max_y),
+            },
+            content: content.clone(),
+            style: style.clone(),
+        },
+    }
+}
+
+fn resize_annotation_bounds(
+    annotation: &Annotation,
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+) -> Annotation {
+    let bounds = Rect {
+        x: x as f32,
+        y: y as f32,
+        width: width as f32,
+        height: height as f32,
+    };
+
+    match annotation {
+        Annotation::Rect { stroke, fill, .. } => Annotation::Rect {
+            bounds,
+            stroke: stroke.clone(),
+            fill: fill.clone(),
+        },
+        Annotation::Ellipse { stroke, fill, .. } => Annotation::Ellipse {
+            bounds,
+            stroke: stroke.clone(),
+            fill: fill.clone(),
+        },
+        Annotation::Blur { radius, .. } => Annotation::Blur {
+            bounds,
+            radius: *radius,
+        },
+        Annotation::Redact { .. } => Annotation::Redact { bounds },
+        _ => annotation.clone(),
+    }
+}
+
+fn resize_arrow_endpoint(annotation: &Annotation, move_start: bool, x: f32, y: f32) -> Annotation {
+    match annotation {
+        Annotation::Arrow {
+            from,
+            to,
+            color,
+            width,
+        } => Annotation::Arrow {
+            from: if move_start {
+                Point { x, y }
+            } else {
+                from.clone()
+            },
+            to: if move_start {
+                to.clone()
+            } else {
+                Point { x, y }
+            },
+            color: color.clone(),
+            width: *width,
+        },
+        _ => annotation.clone(),
+    }
+}
+
+fn move_rect_within_image(
+    bounds: &Rect,
+    delta_x: f32,
+    delta_y: f32,
+    image_width: u32,
+    image_height: u32,
+) -> Rect {
+    let max_x = (image_width as f32 - bounds.width).max(0.0);
+    let max_y = (image_height as f32 - bounds.height).max(0.0);
+    Rect {
+        x: (bounds.x + delta_x).clamp(0.0, max_x),
+        y: (bounds.y + delta_y).clamp(0.0, max_y),
+        width: bounds.width,
+        height: bounds.height,
+    }
 }

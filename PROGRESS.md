@@ -63,16 +63,16 @@ snapix capture --mode full -o test.png
 | GTK4 editor window với `DrawingArea` | ✅ Done | `EditorWindow` + `DocumentCanvas` are live in `snapix-ui` |
 | Canvas render pipeline | ✅ Done | Cairo-based preview/export pipeline renders background, frame, image, crop overlay, arrow, rectangle, ellipse, blur, and text annotations; PNG/JPEG export and clipboard copy use the same composition and layout rules as the preview |
 | Tool: Crop | ⚠️ Partial | Usable non-destructive crop with default selection, move/resize handles, `Enter` apply, `Esc` exit, and toast feedback; final image-bound polish is still open |
-| Tool: Arrow | ✅ Done | Drag on the image to place an arrow; preview, save/copy, and undo/redo are wired |
+| Tool: Arrow | ✅ Done | Drag on the image to place an arrow; preview, save/copy, undo/redo, and endpoint resize in Select mode are wired |
 | Tool: Rectangle | ✅ Done | Drag on the image to draw a rectangle annotation with color/width controls |
 | Tool: Ellipse | ✅ Done | Drag on the image to draw an ellipse annotation with color/width controls |
-| Tool: Text | ✅ Done | Click on the image, enter text in a dialog, and commit a text annotation to the canvas |
+| Tool: Text | ✅ Done | Click on the image, enter text in a dialog, commit a text annotation, and re-edit selected text via dialog in Select mode |
 | Tool: Blur | ✅ Done | Drag on the image to create a blur region annotation |
 | Export PNG/JPEG + copy clipboard | ✅ Done | `Save`, `Save As`, and `Copy` all use the same rendered canvas output |
-| Undo/Redo stack | ✅ Done | Snapshot-based history is wired for crop, frame/background changes, arrow, and text |
+| Undo/Redo stack | ✅ Done | Snapshot-based history is wired for crop, frame/background changes, annotation placement, text edit, move, and resize |
 | Capture/import action row | ⚠️ Partial | Top-row `Fullscreen / Region / Import / Clear` actions are wired; Wayland fullscreen now falls back to interactive region capture, but true fullscreen/window distinction still depends on portal behavior |
 | Editor feedback polish | ✅ Done | Toasts now cover capture, import, copy, save, crop apply, and annotation placement; export actions disable when no image is loaded |
-| Annotation selection/editing | ⚠️ Partial | Existing annotations can now be selected, highlighted, recolored, resized via toolbar width, and deleted via toolbar or `Backspace/Delete`; direct drag-to-move/resize editing is still open |
+| Annotation selection/editing | ⚠️ Partial | Existing annotations can now be selected, highlighted, recolored, moved by drag, deleted via toolbar or `Backspace/Delete`, re-edited for text, resized via drag handles for rectangle/ellipse/blur, and resized by endpoints for arrows; some editor behaviors and consistency polish are still open |
 | Settings panel resizing | ✅ Done | Main workspace uses a draggable split view so the inspector can be widened or narrowed without breaking the editor |
 | Shadow controls | ✅ Done | Inspector supports shadow direction, shadow padding, blur, and strength; `0px` padding keeps the shadow attached to the image and directional padding now respects the chosen side |
 
@@ -88,8 +88,9 @@ snapix capture --mode full -o test.png
 - Preview canvas layout is now aligned more closely with export/copy output so padding, aspect ratio, and shadow composition stay consistent.
 - Crop supports default selection, move/resize handles, `Enter` apply, and `Esc` exit back to Select mode.
 - Arrow, rectangle, ellipse, and blur support drag placement with toast feedback when placement succeeds or is too small.
-- Text supports click-to-place plus dialog input, and the empty state now guides the user toward capture/import first.
-- Select mode can highlight existing annotations, apply color/width changes, and delete the current selection from either the toolbar or the keyboard.
+- Text supports click-to-place plus dialog input, re-editing through Select mode, and the empty state now guides the user toward capture/import first.
+- Select mode can highlight existing annotations, apply color/width changes, move annotations by drag, resize rectangle/ellipse/blur with corner handles, resize arrows via endpoint handles, and delete the current selection from either the toolbar or the keyboard.
+- The top toolbar now switches its slider label between `Width` and `Size` depending on the current tool or selected annotation type.
 - Undo/redo is working via whole-document snapshots.
 - The remaining M2 risk area is capture UX on Wayland portals, where true fullscreen/window semantics are still inconsistent.
 
