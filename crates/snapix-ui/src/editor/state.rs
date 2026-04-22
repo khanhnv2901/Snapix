@@ -574,6 +574,23 @@ impl EditorState {
         changed
     }
 
+    pub(crate) fn recenter_image_reframe(&mut self) -> bool {
+        if self.document.base_image.is_none() {
+            return false;
+        }
+        let changed = self.update_document(|document| {
+            document.image_scale_mode = snapix_core::canvas::ImageScaleMode::Fill;
+            document.image_anchor = snapix_core::canvas::ImageAnchor::Center;
+            document.image_zoom = 1.0;
+            document.image_offset_x = 0.0;
+            document.image_offset_y = 0.0;
+        });
+        if changed {
+            self.reframing_image = true;
+        }
+        changed
+    }
+
     pub(crate) fn preview_pan_image(&mut self, before: &Document, offset_x: f64, offset_y: f64) {
         let Some(image) = before.base_image.as_ref() else {
             return;
@@ -589,13 +606,23 @@ impl EditorState {
     }
 
     pub(crate) fn preview_zoom_image(&mut self, before: &Document, scale_delta: f64) {
-        if before.base_image.is_none() {
-            return;
-        }
-        self.document = before.clone();
-        self.document.image_scale_mode = snapix_core::canvas::ImageScaleMode::Fill;
-        let current = before.image_zoom.max(1.0);
-        self.document.image_zoom = (current * scale_delta as f32).clamp(1.0, 6.0);
+        self.preview_zoom_image_at(before, scale_delta, 0.5, 0.5);
+    }
+
+    pub(crate) fn preview_zoom_image_at(
+        &mut self,
+        before: &Document,
+        scale_delta: f64,
+        focus_ratio_x: f64,
+        focus_ratio_y: f64,
+    ) {
+        apply_zoom_with_focus(
+            &mut self.document,
+            before,
+            scale_delta,
+            focus_ratio_x,
+            focus_ratio_y,
+        );
     }
 
     pub(crate) fn finalize_image_reframe(&mut self, before: Document) -> bool {
@@ -609,21 +636,40 @@ impl EditorState {
     }
 
     pub(crate) fn zoom_reframed_image(&mut self, direction: f64) -> bool {
+        self.zoom_reframed_image_at(direction, 0.5, 0.5)
+    }
+
+    pub(crate) fn zoom_reframed_image_at(
+        &mut self,
+        direction: f64,
+        focus_ratio_x: f64,
+        focus_ratio_y: f64,
+    ) -> bool {
         if self.document.base_image.is_none() {
             return false;
         }
-        self.update_document(|document| {
-            document.image_scale_mode = snapix_core::canvas::ImageScaleMode::Fill;
-            let current = document.image_zoom.max(1.0);
-            let next = if direction < 0.0 {
-                current * 1.12
-            } else if direction > 0.0 {
-                current / 1.12
-            } else {
-                current
-            };
-            document.image_zoom = next.clamp(1.0, 6.0);
-        })
+        let scale_delta = if direction < 0.0 {
+            1.12
+        } else if direction > 0.0 {
+            1.0 / 1.12
+        } else {
+            1.0
+        };
+        let before = self.document.clone();
+        apply_zoom_with_focus(
+            &mut self.document,
+            &before,
+            scale_delta,
+            focus_ratio_x,
+            focus_ratio_y,
+        );
+        if self.document_changed(&before) {
+            self.undo_stack.push(before);
+            self.redo_stack.clear();
+            true
+        } else {
+            false
+        }
     }
 
     pub(crate) fn update_document<F>(&mut self, update: F) -> bool
@@ -1111,4 +1157,45 @@ fn same_optional_image(current: Option<&Image>, previous: Option<&Image>) -> boo
         (None, None) => true,
         _ => false,
     }
+}
+
+fn apply_zoom_with_focus(
+    document: &mut Document,
+    before: &Document,
+    scale_delta: f64,
+    focus_ratio_x: f64,
+    focus_ratio_y: f64,
+) {
+    let Some(image) = before.base_image.as_ref() else {
+        return;
+    };
+
+    *document = before.clone();
+    document.image_scale_mode = snapix_core::canvas::ImageScaleMode::Fill;
+    let bounds = natural_image_bounds(document);
+    let focus_x = bounds.0 + bounds.2 * focus_ratio_x.clamp(0.0, 1.0);
+    let focus_y = bounds.1 + bounds.3 * focus_ratio_y.clamp(0.0, 1.0);
+
+    let Some(before_layout) = layout_for_document(image, bounds, document) else {
+        return;
+    };
+
+    let image_x = ((focus_x - before_layout.image_x) / before_layout.image_scale)
+        .clamp(0.0, image.width.saturating_sub(1) as f64);
+    let image_y = ((focus_y - before_layout.image_y) / before_layout.image_scale)
+        .clamp(0.0, image.height.saturating_sub(1) as f64);
+
+    let current = before.image_zoom.max(1.0);
+    document.image_zoom = (current * scale_delta as f32).clamp(1.0, 6.0);
+
+    let Some(after_layout) = layout_for_document(image, bounds, document) else {
+        return;
+    };
+
+    document.image_offset_x += ((focus_x
+        - (after_layout.image_x + image_x * after_layout.image_scale))
+        / after_layout.image_scale) as f32;
+    document.image_offset_y += ((focus_y
+        - (after_layout.image_y + image_y * after_layout.image_scale))
+        / after_layout.image_scale) as f32;
 }

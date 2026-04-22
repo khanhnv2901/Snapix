@@ -273,6 +273,7 @@ fn connect_crop_shortcuts(
         match key {
             gtk4::gdk::Key::Escape if state.is_reframing_image() => {
                 state.exit_image_reframe_mode();
+                canvas.widget().set_cursor_from_name(None);
                 refresh_labels(&state, &title_label, &subtitle_label);
                 refresh_scope_label(&state, &scope_label);
                 refresh_history_buttons(&state, &undo_button, &redo_button);

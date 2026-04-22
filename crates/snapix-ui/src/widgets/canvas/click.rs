@@ -9,6 +9,7 @@ use crate::editor::{
 };
 
 use super::dialog::present_text_dialog;
+use super::reframe::ReframePresentation;
 use super::CanvasUi;
 use crate::widgets::geometry::{
     hit_test_annotation, preview_canvas_layout, widget_point_to_image_pixel,
@@ -18,6 +19,7 @@ pub(super) fn attach_click_controller(
     drawing_area: &gtk4::DrawingArea,
     state: Rc<RefCell<EditorState>>,
     ui: CanvasUi,
+    reframe: ReframePresentation,
 ) {
     let click = gtk4::GestureClick::new();
     click.set_button(gtk4::gdk::BUTTON_PRIMARY);
@@ -25,6 +27,7 @@ pub(super) fn attach_click_controller(
         let state = state.clone();
         let drawing_area = drawing_area.clone();
         let ui = ui.clone();
+        let reframe = reframe.clone();
         click.connect_pressed(move |_gesture, n_press, x, y| {
             let width = drawing_area.allocated_width();
             let height = drawing_area.allocated_height();
@@ -39,12 +42,24 @@ pub(super) fn attach_click_controller(
                     drawing_area.queue_draw();
                     return;
                 };
+                let clicked_image = widget_point_to_image_pixel(state_ref.document(), layout, x, y);
                 let selected = hit_test_annotation(state_ref.document(), layout, x, y);
                 state_ref.set_selected_annotation(selected);
                 if state_ref.is_reframing_image() && n_press == 2 && selected.is_none() {
-                    state_ref.exit_image_reframe_mode();
-                    refresh_scope_label(&state_ref, &ui.scope_label);
-                    drawing_area.queue_draw();
+                    if clicked_image.is_some() {
+                        if state_ref.recenter_image_reframe() {
+                            refresh_scope_label(&state_ref, &ui.scope_label);
+                            crate::editor::refresh_subtitle(&state_ref, &ui.subtitle_label);
+                            refresh_history_buttons(&state_ref, &ui.undo_button, &ui.redo_button);
+                            drawing_area.queue_draw();
+                            show_toast(&ui.toast_overlay, "Image view reset");
+                        }
+                    } else {
+                        state_ref.exit_image_reframe_mode();
+                        reframe.deactivate(&drawing_area);
+                        refresh_scope_label(&state_ref, &ui.scope_label);
+                        drawing_area.queue_draw();
+                    }
                     return;
                 }
                 if selected.is_some() {
@@ -56,9 +71,8 @@ pub(super) fn attach_click_controller(
                 } else {
                     None
                 };
-                let should_enter_reframe = n_press == 2
-                    && selected.is_none()
-                    && widget_point_to_image_pixel(state_ref.document(), layout, x, y).is_some();
+                let should_enter_reframe =
+                    n_press == 2 && selected.is_none() && clicked_image.is_some();
                 refresh_scope_label(&state_ref, &ui.scope_label);
                 refresh_width_label(&state_ref, &ui.width_label);
                 refresh_tool_actions(&state_ref, &ui.delete_button);
@@ -66,6 +80,7 @@ pub(super) fn attach_click_controller(
                 if should_enter_reframe {
                     state_ref.enter_image_reframe_mode();
                     drawing_area.grab_focus();
+                    reframe.activate(&drawing_area);
                     refresh_scope_label(&state_ref, &ui.scope_label);
                     crate::editor::refresh_subtitle(&state_ref, &ui.subtitle_label);
                     drawing_area.queue_draw();

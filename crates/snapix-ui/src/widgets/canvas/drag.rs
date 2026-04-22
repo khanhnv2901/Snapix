@@ -18,12 +18,14 @@ use crate::widgets::{
     ANNOTATION_MOVE_THRESHOLD,
 };
 
+use super::reframe::ReframePresentation;
 use super::CanvasUi;
 
 pub(super) fn attach_drag_controller(
     drawing_area: &gtk4::DrawingArea,
     state: Rc<RefCell<EditorState>>,
     ui: CanvasUi,
+    reframe: ReframePresentation,
 ) {
     let crop_interaction = Rc::new(RefCell::new(None::<CropInteractionSession>));
     let annotation_move = Rc::new(RefCell::new(None::<AnnotationMoveSession>));
@@ -42,6 +44,7 @@ pub(super) fn attach_drag_controller(
         annotation_resize.clone(),
         arrow_resize.clone(),
         image_reframe.clone(),
+        reframe.clone(),
     );
     connect_drag_update(
         &drag,
@@ -52,6 +55,7 @@ pub(super) fn attach_drag_controller(
         annotation_resize.clone(),
         arrow_resize.clone(),
         image_reframe.clone(),
+        reframe.clone(),
     );
     connect_drag_end(
         &drag,
@@ -63,6 +67,7 @@ pub(super) fn attach_drag_controller(
         annotation_resize,
         arrow_resize,
         image_reframe,
+        reframe,
     );
 
     drawing_area.add_controller(drag);
@@ -78,6 +83,7 @@ fn connect_drag_begin(
     annotation_resize: Rc<RefCell<Option<AnnotationResizeSession>>>,
     arrow_resize: Rc<RefCell<Option<ArrowResizeSession>>>,
     image_reframe: Rc<RefCell<Option<snapix_core::canvas::Document>>>,
+    reframe: ReframePresentation,
 ) {
     let drawing_area = drawing_area.clone();
     drag.connect_drag_begin(move |_gesture, x, y| {
@@ -91,6 +97,7 @@ fn connect_drag_begin(
             };
             if state.is_reframing_image() && point_in_layout(x, y, layout) {
                 *image_reframe.borrow_mut() = Some(state.document().clone());
+                reframe.begin_drag(&drawing_area);
                 drawing_area.grab_focus();
                 drawing_area.queue_draw();
                 return;
@@ -218,6 +225,7 @@ fn connect_drag_update(
     annotation_resize: Rc<RefCell<Option<AnnotationResizeSession>>>,
     arrow_resize: Rc<RefCell<Option<ArrowResizeSession>>>,
     image_reframe: Rc<RefCell<Option<snapix_core::canvas::Document>>>,
+    _reframe: ReframePresentation,
 ) {
     let drawing_area = drawing_area.clone();
     drag.connect_drag_update(move |_gesture, offset_x, offset_y| {
@@ -373,6 +381,7 @@ fn connect_drag_end(
     annotation_resize: Rc<RefCell<Option<AnnotationResizeSession>>>,
     arrow_resize: Rc<RefCell<Option<ArrowResizeSession>>>,
     image_reframe: Rc<RefCell<Option<snapix_core::canvas::Document>>>,
+    reframe: ReframePresentation,
 ) {
     let drawing_area = drawing_area.clone();
     drag.connect_drag_end(move |_gesture, offset_x, offset_y| {
@@ -383,6 +392,7 @@ fn connect_drag_end(
         if let Some(before_document) = image_reframe.borrow_mut().take() {
             state.preview_pan_image(&before_document, offset_x, offset_y);
             state.finalize_image_reframe(before_document);
+            reframe.end_drag(&drawing_area, &state);
             refresh_scope_label(&state, &ui.scope_label);
             refresh_history_buttons(&state, &ui.undo_button, &ui.redo_button);
             refresh_tool_actions(&state, &ui.delete_button);

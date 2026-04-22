@@ -32,11 +32,11 @@
 ## 2. Feature Scope
 
 ### MVP (v0.1)
-- [ ] Chụp fullscreen / region / active window
+- [x] Chụp fullscreen / region / active window
 - [ ] Hotkey toàn cục
-- [ ] Editor: crop, arrow, rectangle, ellipse, text, blur region, chọn/xóa annotation
-- [ ] Beautify: gradient/solid BG, padding, corner radius, shadow direction/padding/blur/strength
-- [ ] Export PNG/JPG, copy clipboard
+- [x] Editor: crop, arrow, rectangle, ellipse, text, blur region, chọn/xóa annotation
+- [x] Beautify: gradient/solid BG, padding, corner radius, shadow direction/padding/blur/strength
+- [x] Export PNG/JPG, copy clipboard
 - [ ] Support X11 + Wayland (GNOME, KDE)
 
 ### v0.2
@@ -49,7 +49,7 @@
 - [ ] Scrolling screenshot — **Pro**
 - [ ] Screen recording → GIF/MP4 (qua `gstreamer`) — **Pro**
 - [ ] OCR "copy text from image" — **Pro**
-- [ ] Template/preset cho BG
+- [x] Template/preset cho BG
 
 ### Out of scope (không làm)
 - Cloud sync, account system, team features → giữ local-first

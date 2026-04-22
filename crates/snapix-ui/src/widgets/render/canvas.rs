@@ -14,6 +14,7 @@ use super::annotations::{
     draw_annotations, draw_arrow, draw_blur_preview, draw_ellipse_preview, draw_rect_preview,
     BlurSurfaceCache,
 };
+use super::reframe::draw_reframe_overlay;
 
 pub(super) fn draw_canvas(
     cr: &cairo::Context,
@@ -153,12 +154,13 @@ pub(crate) fn draw_editor_canvas(
     width: i32,
     height: i32,
     state: &EditorState,
+    overlay_opacity: f64,
     blur_cache: &mut BlurSurfaceCache,
 ) {
     draw_canvas(cr, width, height, state.document(), blur_cache);
-    if state.is_reframing_image() {
+    if overlay_opacity > 0.01 {
         if let Some(layout) = preview_canvas_layout(state.document(), width, height) {
-            draw_image_reframe_overlay(cr, layout);
+            draw_reframe_overlay(cr, layout, overlay_opacity, state.document().image_zoom);
         }
     }
     if let Some(layout) = preview_canvas_layout(state.document(), width, height) {
@@ -212,50 +214,6 @@ pub(crate) fn draw_editor_canvas(
             }
         }
     }
-}
-
-fn draw_image_reframe_overlay(cr: &cairo::Context, layout: CanvasLayout) {
-    let x = layout.viewport_x;
-    let y = layout.viewport_y;
-    let width = layout.viewport_width;
-    let height = layout.viewport_height;
-    let radius = 18.0;
-
-    cr.save().ok();
-    rounded_rect(cr, x, y, width, height, radius);
-    cr.clip();
-    cr.set_source_rgba(1.0, 1.0, 1.0, 0.05);
-    cr.paint().ok();
-
-    cr.set_line_width(1.0);
-    cr.set_source_rgba(1.0, 1.0, 1.0, 0.22);
-    for fraction in [1.0 / 3.0, 2.0 / 3.0] {
-        let grid_x = x + width * fraction;
-        let grid_y = y + height * fraction;
-        cr.move_to(grid_x, y);
-        cr.line_to(grid_x, y + height);
-        cr.move_to(x, grid_y);
-        cr.line_to(x + width, grid_y);
-    }
-    cr.stroke().ok();
-    cr.restore().ok();
-
-    cr.set_source_rgba(0.55, 0.80, 1.0, 0.95);
-    cr.set_line_width(2.0);
-    cr.set_dash(&[8.0, 6.0], 0.0);
-    rounded_rect(cr, x, y, width, height, radius);
-    cr.stroke().ok();
-    cr.set_dash(&[], 0.0);
-
-    cr.set_source_rgba(0.04, 0.07, 0.11, 0.84);
-    rounded_rect(cr, x + 14.0, y + 14.0, 220.0, 30.0, 14.0);
-    cr.fill().ok();
-
-    cr.set_source_rgba(0.94, 0.98, 1.0, 0.98);
-    cr.select_font_face("Sans", cairo::FontSlant::Normal, cairo::FontWeight::Bold);
-    cr.set_font_size(13.0);
-    cr.move_to(x + 24.0, y + 34.0);
-    let _ = cr.show_text("Reframe: drag to pan, scroll to zoom");
 }
 
 fn draw_selected_annotation(

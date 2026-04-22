@@ -1,6 +1,7 @@
 mod click;
 mod dialog;
 mod drag;
+mod reframe;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -8,10 +9,10 @@ use std::rc::Rc;
 use gtk4::glib;
 use gtk4::prelude::*;
 use libadwaita::ToastOverlay;
-use snapix_core::canvas::Document;
 
 use crate::editor::{EditorState, ToolKind};
 
+use self::reframe::attach_reframe_support;
 use super::geometry::{draw_crop_mode_canvas, draw_crop_overlay};
 use super::render::{draw_editor_canvas, BlurSurfaceCache};
 
@@ -81,8 +82,8 @@ impl DocumentCanvas {
         });
 
         let draw_state = state.clone();
-        let scroll_state = state.clone();
-        let zoom_state = state.clone();
+        let reframe = attach_reframe_support(&drawing_area, state.clone());
+        let draw_reframe = reframe.clone();
         let draw_blur_cache = blur_surface_cache.clone();
         drawing_area.set_draw_func(move |_area, cr, width, height| {
             let state = draw_state.borrow();
@@ -90,14 +91,19 @@ impl DocumentCanvas {
                 draw_crop_mode_canvas(cr, width, height, state.document());
                 draw_crop_overlay(cr, &state, width, height);
             } else {
-                draw_editor_canvas(cr, width, height, &state, &mut draw_blur_cache.borrow_mut());
+                draw_editor_canvas(
+                    cr,
+                    width,
+                    height,
+                    &state,
+                    draw_reframe.overlay_opacity(),
+                    &mut draw_blur_cache.borrow_mut(),
+                );
             }
         });
 
-        drag::attach_drag_controller(&drawing_area, state.clone(), ui.clone());
-        click::attach_click_controller(&drawing_area, state, ui);
-        attach_scroll_controller(&drawing_area, scroll_state);
-        attach_zoom_gesture(&drawing_area, zoom_state);
+        drag::attach_drag_controller(&drawing_area, state.clone(), ui.clone(), reframe.clone());
+        click::attach_click_controller(&drawing_area, state, ui, reframe);
 
         Self { drawing_area }
     }
@@ -109,76 +115,4 @@ impl DocumentCanvas {
     pub fn refresh(&self) {
         self.drawing_area.queue_draw();
     }
-}
-
-fn attach_scroll_controller(drawing_area: &gtk4::DrawingArea, state: Rc<RefCell<EditorState>>) {
-    let scroll = gtk4::EventControllerScroll::new(
-        gtk4::EventControllerScrollFlags::VERTICAL
-            | gtk4::EventControllerScrollFlags::DISCRETE
-            | gtk4::EventControllerScrollFlags::KINETIC,
-    );
-    let draw_target = drawing_area.clone();
-    scroll.connect_scroll(move |_controller, _dx, dy| {
-        let mut state = state.borrow_mut();
-        if !state.is_reframing_image() {
-            return glib::Propagation::Proceed;
-        }
-
-        if state.zoom_reframed_image(dy) {
-            draw_target.queue_draw();
-        }
-        glib::Propagation::Stop
-    });
-    drawing_area.add_controller(scroll);
-}
-
-fn attach_zoom_gesture(drawing_area: &gtk4::DrawingArea, state: Rc<RefCell<EditorState>>) {
-    let zoom = gtk4::GestureZoom::new();
-    let before_document = Rc::new(RefCell::new(None::<Document>));
-
-    {
-        let state = state.clone();
-        let before_document = before_document.clone();
-        zoom.connect_begin(move |_gesture, _sequence| {
-            let state = state.borrow();
-            if !state.is_reframing_image() {
-                return;
-            }
-            *before_document.borrow_mut() = Some(state.document().clone());
-        });
-    }
-
-    {
-        let state = state.clone();
-        let drawing_area = drawing_area.clone();
-        let before_document = before_document.clone();
-        zoom.connect_scale_changed(move |_gesture, scale| {
-            let Some(before) = before_document.borrow().clone() else {
-                return;
-            };
-            let mut state = state.borrow_mut();
-            if !state.is_reframing_image() {
-                return;
-            }
-            state.preview_zoom_image(&before, scale);
-            drawing_area.queue_draw();
-        });
-    }
-
-    {
-        let state = state.clone();
-        let drawing_area = drawing_area.clone();
-        zoom.connect_end(move |_gesture, _sequence| {
-            let Some(before) = before_document.borrow_mut().take() else {
-                return;
-            };
-            let mut state = state.borrow_mut();
-            if state.is_reframing_image() {
-                state.finalize_image_reframe(before);
-                drawing_area.queue_draw();
-            }
-        });
-    }
-
-    drawing_area.add_controller(zoom);
 }

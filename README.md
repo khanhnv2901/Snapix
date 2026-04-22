@@ -20,13 +20,13 @@
 |-----------|--------|
 | M0 — Foundation (workspace, X11/Wayland capture, entitlements) | ✅ Complete |
 | M1 — Wayland Polish (Flatpak, portal UX) | ⚠️ Mostly complete, QA pending |
-| M2 — Editor MVP | 🚧 In progress |
-| M3 — Beautify | ⏳ Planned |
+| M2 — Editor MVP | ✅ Complete |
+| M3 — Beautify | ✅ Complete |
 | M4 — v0.1 release on Flathub | ⏳ Planned |
 
 See [PROGRESS.md](PROGRESS.md) for detailed progress tracking.
 
-Current M2 progress includes a live GTK4 editor shell, startup capture wired into the editor, a redesigned workspace UI, `DrawingArea` canvas rendering, padding/corner-radius/shadow/background controls, PNG/JPEG export, clipboard copy, undo/redo, usable crop, arrow, rectangle, ellipse, text, and blur tools, plus top-row actions for fullscreen/region capture, import, and clear. Recent polish added clearer empty-state guidance, toast feedback for capture/export/annotation actions, selection for existing annotations, keyboard deletion with `Backspace`/`Delete`, a resizable settings panel, direction-aware shadow controls with shadow padding, and a unified preview/export composition so the canvas matches `Copy`/`Save` output more closely. Annotation editing now supports select, move, resize for rectangle/ellipse/blur, endpoint resize for arrows, text re-editing, and context-sensitive toolbar labeling (`Width` vs `Size`) when switching between shape and text selections. The main open M2 gaps are final crop polish, broader annotation editing consistency, and Wayland capture limitations for true fullscreen/window distinctions.
+Current progress includes the full editor MVP plus completed Beautify features: native gradient and solid background pickers, screenshot blur background, frame padding/radius/shadow controls, local style presets, and direct on-canvas `Image Reframe`. Reframe mode now supports drag-to-pan, wheel zoom, pinch zoom on touchpads, focus-aware zoom toward the cursor or pinch center, visible grid overlay, zoom HUD, reset-by-double-click, and stable `Esc` exit behavior. The main remaining work is M4 release polish: preferences, i18n, branding/assets, production license verification, and distribution polish.
 
 ## Building
 

@@ -4,7 +4,7 @@
 
 ---
 
-## Current Status: **M2 — Editor MVP** ✅ Complete
+## Current Status: **M3 — Beautify** ✅ Complete
 
 ---
 
@@ -107,6 +107,7 @@ snapix capture --mode full -o test.png
 | Frame: corner radius | ✅ Done | Live corner radius control is wired in the GTK editor |
 | Frame: drop shadow | ✅ Done | Shadow toggle, direction, padding, blur, and strength are all live in the GTK editor |
 | Preset system (save/load) | ✅ Done | Saved style presets can now be stored locally, reapplied, overwritten, and deleted from the inspector |
+| Image reframe (pan/zoom) | ✅ Done | Reframe mode lets user pan the image by drag and zoom via scroll wheel or pinch gesture; focus-point aware zoom zooms toward the cursor/pinch center; visual overlay shows rule-of-thirds grid, current zoom %, and hint text; double-click recenters to 1:1 fill; `Esc` exits reframe mode |
 
 ---
 
@@ -217,6 +218,23 @@ snapix/
 
 ## Changelog
 
+### 2026-04-22
+
+- Marked `M3 — Beautify` as complete after shipping the full background/frame preset stack plus direct `Image Reframe` on canvas.
+- `Image Reframe` now supports:
+  - drag to pan
+  - scroll wheel zoom
+  - pinch zoom on touchpads
+  - cursor-aware / pinch-center-aware zoom focus
+  - visible rule-of-thirds overlay with fade animation
+  - `grab` / `grabbing` cursor feedback
+  - current zoom percentage HUD
+  - `Esc` to exit
+  - double-click on image to reset view while staying in reframe mode
+- Refactored reframe logic into dedicated modules so canvas/render files stay smaller:
+  - `crates/snapix-ui/src/widgets/canvas/reframe.rs`
+  - `crates/snapix-ui/src/widgets/render/reframe.rs`
+
 ### 2026-04-21
 - **M2 Progress**
   - Refreshed the editor shell layout toward a cleaner top-toolbar workspace design
@@ -239,7 +257,7 @@ snapix/
   - Documented current Wayland portal capture limitations in the UI behavior
 
 ### 2026-04-22
-- **M3 Progress**
+- **M3 Complete** 🎉
   - Added a real `Screenshot Blur` background mode in the inspector with adjustable blur radius
   - Wired blurred screenshot background rendering into both preview and export so output matches the editor
   - Extended the blur surface cache to reuse full-background blur renders in addition to annotation blur regions
@@ -248,6 +266,11 @@ snapix/
   - Added editable gradient angle control and updated gradient rendering to honor the chosen angle
   - Added a local saved-preset system for beautify settings with save/apply/delete actions in the inspector
   - Persisted style presets to the user config directory as JSON and covered preset roundtrip with tests
+  - Added image reframe mode with scroll-wheel and pinch-gesture zoom, drag-to-pan
+  - Implemented focus-point aware zoom: scroll and pinch zoom toward the cursor/pinch center instead of the image center
+  - Added `recenter_image_reframe()` to reset image to 1:1 fill on double-click
+  - Extracted reframe interaction into a dedicated `widgets/canvas/reframe` module with `ReframePresentation` encapsulating overlay animation, scroll, zoom gesture, and motion tracking
+  - Added `draw_reframe_overlay` in `widgets/render/reframe`: rule-of-thirds grid, animated dashed border, zoom % badge, and usage hint text
   - Verified the workspace with `cargo test`
 
 ### 2026-04-20
