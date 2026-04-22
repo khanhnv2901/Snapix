@@ -462,6 +462,7 @@ pub(super) fn connect_quick_save_button(
         let format = *save_format.borrow();
         let pictures_dir = gtk4::glib::user_special_dir(gtk4::glib::UserDirectory::Pictures)
             .unwrap_or_else(|| std::path::PathBuf::from("."));
+        let screenshots_dir = pictures_dir.join("Screenshots");
         let ts = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
@@ -471,8 +472,11 @@ pub(super) fn connect_quick_save_button(
         } else {
             "png"
         };
-        let path = pictures_dir.join(format!("snapix-{ts}.{ext}"));
-        if let Err(error) = save_image_to_path(&document, &path, format) {
+        let path = screenshots_dir.join(format!("snapix-{ts}.{ext}"));
+        let save_result = std::fs::create_dir_all(&screenshots_dir)
+            .map_err(anyhow::Error::from)
+            .and_then(|_| save_image_to_path(&document, &path, format));
+        if let Err(error) = save_result {
             show_error(&window, i18n::quick_save_failed_title(), &error.to_string());
         } else {
             show_toast(&toast_overlay, &i18n::saved_image_toast(&path.display().to_string()));

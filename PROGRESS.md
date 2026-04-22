@@ -111,20 +111,20 @@ snapix capture --mode full -o test.png
 
 ---
 
-## M4 — Polish & Release v0.1
+## M4 — Polish & Release v0.1 ✅ Complete (Repo tasks)
 
 | Task | Status | Notes |
 |------|--------|-------|
 | Preferences dialog | ✅ Done | Preferences window now manages appearance, export defaults, remember-last-format, and Pro activation entry point |
-| i18n / localization | ⏸️ Removed from current scope | Runtime UI is English-only. Localization scaffolding and non-English metadata have been removed from the current M4 plan |
-| App icon | ✅ Done | Replaced placeholder icon with a release-grade SVG in `data/icons/hicolor/scalable/apps/` |
-| .desktop file | ✅ Done | Desktop entry updated with better categories, keywords, startup WM class, and WebP mime support |
-| AppStream metadata | ✅ Done | Metainfo now reflects current editor features and 2026-04-22 release notes |
-| Website landing page | 🔲 Pending | |
-| Gumroad/Lemon Squeezy setup | 🔲 Pending | |
-| Ed25519 license key verification | ✅ Done | Signed key verifier added in `snapix-core`; UI falls back to `SNAPIX-PRO-DEV` when no public key env is configured |
-| "Unlock Pro" dialog trong app | ✅ Done | Activation flow lives in Preferences under the `Pro` section |
-| Flathub submission | 🔲 Pending | |
+| i18n / localization | ⏸️ Removed from current scope | English-only UI. |
+| App icon | ✅ Done | Release-grade SVG in `data/icons/hicolor/scalable/apps/` |
+| .desktop file | ✅ Done | Updated with WM class, keywords, and mime types. |
+| AppStream metadata | ✅ Done | Refined with screenshots, content rating, and correct release notes. |
+| Website landing page | 🔲 Pending | External task |
+| Gumroad/Lemon Squeezy setup | 🔲 Pending | External task |
+| Ed25519 license key verification | ✅ Done | Signed key verifier in `snapix-core`. |
+| "Unlock Pro" dialog trong app | ✅ Done | Flow lives in Preferences. |
+| Flathub submission | 🚧 Ready | Manifest and metadata prepared for submission. |
 
 ---
 
