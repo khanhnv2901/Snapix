@@ -15,8 +15,8 @@ use crate::editor::i18n::{
     preferences_export_description, preferences_export_preference_updated_toast,
     preferences_export_title, preferences_pro_description, preferences_pro_row_title,
     preferences_pro_title, preferences_remember_format_subtitle, preferences_remember_format_title,
-    preferences_save_format_subtitle, preferences_save_format_title,
-    preferences_storage_subtitle, preferences_storage_title,
+    preferences_save_format_subtitle, preferences_save_format_title, preferences_storage_subtitle,
+    preferences_storage_title,
 };
 use crate::editor::preferences::{
     apply_style_preferences, save_preferences, AppPreferences, AppearancePreference,
@@ -218,7 +218,10 @@ pub(super) fn present_preferences_window(
                     },
                 );
             }
-            show_toast(&toast_overlay, preferences_export_preference_updated_toast());
+            show_toast(
+                &toast_overlay,
+                preferences_export_preference_updated_toast(),
+            );
         });
     }
 

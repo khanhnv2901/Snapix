@@ -161,22 +161,25 @@ pub(super) fn attach_click_controller(
                 i18n::text_content_field_label(),
                 "",
                 {
-                let state = state.clone();
-                let drawing_area = drawing_area.clone();
-                let ui = ui.clone();
-                move |content| {
-                    let mut state = state.borrow_mut();
-                    if state.add_text_annotation(image_x as f32, image_y as f32, content) {
-                        refresh_scope_label(&state, &ui.scope_label);
-                        refresh_history_buttons(&state, &ui.undo_button, &ui.redo_button);
-                        refresh_tool_actions(&state, &ui.delete_button);
-                        crate::editor::refresh_subtitle(&state, &ui.subtitle_label);
-                        drawing_area.queue_draw();
-                    } else {
-                        show_toast(&response_toast_overlay, i18n::couldnt_add_text_label_toast());
+                    let state = state.clone();
+                    let drawing_area = drawing_area.clone();
+                    let ui = ui.clone();
+                    move |content| {
+                        let mut state = state.borrow_mut();
+                        if state.add_text_annotation(image_x as f32, image_y as f32, content) {
+                            refresh_scope_label(&state, &ui.scope_label);
+                            refresh_history_buttons(&state, &ui.undo_button, &ui.redo_button);
+                            refresh_tool_actions(&state, &ui.delete_button);
+                            crate::editor::refresh_subtitle(&state, &ui.subtitle_label);
+                            drawing_area.queue_draw();
+                        } else {
+                            show_toast(
+                                &response_toast_overlay,
+                                i18n::couldnt_add_text_label_toast(),
+                            );
+                        }
                     }
-                }
-            },
+                },
             );
         });
     }

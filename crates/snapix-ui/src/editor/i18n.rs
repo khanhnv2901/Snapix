@@ -35,7 +35,11 @@ pub(crate) fn tool_tooltip(tool: ToolKind) -> &'static str {
 }
 
 pub(crate) fn width_label_text(is_text: bool) -> &'static str {
-    if is_text { "Size:" } else { "Width:" }
+    if is_text {
+        "Size:"
+    } else {
+        "Width:"
+    }
 }
 
 pub(crate) fn preferences_button_tooltip() -> &'static str {
@@ -588,7 +592,11 @@ pub(crate) fn subtitle_annotations(count: usize) -> String {
 }
 
 pub(crate) fn subtitle_output_text(output_width: f64, output_height: f64) -> String {
-    format!("output {}×{}", output_width.round() as u32, output_height.round() as u32)
+    format!(
+        "output {}×{}",
+        output_width.round() as u32,
+        output_height.round() as u32
+    )
 }
 
 pub(crate) fn subtitle_ratio_text(ratio: OutputRatio) -> String {

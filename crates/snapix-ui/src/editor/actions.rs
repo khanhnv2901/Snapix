@@ -38,15 +38,15 @@ pub(super) fn connect_capture_actions(
     let session = snapix_capture::detect_session();
     let backend = snapix_capture::detect_backend();
     if session == snapix_capture::SessionType::Wayland && backend.name() == "ashpd-portal" {
-        actions.fullscreen_button.set_tooltip_text(Some(
-            i18n::capture_wayland_fullscreen_tooltip(),
-        ));
-        actions.region_button.set_tooltip_text(Some(
-            i18n::capture_wayland_region_tooltip(),
-        ));
-        actions.window_button.set_tooltip_text(Some(
-            i18n::capture_wayland_window_tooltip(),
-        ));
+        actions
+            .fullscreen_button
+            .set_tooltip_text(Some(i18n::capture_wayland_fullscreen_tooltip()));
+        actions
+            .region_button
+            .set_tooltip_text(Some(i18n::capture_wayland_region_tooltip()));
+        actions
+            .window_button
+            .set_tooltip_text(Some(i18n::capture_wayland_window_tooltip()));
     }
 
     for (button, action) in [
@@ -241,10 +241,7 @@ pub(crate) async fn perform_capture_action(
                     })
                     .await
                 {
-                    Ok(image) => Ok((
-                        image,
-                        Some(i18n::capture_fallback_toast().to_string()),
-                    )),
+                    Ok(image) => Ok((image, Some(i18n::capture_fallback_toast().to_string()))),
                     Err(region_error) => Err(anyhow::anyhow!(
                         "Fullscreen capture failed: {full_error}. \
                          Interactive fallback also failed: {region_error}"
@@ -479,7 +476,10 @@ pub(super) fn connect_quick_save_button(
         if let Err(error) = save_result {
             show_error(&window, i18n::quick_save_failed_title(), &error.to_string());
         } else {
-            show_toast(&toast_overlay, &i18n::saved_image_toast(&path.display().to_string()));
+            show_toast(
+                &toast_overlay,
+                &i18n::saved_image_toast(&path.display().to_string()),
+            );
         }
     });
 }
@@ -538,9 +538,16 @@ pub(super) fn connect_save_as_button(
                             let document = state.borrow().document().clone();
                             let fmt = *save_format.borrow();
                             if let Err(error) = save_image_to_path(&document, &path, fmt) {
-                                show_error(&window, i18n::export_failed_title(), &error.to_string());
+                                show_error(
+                                    &window,
+                                    i18n::export_failed_title(),
+                                    &error.to_string(),
+                                );
                             } else {
-                                show_toast(&toast_overlay, &i18n::exported_image_toast(&path.display().to_string()));
+                                show_toast(
+                                    &toast_overlay,
+                                    &i18n::exported_image_toast(&path.display().to_string()),
+                                );
                             }
                         }
                         None => show_error(

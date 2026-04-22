@@ -7,9 +7,9 @@ use libadwaita::Bin;
 use libadwaita::StyleManager;
 use snapix_core::canvas::Color;
 
-use crate::editor::i18n;
 use super::helpers::{refresh_history_buttons, refresh_scope_label, refresh_width_label};
 use super::{BottomBar, CaptureActionRow, SaveFormat};
+use crate::editor::i18n;
 use crate::editor::state::{same_color_rgb, EditorState, ToolKind};
 use crate::widgets::DocumentCanvas;
 

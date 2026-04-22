@@ -155,8 +155,8 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::{
-        load_preferences_from_path, save_preferences_to_path, AppPreferences,
-        AppearancePreference, PreferredSaveFormat,
+        load_preferences_from_path, save_preferences_to_path, AppPreferences, AppearancePreference,
+        PreferredSaveFormat,
     };
 
     fn unique_test_path() -> PathBuf {

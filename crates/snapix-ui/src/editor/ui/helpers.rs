@@ -181,9 +181,7 @@ pub(crate) fn width_label_text(state: &EditorState) -> &'static str {
 pub(crate) fn scope_text(state: &EditorState) -> String {
     match state.active_tool() {
         ToolKind::Select => match state.selected_annotation() {
-            _ if state.is_reframing_image() => {
-                i18n::scope_text_reframe().to_string()
-            }
+            _ if state.is_reframing_image() => i18n::scope_text_reframe().to_string(),
             Some(index) => {
                 i18n::scope_text_selected(&annotation_kind_label(state.document(), index))
             }

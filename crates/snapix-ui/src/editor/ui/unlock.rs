@@ -10,8 +10,8 @@ use crate::editor::i18n::{
     cancel_button_label, unlock_activate_button, unlock_activated_toast, unlock_deactivated_toast,
     unlock_dialog_body, unlock_dialog_heading, unlock_dialog_title,
     unlock_failed_to_save_activation, unlock_manage_button, unlock_placeholder,
-    unlock_row_subtitle_active, unlock_row_subtitle_free, unlock_status_active,
-    unlock_status_free, unlock_unlock_button, unlock_use_free_tier_button,
+    unlock_row_subtitle_active, unlock_row_subtitle_free, unlock_status_active, unlock_status_free,
+    unlock_unlock_button, unlock_use_free_tier_button,
 };
 use crate::editor::preferences::{save_preferences, AppPreferences};
 use crate::editor::show_toast;

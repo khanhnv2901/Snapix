@@ -142,6 +142,8 @@ For Flatpak/Flathub packaging, see [flatpak/io.github.snapix.Snapix.yml](flatpak
 
 Release notes are tracked in [CHANGELOG.md](CHANGELOG.md).
 
+Tagged releases can ship a prebuilt AppImage through GitHub Releases for users who prefer download-and-run installs.
+
 ## License
 
 Apache-2.0 © 2026 Khanh Nguyen
