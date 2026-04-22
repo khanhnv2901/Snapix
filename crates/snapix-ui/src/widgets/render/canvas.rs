@@ -4,8 +4,8 @@ use snapix_core::canvas::{Annotation, Background, Document, ImageAnchor, ImageSc
 use crate::editor::{EditorState, ToolKind};
 use crate::widgets::geometry::{
     composition_frame_bounds, composition_scale, directional_shadow_padding,
-    draw_arrow_resize_handles, draw_resize_handles, inset_frame, layout_for_bounds_with_mode,
-    paint_background, paint_empty_state, paint_image, paint_surface, preview_canvas_layout,
+    draw_arrow_resize_handles, draw_resize_handles, inset_frame, paint_background,
+    paint_empty_state, paint_image_for_document, paint_surface, preview_canvas_layout,
     resizable_annotation_widget_bounds, rounded_rect, selection_annotation_widget_bounds,
 };
 use crate::widgets::CanvasLayout;
@@ -67,21 +67,16 @@ pub(super) fn draw_canvas(
             if document.image_scale_mode == ImageScaleMode::Fill {
                 image_bounds
             } else {
-                layout_for_bounds_with_mode(
-                    img,
-                    image_bounds,
-                    document.image_scale_mode,
-                    document.image_anchor,
-                )
-                .map(|layout| {
-                    (
-                        layout.image_x,
-                        layout.image_y,
-                        layout.image_width,
-                        layout.image_height,
-                    )
-                })
-                .unwrap_or(image_bounds)
+                crate::widgets::geometry::layout_for_document(img, image_bounds, document)
+                    .map(|layout| {
+                        (
+                            layout.image_x,
+                            layout.image_y,
+                            layout.image_width,
+                            layout.image_height,
+                        )
+                    })
+                    .unwrap_or(image_bounds)
             }
         }
         None => image_bounds,
@@ -129,16 +124,24 @@ pub(super) fn draw_canvas(
     }
 
     if let Some(image) = document.base_image.as_ref() {
-        paint_image(
+        paint_image_for_document(
             cr,
             image_bounds,
             image,
             document.frame.corner_radius as f64 * composition_scale,
-            document.image_scale_mode,
-            document.image_anchor,
+            document,
         );
         if let Some(layout) = preview_canvas_layout(document, width, height) {
+            cr.save().ok();
+            cr.rectangle(
+                layout.viewport_x,
+                layout.viewport_y,
+                layout.viewport_width,
+                layout.viewport_height,
+            );
+            cr.clip();
             draw_annotations(cr, document, layout, blur_cache);
+            cr.restore().ok();
         }
     } else {
         paint_empty_state(cr, image_bounds, document.frame.corner_radius as f64);
@@ -153,6 +156,11 @@ pub(crate) fn draw_editor_canvas(
     blur_cache: &mut BlurSurfaceCache,
 ) {
     draw_canvas(cr, width, height, state.document(), blur_cache);
+    if state.is_reframing_image() {
+        if let Some(layout) = preview_canvas_layout(state.document(), width, height) {
+            draw_image_reframe_overlay(cr, layout);
+        }
+    }
     if let Some(layout) = preview_canvas_layout(state.document(), width, height) {
         if let Some(index) = state.selected_annotation() {
             draw_selected_annotation(cr, state.document(), layout, index);
@@ -204,6 +212,50 @@ pub(crate) fn draw_editor_canvas(
             }
         }
     }
+}
+
+fn draw_image_reframe_overlay(cr: &cairo::Context, layout: CanvasLayout) {
+    let x = layout.viewport_x;
+    let y = layout.viewport_y;
+    let width = layout.viewport_width;
+    let height = layout.viewport_height;
+    let radius = 18.0;
+
+    cr.save().ok();
+    rounded_rect(cr, x, y, width, height, radius);
+    cr.clip();
+    cr.set_source_rgba(1.0, 1.0, 1.0, 0.05);
+    cr.paint().ok();
+
+    cr.set_line_width(1.0);
+    cr.set_source_rgba(1.0, 1.0, 1.0, 0.22);
+    for fraction in [1.0 / 3.0, 2.0 / 3.0] {
+        let grid_x = x + width * fraction;
+        let grid_y = y + height * fraction;
+        cr.move_to(grid_x, y);
+        cr.line_to(grid_x, y + height);
+        cr.move_to(x, grid_y);
+        cr.line_to(x + width, grid_y);
+    }
+    cr.stroke().ok();
+    cr.restore().ok();
+
+    cr.set_source_rgba(0.55, 0.80, 1.0, 0.95);
+    cr.set_line_width(2.0);
+    cr.set_dash(&[8.0, 6.0], 0.0);
+    rounded_rect(cr, x, y, width, height, radius);
+    cr.stroke().ok();
+    cr.set_dash(&[], 0.0);
+
+    cr.set_source_rgba(0.04, 0.07, 0.11, 0.84);
+    rounded_rect(cr, x + 14.0, y + 14.0, 220.0, 30.0, 14.0);
+    cr.fill().ok();
+
+    cr.set_source_rgba(0.94, 0.98, 1.0, 0.98);
+    cr.select_font_face("Sans", cairo::FontSlant::Normal, cairo::FontWeight::Bold);
+    cr.set_font_size(13.0);
+    cr.move_to(x + 24.0, y + 34.0);
+    let _ = cr.show_text("Reframe: drag to pan, scroll to zoom");
 }
 
 fn draw_selected_annotation(

@@ -303,7 +303,7 @@ impl ImageAnchor {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Document {
     pub base_image: Option<Image>,
     pub background: Background,
@@ -311,7 +311,27 @@ pub struct Document {
     pub output_ratio: OutputRatio,
     pub image_scale_mode: ImageScaleMode,
     pub image_anchor: ImageAnchor,
+    pub image_zoom: f32,
+    pub image_offset_x: f32,
+    pub image_offset_y: f32,
     pub annotations: Vec<Annotation>,
+}
+
+impl Default for Document {
+    fn default() -> Self {
+        Self {
+            base_image: None,
+            background: Background::default(),
+            frame: FrameSettings::default(),
+            output_ratio: OutputRatio::Auto,
+            image_scale_mode: ImageScaleMode::Fit,
+            image_anchor: ImageAnchor::Center,
+            image_zoom: 1.0,
+            image_offset_x: 0.0,
+            image_offset_y: 0.0,
+            annotations: Vec::new(),
+        }
+    }
 }
 
 impl Document {
@@ -323,6 +343,9 @@ impl Document {
             output_ratio: OutputRatio::Auto,
             image_scale_mode: ImageScaleMode::Fit,
             image_anchor: ImageAnchor::Center,
+            image_zoom: 1.0,
+            image_offset_x: 0.0,
+            image_offset_y: 0.0,
             annotations: Vec::new(),
         }
     }
@@ -406,6 +429,9 @@ mod tests {
         let doc = Document::new(img);
         assert!(doc.base_image.is_some());
         assert!(doc.annotations.is_empty());
+        assert_eq!(doc.image_zoom, 1.0);
+        assert_eq!(doc.image_offset_x, 0.0);
+        assert_eq!(doc.image_offset_y, 0.0);
     }
 
     #[test]
@@ -415,6 +441,9 @@ mod tests {
         assert_eq!(doc.output_ratio, OutputRatio::Auto);
         assert_eq!(doc.image_scale_mode, ImageScaleMode::Fit);
         assert_eq!(doc.image_anchor, ImageAnchor::Center);
+        assert_eq!(doc.image_zoom, 1.0);
+        assert_eq!(doc.image_offset_x, 0.0);
+        assert_eq!(doc.image_offset_y, 0.0);
     }
 
     #[test]

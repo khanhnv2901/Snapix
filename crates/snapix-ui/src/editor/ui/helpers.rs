@@ -96,10 +96,12 @@ pub(crate) fn shortcut_hint_text(state: &EditorState) -> Option<String> {
 
     match state.active_tool() {
         ToolKind::Select => {
-            if state.selected_annotation().is_some() {
+            if state.is_reframing_image() {
+                Some("Drag pan • Scroll zoom • Esc exit reframe".to_string())
+            } else if state.selected_annotation().is_some() {
                 Some("Delete remove • Ctrl+Z undo".to_string())
             } else {
-                Some("Click annotation to edit • Ctrl+Z undo".to_string())
+                Some("Click annotation to edit • Double-click image to reframe".to_string())
             }
         }
         ToolKind::Crop => Some(if state.has_pending_crop() {
@@ -212,6 +214,10 @@ pub(crate) fn width_label_text(state: &EditorState) -> &'static str {
 pub(crate) fn scope_text(state: &EditorState) -> String {
     match state.active_tool() {
         ToolKind::Select => match state.selected_annotation() {
+            _ if state.is_reframing_image() => {
+                "Reframe: drag the image to reposition it, use the mouse wheel to zoom, and press Esc to exit."
+                    .to_string()
+            }
             Some(index) => format!(
                 "Selected {}. Adjust color or size, or press Delete to remove it.",
                 annotation_kind_label(state.document(), index)

@@ -29,6 +29,7 @@ pub(super) fn attach_drag_controller(
     let annotation_move = Rc::new(RefCell::new(None::<AnnotationMoveSession>));
     let annotation_resize = Rc::new(RefCell::new(None::<AnnotationResizeSession>));
     let arrow_resize = Rc::new(RefCell::new(None::<ArrowResizeSession>));
+    let image_reframe = Rc::new(RefCell::new(None::<snapix_core::canvas::Document>));
     let drag = gtk4::GestureDrag::new();
 
     connect_drag_begin(
@@ -40,6 +41,7 @@ pub(super) fn attach_drag_controller(
         annotation_move.clone(),
         annotation_resize.clone(),
         arrow_resize.clone(),
+        image_reframe.clone(),
     );
     connect_drag_update(
         &drag,
@@ -49,6 +51,7 @@ pub(super) fn attach_drag_controller(
         annotation_move.clone(),
         annotation_resize.clone(),
         arrow_resize.clone(),
+        image_reframe.clone(),
     );
     connect_drag_end(
         &drag,
@@ -59,6 +62,7 @@ pub(super) fn attach_drag_controller(
         annotation_move,
         annotation_resize,
         arrow_resize,
+        image_reframe,
     );
 
     drawing_area.add_controller(drag);
@@ -73,6 +77,7 @@ fn connect_drag_begin(
     annotation_move: Rc<RefCell<Option<AnnotationMoveSession>>>,
     annotation_resize: Rc<RefCell<Option<AnnotationResizeSession>>>,
     arrow_resize: Rc<RefCell<Option<ArrowResizeSession>>>,
+    image_reframe: Rc<RefCell<Option<snapix_core::canvas::Document>>>,
 ) {
     let drawing_area = drawing_area.clone();
     drag.connect_drag_begin(move |_gesture, x, y| {
@@ -84,6 +89,12 @@ fn connect_drag_begin(
             let Some(layout) = preview_canvas_layout(state.document(), width, height) else {
                 return;
             };
+            if state.is_reframing_image() && point_in_layout(x, y, layout) {
+                *image_reframe.borrow_mut() = Some(state.document().clone());
+                drawing_area.grab_focus();
+                drawing_area.queue_draw();
+                return;
+            }
             if let Some(index) = state.selected_annotation() {
                 if let Some(annotation) = state.document().annotations.get(index) {
                     if let Some(move_start) = hit_arrow_resize_handle(layout, annotation, x, y) {
@@ -206,12 +217,15 @@ fn connect_drag_update(
     annotation_move: Rc<RefCell<Option<AnnotationMoveSession>>>,
     annotation_resize: Rc<RefCell<Option<AnnotationResizeSession>>>,
     arrow_resize: Rc<RefCell<Option<ArrowResizeSession>>>,
+    image_reframe: Rc<RefCell<Option<snapix_core::canvas::Document>>>,
 ) {
     let drawing_area = drawing_area.clone();
     drag.connect_drag_update(move |_gesture, offset_x, offset_y| {
         let mut state = state.borrow_mut();
 
-        if let Some(session) = arrow_resize.borrow().clone() {
+        if let Some(before_document) = image_reframe.borrow().clone() {
+            state.preview_pan_image(&before_document, offset_x, offset_y);
+        } else if let Some(session) = arrow_resize.borrow().clone() {
             let width = drawing_area.allocated_width();
             let height = drawing_area.allocated_height();
             if let Some(layout) = preview_canvas_layout(state.document(), width, height) {
@@ -358,6 +372,7 @@ fn connect_drag_end(
     annotation_move: Rc<RefCell<Option<AnnotationMoveSession>>>,
     annotation_resize: Rc<RefCell<Option<AnnotationResizeSession>>>,
     arrow_resize: Rc<RefCell<Option<ArrowResizeSession>>>,
+    image_reframe: Rc<RefCell<Option<snapix_core::canvas::Document>>>,
 ) {
     let drawing_area = drawing_area.clone();
     drag.connect_drag_end(move |_gesture, offset_x, offset_y| {
@@ -365,7 +380,13 @@ fn connect_drag_end(
         let height = drawing_area.allocated_height();
         let mut state = state.borrow_mut();
 
-        if let Some(session) = arrow_resize.borrow_mut().take() {
+        if let Some(before_document) = image_reframe.borrow_mut().take() {
+            state.preview_pan_image(&before_document, offset_x, offset_y);
+            state.finalize_image_reframe(before_document);
+            refresh_scope_label(&state, &ui.scope_label);
+            refresh_history_buttons(&state, &ui.undo_button, &ui.redo_button);
+            refresh_tool_actions(&state, &ui.delete_button);
+        } else if let Some(session) = arrow_resize.borrow_mut().take() {
             if let Some(layout) = preview_canvas_layout(state.document(), width, height) {
                 if let Some((image_x, image_y)) = widget_point_to_image_pixel(
                     state.document(),

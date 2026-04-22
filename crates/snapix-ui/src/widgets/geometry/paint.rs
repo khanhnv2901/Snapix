@@ -1,8 +1,10 @@
 use gtk4::cairo;
-use snapix_core::canvas::{Annotation, Background, Color, Image, ImageAnchor, ImageScaleMode};
+use snapix_core::canvas::{
+    Annotation, Background, Color, Document, Image, ImageAnchor, ImageScaleMode,
+};
 
 use super::super::CanvasLayout;
-use super::layout_for_bounds_with_mode;
+use super::{layout_for_bounds_with_mode, layout_for_document};
 
 pub(crate) fn paint_background(
     cr: &cairo::Context,
@@ -16,8 +18,23 @@ pub(crate) fn paint_background(
         Background::Solid { color } => {
             set_color(cr, color);
         }
-        Background::Gradient { from, to, .. } => {
-            let gradient = cairo::LinearGradient::new(x, y, x + width, y + height);
+        Background::Gradient {
+            from,
+            to,
+            angle_deg,
+        } => {
+            let angle = (*angle_deg as f64).to_radians();
+            let center_x = x + width / 2.0;
+            let center_y = y + height / 2.0;
+            let half_length = ((width * width + height * height).sqrt()) / 2.0;
+            let dx = angle.cos() * half_length;
+            let dy = angle.sin() * half_length;
+            let gradient = cairo::LinearGradient::new(
+                center_x - dx,
+                center_y - dy,
+                center_x + dx,
+                center_y + dy,
+            );
             gradient.add_color_stop_rgba(0.0, to_f64(from.r), to_f64(from.g), to_f64(from.b), 1.0);
             gradient.add_color_stop_rgba(1.0, to_f64(to.r), to_f64(to.g), to_f64(to.b), 1.0);
             cr.set_source(&gradient).ok();
@@ -100,6 +117,26 @@ pub(crate) fn paint_image(
     }
 }
 
+pub(crate) fn paint_image_for_document(
+    cr: &cairo::Context,
+    bounds: (f64, f64, f64, f64),
+    image: &Image,
+    radius: f64,
+    document: &Document,
+) {
+    if let Some(surface) = make_surface(image) {
+        paint_surface_for_document(
+            cr,
+            bounds,
+            image.width,
+            image.height,
+            &surface,
+            radius,
+            document,
+        );
+    }
+}
+
 pub(crate) fn paint_surface(
     cr: &cairo::Context,
     bounds: (f64, f64, f64, f64),
@@ -117,6 +154,47 @@ pub(crate) fn paint_surface(
         data: Vec::new(),
     };
     let Some(layout) = layout_for_bounds_with_mode(&source, bounds, mode, anchor) else {
+        return;
+    };
+
+    rounded_rect(cr, x, y, max_width, max_height, radius);
+    cr.clip();
+    rounded_rect(
+        cr,
+        layout.image_x,
+        layout.image_y,
+        layout.image_width,
+        layout.image_height,
+        radius,
+    );
+    cr.clip();
+
+    cr.save().ok();
+    cr.translate(layout.image_x, layout.image_y);
+    cr.scale(layout.image_scale, layout.image_scale);
+    cr.set_source_surface(surface, 0.0, 0.0).ok();
+    cr.paint().ok();
+    cr.restore().ok();
+
+    cr.reset_clip();
+}
+
+pub(crate) fn paint_surface_for_document(
+    cr: &cairo::Context,
+    bounds: (f64, f64, f64, f64),
+    source_width: u32,
+    source_height: u32,
+    surface: &cairo::ImageSurface,
+    radius: f64,
+    document: &Document,
+) {
+    let (x, y, max_width, max_height) = bounds;
+    let source = Image {
+        width: source_width,
+        height: source_height,
+        data: Vec::new(),
+    };
+    let Some(layout) = layout_for_document(&source, bounds, document) else {
         return;
     };
 

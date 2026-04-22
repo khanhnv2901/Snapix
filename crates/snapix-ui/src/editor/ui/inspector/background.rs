@@ -1,7 +1,7 @@
-use std::cell::Cell;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
+use gtk4::gdk;
 use gtk4::prelude::*;
 use snapix_core::canvas::{Background, Color};
 
@@ -10,11 +10,25 @@ use super::labeled_row_with_value;
 use crate::editor::state::{same_background, EditorState};
 use crate::widgets::DocumentCanvas;
 
+#[derive(Clone)]
 pub(super) struct BackgroundSection {
     pub(super) swatch_buttons: Rc<RefCell<Vec<(Background, gtk4::Button)>>>,
+    pub(super) gradient_button: gtk4::Button,
+    pub(super) solid_button: gtk4::Button,
     pub(super) blur_button: gtk4::Button,
+    pub(super) solid_color_button: gtk4::ColorButton,
+    pub(super) solid_row: gtk4::Widget,
+    pub(super) gradient_from_button: gtk4::ColorButton,
+    pub(super) gradient_to_button: gtk4::ColorButton,
+    pub(super) gradient_from_row: gtk4::Widget,
+    pub(super) gradient_to_row: gtk4::Widget,
+    pub(super) gradient_angle_scale: gtk4::Scale,
+    pub(super) gradient_angle_value: gtk4::Label,
+    pub(super) gradient_angle_row: gtk4::Widget,
     pub(super) blur_radius_scale: gtk4::Scale,
     pub(super) blur_radius_value: gtk4::Label,
+    pub(super) blur_row: gtk4::Widget,
+    pub(super) suppress_sync_events: Rc<Cell<bool>>,
 }
 
 pub(super) fn build_background_section(
@@ -34,25 +48,83 @@ pub(super) fn build_background_section(
     );
 
     let current_background = state.borrow().document.background.clone();
+    let suppress_sync_events = Rc::new(Cell::new(false));
     let swatch_buttons: Rc<RefCell<Vec<(Background, gtk4::Button)>>> =
         Rc::new(RefCell::new(Vec::new()));
 
+    let mode_row = gtk4::Box::builder()
+        .orientation(gtk4::Orientation::Horizontal)
+        .spacing(6)
+        .build();
+    let gradient_button = gtk4::Button::builder()
+        .label("Gradient")
+        .hexpand(true)
+        .build();
+    let solid_button = gtk4::Button::builder().label("Solid").hexpand(true).build();
     let blur_button = gtk4::Button::builder()
         .label("Screenshot Blur")
         .tooltip_text("Use the captured image as a blurred background fill")
         .hexpand(true)
         .build();
-    blur_button.add_css_class("ratio-btn");
-    if matches!(&current_background, Background::BlurredScreenshot { .. }) {
-        blur_button.add_css_class("selected");
+    for button in [&gradient_button, &solid_button, &blur_button] {
+        button.add_css_class("ratio-btn");
+        mode_row.append(button);
     }
+    panel.append(&mode_row);
 
-    let blur_row = gtk4::Box::builder()
-        .orientation(gtk4::Orientation::Horizontal)
-        .spacing(6)
+    let solid_color_button =
+        gtk4::ColorButton::with_rgba(&rgba_from_color(&extract_solid_color(&current_background)));
+    #[allow(deprecated)]
+    solid_color_button.set_title("Pick Background Color");
+    solid_color_button.set_show_editor(true);
+    solid_color_button.set_hexpand(true);
+    let gradient_from_button = gtk4::ColorButton::with_rgba(&rgba_from_color(
+        &extract_gradient_from(&current_background),
+    ));
+    #[allow(deprecated)]
+    gradient_from_button.set_title("Pick Gradient Start");
+    gradient_from_button.set_show_editor(true);
+    gradient_from_button.set_hexpand(true);
+    let gradient_to_button =
+        gtk4::ColorButton::with_rgba(&rgba_from_color(&extract_gradient_to(&current_background)));
+    #[allow(deprecated)]
+    gradient_to_button.set_title("Pick Gradient End");
+    gradient_to_button.set_show_editor(true);
+    gradient_to_button.set_hexpand(true);
+
+    let solid_row = labeled_row_with_value(
+        "Solid Color",
+        &solid_color_button,
+        &gtk4::Label::builder().label("").build(),
+    );
+
+    let gradient_from_row = labeled_row_with_value(
+        "Gradient From",
+        &gradient_from_button,
+        &gtk4::Label::builder().label("").build(),
+    );
+    let gradient_to_row = labeled_row_with_value(
+        "Gradient To",
+        &gradient_to_button,
+        &gtk4::Label::builder().label("").build(),
+    );
+
+    let current_gradient_angle = match &current_background {
+        Background::Gradient { angle_deg, .. } => *angle_deg,
+        _ => 135.0,
+    };
+    let gradient_angle_value = gtk4::Label::builder()
+        .label(&format!("{}°", current_gradient_angle.round() as i32))
+        .css_classes(["dim-copy"])
         .build();
-    blur_row.append(&blur_button);
-    panel.append(&blur_row);
+    let gradient_angle_scale =
+        gtk4::Scale::with_range(gtk4::Orientation::Horizontal, 0.0, 360.0, 1.0);
+    gradient_angle_scale.set_value(current_gradient_angle as f64);
+    let gradient_angle_row = labeled_row_with_value(
+        "Gradient Angle",
+        &gradient_angle_scale,
+        &gradient_angle_value,
+    );
 
     let current_blur_radius = match &current_background {
         Background::BlurredScreenshot { radius } => *radius,
@@ -64,10 +136,36 @@ pub(super) fn build_background_section(
         .build();
     let blur_radius_scale = gtk4::Scale::with_range(gtk4::Orientation::Horizontal, 4.0, 64.0, 1.0);
     blur_radius_scale.set_value(current_blur_radius as f64);
-    blur_radius_scale.set_sensitive(matches!(
-        &state.borrow().document().background,
-        Background::BlurredScreenshot { .. }
-    ));
+    let blur_row = labeled_row_with_value("Blur Radius", &blur_radius_scale, &blur_radius_value);
+
+    panel.append(&solid_row);
+    panel.append(&gradient_from_row);
+    panel.append(&gradient_to_row);
+    panel.append(&gradient_angle_row);
+    panel.append(&blur_row);
+
+    refresh_background_mode_controls(
+        &current_background,
+        &gradient_button,
+        &solid_button,
+        &blur_button,
+        &solid_row,
+        &gradient_from_row,
+        &gradient_to_row,
+        &gradient_angle_row,
+        &blur_row,
+    );
+    sync_background_editor_values(
+        &current_background,
+        &solid_color_button,
+        &gradient_from_button,
+        &gradient_to_button,
+        &gradient_angle_scale,
+        &gradient_angle_value,
+        &blur_radius_scale,
+        &blur_radius_value,
+        &suppress_sync_events,
+    );
 
     let presets: Vec<(&str, &str, Background)> = vec![
         (
@@ -287,28 +385,315 @@ pub(super) fn build_background_section(
     ];
 
     {
-        let swatch_buttons = swatch_buttons.clone();
         let state = state.clone();
         let canvas = canvas.clone();
         let subtitle_label = subtitle_label.clone();
         let undo_button = undo_button.clone();
         let redo_button = redo_button.clone();
-        let blur_radius_scale = blur_radius_scale.clone();
+        let gradient_button_for_handler = gradient_button.clone();
+        let solid_button_for_handler = solid_button.clone();
         let blur_button_for_handler = blur_button.clone();
+        let solid_row_for_handler = solid_row.clone();
+        let gradient_from_row_for_handler = gradient_from_row.clone();
+        let gradient_to_row_for_handler = gradient_to_row.clone();
+        let gradient_angle_row_for_handler = gradient_angle_row.clone();
+        let blur_row_for_handler = blur_row.clone();
+        let swatch_buttons_for_handler = swatch_buttons.clone();
+        let solid_color_button_for_handler = solid_color_button.clone();
+        let gradient_from_button_for_handler = gradient_from_button.clone();
+        let gradient_to_button_for_handler = gradient_to_button.clone();
+        let gradient_angle_scale_for_handler = gradient_angle_scale.clone();
+        let gradient_angle_value_for_handler = gradient_angle_value.clone();
+        let blur_radius_scale_for_handler = blur_radius_scale.clone();
+        let blur_radius_value_for_handler = blur_radius_value.clone();
+        let suppress_sync_events_for_handler = suppress_sync_events.clone();
+        gradient_button.connect_clicked(move |_| {
+            let next_background = match &state.borrow().document().background {
+                Background::Gradient {
+                    from,
+                    to,
+                    angle_deg,
+                } => Background::Gradient {
+                    from: from.clone(),
+                    to: to.clone(),
+                    angle_deg: *angle_deg,
+                },
+                Background::Solid { color } => Background::Gradient {
+                    from: color.clone(),
+                    to: Color {
+                        r: 130,
+                        g: 99,
+                        b: 245,
+                        a: 255,
+                    },
+                    angle_deg: 135.0,
+                },
+                _ => Background::Gradient {
+                    from: Color {
+                        r: 110,
+                        g: 162,
+                        b: 255,
+                        a: 255,
+                    },
+                    to: Color {
+                        r: 130,
+                        g: 99,
+                        b: 245,
+                        a: 255,
+                    },
+                    angle_deg: 135.0,
+                },
+            };
+            apply_background_change(
+                state.clone(),
+                canvas.clone(),
+                &subtitle_label,
+                &undo_button,
+                &redo_button,
+                next_background,
+                Some((
+                    gradient_button_for_handler.clone(),
+                    solid_button_for_handler.clone(),
+                    blur_button_for_handler.clone(),
+                    solid_row_for_handler.clone(),
+                    gradient_from_row_for_handler.clone(),
+                    gradient_to_row_for_handler.clone(),
+                    gradient_angle_row_for_handler.clone(),
+                    blur_row_for_handler.clone(),
+                )),
+                Some((
+                    solid_color_button_for_handler.clone(),
+                    gradient_from_button_for_handler.clone(),
+                    gradient_to_button_for_handler.clone(),
+                    gradient_angle_scale_for_handler.clone(),
+                    gradient_angle_value_for_handler.clone(),
+                    blur_radius_scale_for_handler.clone(),
+                    blur_radius_value_for_handler.clone(),
+                )),
+                Some(suppress_sync_events_for_handler.clone()),
+                Some(swatch_buttons_for_handler.clone()),
+            );
+        });
+    }
+
+    {
+        let state = state.clone();
+        let canvas = canvas.clone();
+        let subtitle_label = subtitle_label.clone();
+        let undo_button = undo_button.clone();
+        let redo_button = redo_button.clone();
+        let gradient_button_for_handler = gradient_button.clone();
+        let solid_button_for_handler = solid_button.clone();
+        let blur_button_for_handler = blur_button.clone();
+        let solid_row_for_handler = solid_row.clone();
+        let gradient_from_row_for_handler = gradient_from_row.clone();
+        let gradient_to_row_for_handler = gradient_to_row.clone();
+        let gradient_angle_row_for_handler = gradient_angle_row.clone();
+        let blur_row_for_handler = blur_row.clone();
+        let swatch_buttons_for_handler = swatch_buttons.clone();
+        let solid_color_button_for_handler = solid_color_button.clone();
+        let gradient_from_button_for_handler = gradient_from_button.clone();
+        let gradient_to_button_for_handler = gradient_to_button.clone();
+        let gradient_angle_scale_for_handler = gradient_angle_scale.clone();
+        let gradient_angle_value_for_handler = gradient_angle_value.clone();
+        let blur_radius_scale_for_handler = blur_radius_scale.clone();
+        let blur_radius_value_for_handler = blur_radius_value.clone();
+        let suppress_sync_events_for_handler = suppress_sync_events.clone();
+        solid_button.connect_clicked(move |_| {
+            let next_background = match &state.borrow().document().background {
+                Background::Solid { color } => Background::Solid {
+                    color: color.clone(),
+                },
+                Background::Gradient { from, .. } => Background::Solid {
+                    color: from.clone(),
+                },
+                _ => Background::Solid {
+                    color: Color {
+                        r: 31,
+                        g: 36,
+                        b: 45,
+                        a: 255,
+                    },
+                },
+            };
+            apply_background_change(
+                state.clone(),
+                canvas.clone(),
+                &subtitle_label,
+                &undo_button,
+                &redo_button,
+                next_background,
+                Some((
+                    gradient_button_for_handler.clone(),
+                    solid_button_for_handler.clone(),
+                    blur_button_for_handler.clone(),
+                    solid_row_for_handler.clone(),
+                    gradient_from_row_for_handler.clone(),
+                    gradient_to_row_for_handler.clone(),
+                    gradient_angle_row_for_handler.clone(),
+                    blur_row_for_handler.clone(),
+                )),
+                Some((
+                    solid_color_button_for_handler.clone(),
+                    gradient_from_button_for_handler.clone(),
+                    gradient_to_button_for_handler.clone(),
+                    gradient_angle_scale_for_handler.clone(),
+                    gradient_angle_value_for_handler.clone(),
+                    blur_radius_scale_for_handler.clone(),
+                    blur_radius_value_for_handler.clone(),
+                )),
+                Some(suppress_sync_events_for_handler.clone()),
+                Some(swatch_buttons_for_handler.clone()),
+            );
+        });
+    }
+
+    {
+        let state = state.clone();
+        let canvas = canvas.clone();
+        let subtitle_label = subtitle_label.clone();
+        let undo_button = undo_button.clone();
+        let redo_button = redo_button.clone();
+        let gradient_button_for_handler = gradient_button.clone();
+        let solid_button_for_handler = solid_button.clone();
+        let blur_button_for_handler = blur_button.clone();
+        let solid_row_for_handler = solid_row.clone();
+        let gradient_from_row_for_handler = gradient_from_row.clone();
+        let gradient_to_row_for_handler = gradient_to_row.clone();
+        let gradient_angle_row_for_handler = gradient_angle_row.clone();
+        let blur_row_for_handler = blur_row.clone();
+        let swatch_buttons_for_handler = swatch_buttons.clone();
+        let solid_color_button_for_handler = solid_color_button.clone();
+        let gradient_from_button_for_handler = gradient_from_button.clone();
+        let gradient_to_button_for_handler = gradient_to_button.clone();
+        let gradient_angle_scale_for_handler = gradient_angle_scale.clone();
+        let gradient_angle_value_for_handler = gradient_angle_value.clone();
+        let blur_radius_scale_for_handler = blur_radius_scale.clone();
+        let blur_radius_value_for_handler = blur_radius_value.clone();
+        let suppress_sync_events_for_handler = suppress_sync_events.clone();
         blur_button.connect_clicked(move |_| {
             let radius = match &state.borrow().document().background {
                 Background::BlurredScreenshot { radius } => *radius,
-                _ => blur_radius_scale.value() as f32,
+                _ => 24.0,
             };
+            apply_background_change(
+                state.clone(),
+                canvas.clone(),
+                &subtitle_label,
+                &undo_button,
+                &redo_button,
+                Background::BlurredScreenshot { radius },
+                Some((
+                    gradient_button_for_handler.clone(),
+                    solid_button_for_handler.clone(),
+                    blur_button_for_handler.clone(),
+                    solid_row_for_handler.clone(),
+                    gradient_from_row_for_handler.clone(),
+                    gradient_to_row_for_handler.clone(),
+                    gradient_angle_row_for_handler.clone(),
+                    blur_row_for_handler.clone(),
+                )),
+                Some((
+                    solid_color_button_for_handler.clone(),
+                    gradient_from_button_for_handler.clone(),
+                    gradient_to_button_for_handler.clone(),
+                    gradient_angle_scale_for_handler.clone(),
+                    gradient_angle_value_for_handler.clone(),
+                    blur_radius_scale_for_handler.clone(),
+                    blur_radius_value_for_handler.clone(),
+                )),
+                Some(suppress_sync_events_for_handler.clone()),
+                Some(swatch_buttons_for_handler.clone()),
+            );
+        });
+    }
+
+    {
+        let state = state.clone();
+        let canvas = canvas.clone();
+        let subtitle_label = subtitle_label.clone();
+        let undo_button = undo_button.clone();
+        let redo_button = redo_button.clone();
+        solid_color_button.connect_color_set(move |button| {
+            let color = color_from_rgba(&button.rgba());
+            let mut state = state.borrow_mut();
+            if state.update_document(|doc| match &mut doc.background {
+                Background::Solid { color: current } => *current = color.clone(),
+                _ => {
+                    doc.background = Background::Solid {
+                        color: color.clone(),
+                    }
+                }
+            }) {
+                refresh_subtitle(&state, &subtitle_label);
+                refresh_history_buttons(&state, &undo_button, &redo_button);
+                canvas.refresh();
+            }
+        });
+    }
+
+    {
+        let state = state.clone();
+        let canvas = canvas.clone();
+        let subtitle_label = subtitle_label.clone();
+        let undo_button = undo_button.clone();
+        let redo_button = redo_button.clone();
+        gradient_from_button.connect_color_set(move |button| {
+            let color = color_from_rgba(&button.rgba());
             let mut state = state.borrow_mut();
             if state.update_document(|doc| {
-                doc.background = Background::BlurredScreenshot { radius };
-            }) {
-                blur_button_for_handler.add_css_class("selected");
-                blur_radius_scale.set_sensitive(true);
-                for (_, existing_button) in swatch_buttons.borrow().iter() {
-                    existing_button.remove_css_class("selected");
+                if let Background::Gradient { from, .. } = &mut doc.background {
+                    *from = color.clone();
                 }
+            }) {
+                refresh_subtitle(&state, &subtitle_label);
+                refresh_history_buttons(&state, &undo_button, &redo_button);
+                canvas.refresh();
+            }
+        });
+    }
+
+    {
+        let state = state.clone();
+        let canvas = canvas.clone();
+        let subtitle_label = subtitle_label.clone();
+        let undo_button = undo_button.clone();
+        let redo_button = redo_button.clone();
+        gradient_to_button.connect_color_set(move |button| {
+            let color = color_from_rgba(&button.rgba());
+            let mut state = state.borrow_mut();
+            if state.update_document(|doc| {
+                if let Background::Gradient { to, .. } = &mut doc.background {
+                    *to = color.clone();
+                }
+            }) {
+                refresh_subtitle(&state, &subtitle_label);
+                refresh_history_buttons(&state, &undo_button, &redo_button);
+                canvas.refresh();
+            }
+        });
+    }
+
+    {
+        let state = state.clone();
+        let canvas = canvas.clone();
+        let subtitle_label = subtitle_label.clone();
+        let undo_button = undo_button.clone();
+        let redo_button = redo_button.clone();
+        let value_label = gradient_angle_value.clone();
+        let suppress_sync_events = suppress_sync_events.clone();
+        gradient_angle_scale.connect_value_changed(move |scale| {
+            if suppress_sync_events.get() {
+                return;
+            }
+            let angle = scale.value() as f32;
+            value_label.set_label(&format!("{}°", angle.round() as i32));
+            let mut state = state.borrow_mut();
+            if state.update_document(|doc| {
+                if let Background::Gradient { angle_deg, .. } = &mut doc.background {
+                    *angle_deg = angle;
+                }
+            }) {
                 refresh_subtitle(&state, &subtitle_label);
                 refresh_history_buttons(&state, &undo_button, &redo_button);
                 canvas.refresh();
@@ -325,7 +710,11 @@ pub(super) fn build_background_section(
         let value_label = blur_radius_value.clone();
         let pending_radius = Rc::new(Cell::new(current_blur_radius));
         let change_generation = Rc::new(Cell::new(0u64));
+        let suppress_sync_events = suppress_sync_events.clone();
         blur_radius_scale.connect_value_changed(move |scale| {
+            if suppress_sync_events.get() {
+                return;
+            }
             let radius = scale.value() as f32;
             value_label.set_label(&format!("{}px", radius.round() as u32));
             pending_radius.set(radius);
@@ -360,12 +749,6 @@ pub(super) fn build_background_section(
         });
     }
 
-    panel.append(&labeled_row_with_value(
-        "Blur Radius",
-        &blur_radius_scale,
-        &blur_radius_value,
-    ));
-
     panel.append(
         &gtk4::Label::builder()
             .label("Presets")
@@ -395,15 +778,30 @@ pub(super) fn build_background_section(
         swatch_buttons
             .borrow_mut()
             .push((background.clone(), button.clone()));
-        let all_buttons = swatch_buttons.clone();
         let state = state.clone();
         let canvas = canvas.clone();
         let subtitle_label = subtitle_label.clone();
         let undo_button = undo_button.clone();
         let redo_button = redo_button.clone();
+        let all_buttons = swatch_buttons.clone();
+        let gradient_button = gradient_button.clone();
+        let solid_button = solid_button.clone();
         let blur_button = blur_button.clone();
+        let solid_row = solid_row.clone();
+        let gradient_from_row = gradient_from_row.clone();
+        let gradient_to_row = gradient_to_row.clone();
+        let gradient_angle_row = gradient_angle_row.clone();
+        let blur_row = blur_row.clone();
+        let solid_color_button = solid_color_button.clone();
+        let gradient_from_button = gradient_from_button.clone();
+        let gradient_to_button = gradient_to_button.clone();
+        let gradient_angle_scale = gradient_angle_scale.clone();
+        let gradient_angle_value = gradient_angle_value.clone();
         let blur_radius_scale = blur_radius_scale.clone();
+        let blur_radius_value = blur_radius_value.clone();
+        let suppress_sync_events_for_handler = suppress_sync_events.clone();
         button.connect_clicked(move |_| {
+            let background = background.clone();
             let mut state = state.borrow_mut();
             if state.update_document(|doc| doc.background = background.clone()) {
                 for (existing_background, existing_button) in all_buttons.borrow().iter() {
@@ -413,8 +811,28 @@ pub(super) fn build_background_section(
                         existing_button.remove_css_class("selected");
                     }
                 }
-                blur_button.remove_css_class("selected");
-                blur_radius_scale.set_sensitive(false);
+                refresh_background_mode_controls(
+                    &background,
+                    &gradient_button,
+                    &solid_button,
+                    &blur_button,
+                    &solid_row,
+                    &gradient_from_row,
+                    &gradient_to_row,
+                    &gradient_angle_row,
+                    &blur_row,
+                );
+                sync_background_editor_values(
+                    &background,
+                    &solid_color_button,
+                    &gradient_from_button,
+                    &gradient_to_button,
+                    &gradient_angle_scale,
+                    &gradient_angle_value,
+                    &blur_radius_scale,
+                    &blur_radius_value,
+                    &suppress_sync_events_for_handler,
+                );
                 refresh_subtitle(&state, &subtitle_label);
                 refresh_history_buttons(&state, &undo_button, &redo_button);
                 canvas.refresh();
@@ -427,8 +845,236 @@ pub(super) fn build_background_section(
 
     BackgroundSection {
         swatch_buttons,
+        gradient_button,
+        solid_button,
         blur_button,
+        solid_color_button,
+        solid_row,
+        gradient_from_button,
+        gradient_to_button,
+        gradient_from_row,
+        gradient_to_row,
+        gradient_angle_scale,
+        gradient_angle_value,
+        gradient_angle_row,
         blur_radius_scale,
         blur_radius_value,
+        blur_row,
+        suppress_sync_events,
+    }
+}
+
+fn apply_background_change(
+    state: Rc<RefCell<EditorState>>,
+    canvas: DocumentCanvas,
+    subtitle_label: &gtk4::Label,
+    undo_button: &gtk4::Button,
+    redo_button: &gtk4::Button,
+    next_background: Background,
+    mode_controls: Option<(
+        gtk4::Button,
+        gtk4::Button,
+        gtk4::Button,
+        gtk4::Widget,
+        gtk4::Widget,
+        gtk4::Widget,
+        gtk4::Widget,
+        gtk4::Widget,
+    )>,
+    editor_controls: Option<(
+        gtk4::ColorButton,
+        gtk4::ColorButton,
+        gtk4::ColorButton,
+        gtk4::Scale,
+        gtk4::Label,
+        gtk4::Scale,
+        gtk4::Label,
+    )>,
+    suppress_sync_events: Option<Rc<Cell<bool>>>,
+    swatch_buttons: Option<Rc<RefCell<Vec<(Background, gtk4::Button)>>>>,
+) {
+    let mut state = state.borrow_mut();
+    if state.update_document(|doc| doc.background = next_background.clone()) {
+        if let Some((
+            gradient_button,
+            solid_button,
+            blur_button,
+            solid_row,
+            gradient_from_row,
+            gradient_to_row,
+            gradient_angle_row,
+            blur_row,
+        )) = mode_controls
+        {
+            refresh_background_mode_controls(
+                &next_background,
+                &gradient_button,
+                &solid_button,
+                &blur_button,
+                &solid_row,
+                &gradient_from_row,
+                &gradient_to_row,
+                &gradient_angle_row,
+                &blur_row,
+            );
+        }
+        if let (
+            Some((
+                solid_color_button,
+                gradient_from_button,
+                gradient_to_button,
+                gradient_angle_scale,
+                gradient_angle_value,
+                blur_radius_scale,
+                blur_radius_value,
+            )),
+            Some(suppress_sync_events),
+        ) = (editor_controls, suppress_sync_events)
+        {
+            sync_background_editor_values(
+                &next_background,
+                &solid_color_button,
+                &gradient_from_button,
+                &gradient_to_button,
+                &gradient_angle_scale,
+                &gradient_angle_value,
+                &blur_radius_scale,
+                &blur_radius_value,
+                &suppress_sync_events,
+            );
+        }
+        if let Some(buttons) = swatch_buttons {
+            for (_, button) in buttons.borrow().iter() {
+                button.remove_css_class("selected");
+            }
+        }
+        refresh_subtitle(&state, subtitle_label);
+        refresh_history_buttons(&state, undo_button, redo_button);
+        canvas.refresh();
+    }
+}
+
+pub(crate) fn refresh_background_mode_controls(
+    background: &Background,
+    gradient_button: &gtk4::Button,
+    solid_button: &gtk4::Button,
+    blur_button: &gtk4::Button,
+    solid_row: &gtk4::Widget,
+    gradient_from_row: &gtk4::Widget,
+    gradient_to_row: &gtk4::Widget,
+    gradient_angle_row: &gtk4::Widget,
+    blur_row: &gtk4::Widget,
+) {
+    let is_gradient = matches!(background, Background::Gradient { .. });
+    let is_solid = matches!(background, Background::Solid { .. });
+    let is_blur = matches!(background, Background::BlurredScreenshot { .. });
+
+    set_selected(gradient_button, is_gradient);
+    set_selected(solid_button, is_solid);
+    set_selected(blur_button, is_blur);
+
+    solid_row.set_visible(is_solid);
+    gradient_from_row.set_visible(is_gradient);
+    gradient_to_row.set_visible(is_gradient);
+    gradient_angle_row.set_visible(is_gradient);
+    blur_row.set_visible(is_blur);
+}
+
+pub(crate) fn sync_background_editor_values(
+    background: &Background,
+    solid_color_button: &gtk4::ColorButton,
+    gradient_from_button: &gtk4::ColorButton,
+    gradient_to_button: &gtk4::ColorButton,
+    gradient_angle_scale: &gtk4::Scale,
+    gradient_angle_value: &gtk4::Label,
+    blur_radius_scale: &gtk4::Scale,
+    blur_radius_value: &gtk4::Label,
+    suppress_sync_events: &Rc<Cell<bool>>,
+) {
+    suppress_sync_events.set(true);
+    match background {
+        Background::Solid { color } => {
+            solid_color_button.set_rgba(&rgba_from_color(color));
+        }
+        Background::Gradient {
+            from,
+            to,
+            angle_deg,
+        } => {
+            gradient_from_button.set_rgba(&rgba_from_color(from));
+            gradient_to_button.set_rgba(&rgba_from_color(to));
+            gradient_angle_scale.set_value(*angle_deg as f64);
+            gradient_angle_value.set_label(&format!("{}°", angle_deg.round() as i32));
+        }
+        Background::BlurredScreenshot { radius } => {
+            blur_radius_scale.set_value(*radius as f64);
+            blur_radius_value.set_label(&format!("{}px", radius.round() as u32));
+        }
+        Background::Image { .. } => {}
+    }
+    suppress_sync_events.set(false);
+}
+
+fn rgba_from_color(color: &Color) -> gdk::RGBA {
+    gdk::RGBA::new(
+        color.r as f32 / 255.0,
+        color.g as f32 / 255.0,
+        color.b as f32 / 255.0,
+        color.a as f32 / 255.0,
+    )
+}
+
+fn color_from_rgba(rgba: &gdk::RGBA) -> Color {
+    Color {
+        r: (rgba.red() * 255.0).round().clamp(0.0, 255.0) as u8,
+        g: (rgba.green() * 255.0).round().clamp(0.0, 255.0) as u8,
+        b: (rgba.blue() * 255.0).round().clamp(0.0, 255.0) as u8,
+        a: (rgba.alpha() * 255.0).round().clamp(0.0, 255.0) as u8,
+    }
+}
+
+fn extract_solid_color(background: &Background) -> Color {
+    match background {
+        Background::Solid { color } => color.clone(),
+        Background::Gradient { from, .. } => from.clone(),
+        _ => Color {
+            r: 31,
+            g: 36,
+            b: 45,
+            a: 255,
+        },
+    }
+}
+
+fn extract_gradient_from(background: &Background) -> Color {
+    match background {
+        Background::Gradient { from, .. } => from.clone(),
+        Background::Solid { color } => color.clone(),
+        _ => Color {
+            r: 110,
+            g: 162,
+            b: 255,
+            a: 255,
+        },
+    }
+}
+
+fn extract_gradient_to(background: &Background) -> Color {
+    match background {
+        Background::Gradient { to, .. } => to.clone(),
+        _ => Color {
+            r: 130,
+            g: 99,
+            b: 245,
+            a: 255,
+        },
+    }
+}
+
+fn set_selected(button: &gtk4::Button, selected: bool) {
+    if selected {
+        button.add_css_class("selected");
+    } else {
+        button.remove_css_class("selected");
     }
 }

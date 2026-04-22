@@ -6,6 +6,7 @@ use snapix_core::canvas::{Annotation, Document};
 
 pub use canvas::DocumentCanvas;
 pub(crate) use geometry::composition_size;
+pub(crate) use geometry::{layout_for_document, natural_image_bounds};
 pub(crate) use render::render_document_rgba;
 
 #[derive(Clone, Copy)]
@@ -15,6 +16,10 @@ pub(super) struct CanvasLayout {
     pub(super) image_width: f64,
     pub(super) image_height: f64,
     pub(super) image_scale: f64,
+    pub(super) viewport_x: f64,
+    pub(super) viewport_y: f64,
+    pub(super) viewport_width: f64,
+    pub(super) viewport_height: f64,
 }
 
 #[derive(Clone, Copy)]
@@ -95,6 +100,10 @@ pub(crate) mod test_support {
             image_width: 200.0,
             image_height: 160.0,
             image_scale: 2.0,
+            viewport_x: 10.0,
+            viewport_y: 20.0,
+            viewport_width: 200.0,
+            viewport_height: 160.0,
         }
     }
 }

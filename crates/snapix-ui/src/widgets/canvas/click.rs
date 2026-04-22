@@ -41,6 +41,12 @@ pub(super) fn attach_click_controller(
                 };
                 let selected = hit_test_annotation(state_ref.document(), layout, x, y);
                 state_ref.set_selected_annotation(selected);
+                if state_ref.is_reframing_image() && n_press == 2 && selected.is_none() {
+                    state_ref.exit_image_reframe_mode();
+                    refresh_scope_label(&state_ref, &ui.scope_label);
+                    drawing_area.queue_draw();
+                    return;
+                }
                 if selected.is_some() {
                     state_ref.sync_active_style_from_selected();
                     synced_style = Some((state_ref.active_color(), state_ref.active_width()));
@@ -50,10 +56,20 @@ pub(super) fn attach_click_controller(
                 } else {
                     None
                 };
+                let should_enter_reframe = n_press == 2
+                    && selected.is_none()
+                    && widget_point_to_image_pixel(state_ref.document(), layout, x, y).is_some();
                 refresh_scope_label(&state_ref, &ui.scope_label);
                 refresh_width_label(&state_ref, &ui.width_label);
                 refresh_tool_actions(&state_ref, &ui.delete_button);
                 drawing_area.queue_draw();
+                if should_enter_reframe {
+                    state_ref.enter_image_reframe_mode();
+                    drawing_area.grab_focus();
+                    refresh_scope_label(&state_ref, &ui.scope_label);
+                    crate::editor::refresh_subtitle(&state_ref, &ui.subtitle_label);
+                    drawing_area.queue_draw();
+                }
                 drop(state_ref);
 
                 sync_shared_style_controls(&ui, synced_style);
@@ -90,6 +106,11 @@ pub(super) fn attach_click_controller(
                                 }
                             }
                         },
+                    );
+                } else if should_enter_reframe {
+                    show_toast(
+                        &ui.toast_overlay,
+                        "Image reframe active: drag to pan, scroll to zoom, Esc to exit",
                     );
                 }
                 return;

@@ -176,58 +176,44 @@ pub(super) fn build_image_fit_section(
 ) -> Rc<RefCell<Vec<(ImageScaleMode, gtk4::Button)>>> {
     panel.append(
         &gtk4::Label::builder()
-            .label("Image Fit")
+            .label("Image Reframe")
             .xalign(0.0)
             .css_classes(["heading", "section-title"])
             .margin_top(8)
             .build(),
     );
 
-    let mode_buttons: Rc<RefCell<Vec<(ImageScaleMode, gtk4::Button)>>> =
-        Rc::new(RefCell::new(Vec::new()));
-    let current_mode = state.borrow().document().image_scale_mode;
-    let row = gtk4::Box::builder()
-        .orientation(gtk4::Orientation::Horizontal)
-        .spacing(6)
-        .build();
+    panel.append(
+        &gtk4::Label::builder()
+            .label("Double-click the image in Select mode, then drag to reposition and use the mouse wheel to zoom.")
+            .xalign(0.0)
+            .wrap(true)
+            .css_classes(["dim-copy"])
+            .build(),
+    );
 
-    for mode in [ImageScaleMode::Fit, ImageScaleMode::Fill] {
-        let button = gtk4::Button::builder()
-            .label(mode.label())
-            .tooltip_text(image_scale_mode_tooltip(mode))
-            .hexpand(true)
-            .build();
-        button.add_css_class("ratio-btn");
-        if mode == current_mode {
-            button.add_css_class("selected");
-        }
-        let all_buttons = mode_buttons.clone();
+    let reset_button = gtk4::Button::builder()
+        .label("Reset View")
+        .halign(gtk4::Align::Start)
+        .build();
+    {
         let state = state.clone();
         let canvas = canvas.clone();
         let subtitle_label = subtitle_label.clone();
         let undo_button = undo_button.clone();
         let redo_button = redo_button.clone();
-        button.connect_clicked(move |_| {
+        reset_button.connect_clicked(move |_| {
             let mut state = state.borrow_mut();
-            if state.update_document(|doc| doc.image_scale_mode = mode) {
-                for (existing_mode, existing_button) in all_buttons.borrow().iter() {
-                    if *existing_mode == mode {
-                        existing_button.add_css_class("selected");
-                    } else {
-                        existing_button.remove_css_class("selected");
-                    }
-                }
+            if state.reset_image_reframe() {
                 super::super::helpers::refresh_subtitle(&state, &subtitle_label);
                 super::super::helpers::refresh_history_buttons(&state, &undo_button, &redo_button);
                 canvas.refresh();
             }
         });
-        mode_buttons.borrow_mut().push((mode, button.clone()));
-        row.append(&button);
     }
+    panel.append(&reset_button);
 
-    panel.append(&row);
-    mode_buttons
+    Rc::new(RefCell::new(Vec::new()))
 }
 
 pub(super) fn build_image_position_section(
@@ -240,74 +226,14 @@ pub(super) fn build_image_position_section(
 ) -> Rc<RefCell<Vec<(ImageAnchor, gtk4::Button)>>> {
     panel.append(
         &gtk4::Label::builder()
-            .label("Image Position")
+            .label("Reset View returns the image to Fit and clears any manual pan or zoom.")
             .xalign(0.0)
-            .css_classes(["heading", "section-title"])
-            .margin_top(8)
+            .wrap(true)
+            .css_classes(["dim-copy"])
             .build(),
     );
-
-    let anchor_buttons: Rc<RefCell<Vec<(ImageAnchor, gtk4::Button)>>> =
-        Rc::new(RefCell::new(Vec::new()));
-    let current_anchor = state.borrow().document().image_anchor;
-    let anchor_grid = gtk4::Grid::builder()
-        .row_spacing(4)
-        .column_spacing(4)
-        .hexpand(true)
-        .build();
-
-    let anchor_options = [
-        ImageAnchor::TopLeft,
-        ImageAnchor::Top,
-        ImageAnchor::TopRight,
-        ImageAnchor::Left,
-        ImageAnchor::Center,
-        ImageAnchor::Right,
-        ImageAnchor::BottomLeft,
-        ImageAnchor::Bottom,
-        ImageAnchor::BottomRight,
-    ];
-
-    for (index, anchor) in anchor_options.into_iter().enumerate() {
-        let button = gtk4::Button::builder()
-            .label(anchor.label())
-            .tooltip_text(image_anchor_tooltip(anchor))
-            .hexpand(true)
-            .build();
-        button.add_css_class("ratio-btn");
-        if anchor == current_anchor {
-            button.add_css_class("selected");
-        }
-        let all_buttons = anchor_buttons.clone();
-        let state = state.clone();
-        let canvas = canvas.clone();
-        let subtitle_label = subtitle_label.clone();
-        let undo_button = undo_button.clone();
-        let redo_button = redo_button.clone();
-        button.connect_clicked(move |_| {
-            let mut state = state.borrow_mut();
-            if state.update_document(|doc| {
-                doc.image_scale_mode = ImageScaleMode::Fill;
-                doc.image_anchor = anchor;
-            }) {
-                for (existing_anchor, existing_button) in all_buttons.borrow().iter() {
-                    if *existing_anchor == anchor {
-                        existing_button.add_css_class("selected");
-                    } else {
-                        existing_button.remove_css_class("selected");
-                    }
-                }
-                super::super::helpers::refresh_subtitle(&state, &subtitle_label);
-                super::super::helpers::refresh_history_buttons(&state, &undo_button, &redo_button);
-                canvas.refresh();
-            }
-        });
-        anchor_buttons.borrow_mut().push((anchor, button.clone()));
-        anchor_grid.attach(&button, (index % 3) as i32, (index / 3) as i32, 1, 1);
-    }
-
-    panel.append(&anchor_grid);
-    anchor_buttons
+    let _ = (state, canvas, subtitle_label, undo_button, redo_button);
+    Rc::new(RefCell::new(Vec::new()))
 }
 
 fn ratio_tooltip(ratio: OutputRatio) -> &'static str {
@@ -321,26 +247,5 @@ fn ratio_tooltip(ratio: OutputRatio) -> &'static str {
         OutputRatio::Portrait9x16 => "Tall portrait frame for stories and reels",
         OutputRatio::Portrait3x4 => "Classic portrait frame",
         OutputRatio::Portrait2x3 => "Photo-style portrait frame",
-    }
-}
-
-fn image_scale_mode_tooltip(mode: ImageScaleMode) -> &'static str {
-    match mode {
-        ImageScaleMode::Fit => "Show the full image inside the output frame",
-        ImageScaleMode::Fill => "Cover the whole output frame, cropping overflow if needed",
-    }
-}
-
-fn image_anchor_tooltip(anchor: ImageAnchor) -> &'static str {
-    match anchor {
-        ImageAnchor::TopLeft => "Switch to Fill and anchor the image to the top left",
-        ImageAnchor::Top => "Switch to Fill and anchor the image to the top edge",
-        ImageAnchor::TopRight => "Switch to Fill and anchor the image to the top right",
-        ImageAnchor::Left => "Switch to Fill and anchor the image to the left edge",
-        ImageAnchor::Center => "Switch to Fill and center the image inside the frame",
-        ImageAnchor::Right => "Switch to Fill and anchor the image to the right edge",
-        ImageAnchor::BottomLeft => "Switch to Fill and anchor the image to the bottom left",
-        ImageAnchor::Bottom => "Switch to Fill and anchor the image to the bottom edge",
-        ImageAnchor::BottomRight => "Switch to Fill and anchor the image to the bottom right",
     }
 }

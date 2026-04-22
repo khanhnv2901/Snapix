@@ -22,12 +22,7 @@ pub(crate) fn preview_canvas_layout(
         document.frame.padding as f64 * composition_scale,
     );
 
-    layout_for_bounds_with_mode(
-        image,
-        image_bounds,
-        document.image_scale_mode,
-        document.image_anchor,
-    )
+    layout_for_document(image, image_bounds, document)
 }
 
 pub(crate) fn composition_size(document: &Document) -> (f64, f64) {
@@ -116,6 +111,45 @@ pub(crate) fn layout_for_bounds_with_mode(
     mode: ImageScaleMode,
     anchor: ImageAnchor,
 ) -> Option<CanvasLayout> {
+    layout_for_bounds_with_transform(image, bounds, mode, anchor, 1.0, 0.0, 0.0)
+}
+
+pub(crate) fn layout_for_document(
+    image: &Image,
+    bounds: (f64, f64, f64, f64),
+    document: &Document,
+) -> Option<CanvasLayout> {
+    layout_for_bounds_with_transform(
+        image,
+        bounds,
+        document.image_scale_mode,
+        document.image_anchor,
+        document.image_zoom,
+        document.image_offset_x,
+        document.image_offset_y,
+    )
+}
+
+pub(crate) fn natural_image_bounds(document: &Document) -> (f64, f64, f64, f64) {
+    let (frame_width, frame_height) = composition_size(document);
+    inset_frame(
+        0.0,
+        0.0,
+        frame_width,
+        frame_height,
+        document.frame.padding as f64,
+    )
+}
+
+pub(crate) fn layout_for_bounds_with_transform(
+    image: &Image,
+    bounds: (f64, f64, f64, f64),
+    mode: ImageScaleMode,
+    anchor: ImageAnchor,
+    zoom: f32,
+    offset_x: f32,
+    offset_y: f32,
+) -> Option<CanvasLayout> {
     let (x, y, max_width, max_height) = bounds;
     let image_w = image.width as f64;
     let image_h = image.height as f64;
@@ -124,9 +158,13 @@ pub(crate) fn layout_for_bounds_with_mode(
     }
     let fit_scale = f64::min(max_width / image_w, max_height / image_h);
     let fill_scale = f64::max(max_width / image_w, max_height / image_h);
-    let scale = match mode {
+    let base_scale = match mode {
         ImageScaleMode::Fit => fit_scale,
         ImageScaleMode::Fill => fill_scale,
+    };
+    let scale = match mode {
+        ImageScaleMode::Fit => base_scale,
+        ImageScaleMode::Fill => base_scale * zoom.max(1.0) as f64,
     };
     let draw_w = image_w * scale;
     let draw_h = image_h * scale;
@@ -134,8 +172,23 @@ pub(crate) fn layout_for_bounds_with_mode(
         ImageScaleMode::Fit => (0.5, 0.5),
         ImageScaleMode::Fill => anchor.alignment(),
     };
-    let draw_x = x + (max_width - draw_w) * align_x;
-    let draw_y = y + (max_height - draw_h) * align_y;
+    let base_x = x + (max_width - draw_w) * align_x;
+    let base_y = y + (max_height - draw_h) * align_y;
+    let mut draw_x = base_x + offset_x as f64 * scale;
+    let mut draw_y = base_y + offset_y as f64 * scale;
+
+    if mode == ImageScaleMode::Fill {
+        if draw_w > max_width {
+            draw_x = draw_x.clamp(x + max_width - draw_w, x);
+        } else {
+            draw_x = x + (max_width - draw_w) * 0.5;
+        }
+        if draw_h > max_height {
+            draw_y = draw_y.clamp(y + max_height - draw_h, y);
+        } else {
+            draw_y = y + (max_height - draw_h) * 0.5;
+        }
+    }
 
     Some(CanvasLayout {
         image_x: draw_x,
@@ -143,14 +196,18 @@ pub(crate) fn layout_for_bounds_with_mode(
         image_width: draw_w,
         image_height: draw_h,
         image_scale: scale,
+        viewport_x: x,
+        viewport_y: y,
+        viewport_width: max_width,
+        viewport_height: max_height,
     })
 }
 
 pub(crate) fn point_in_layout(x: f64, y: f64, layout: CanvasLayout) -> bool {
-    x >= layout.image_x
-        && y >= layout.image_y
-        && x <= layout.image_x + layout.image_width
-        && y <= layout.image_y + layout.image_height
+    x >= layout.viewport_x
+        && y >= layout.viewport_y
+        && x <= layout.viewport_x + layout.viewport_width
+        && y <= layout.viewport_y + layout.viewport_height
 }
 
 pub(crate) fn point_in_bounds(x: f64, y: f64, bounds: (f64, f64, f64, f64)) -> bool {

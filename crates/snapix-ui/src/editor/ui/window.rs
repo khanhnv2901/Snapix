@@ -258,6 +258,7 @@ fn connect_crop_shortcuts(
     inspector: &InspectorControls,
 ) {
     let controller = gtk4::EventControllerKey::new();
+    controller.set_propagation_phase(gtk4::PropagationPhase::Capture);
     let toast_overlay = toast_overlay.clone();
     let title_label = title_label.clone();
     let subtitle_label = subtitle_label.clone();
@@ -270,6 +271,18 @@ fn connect_crop_shortcuts(
     controller.connect_key_pressed(move |_controller, key, _keycode, mods| {
         let mut state = state.borrow_mut();
         match key {
+            gtk4::gdk::Key::Escape if state.is_reframing_image() => {
+                state.exit_image_reframe_mode();
+                refresh_labels(&state, &title_label, &subtitle_label);
+                refresh_scope_label(&state, &scope_label);
+                refresh_history_buttons(&state, &undo_button, &redo_button);
+                refresh_export_actions(&state, &bottom_bar);
+                refresh_tool_actions(&state, &delete_button);
+                inspector.refresh_from_state(&state);
+                canvas.refresh();
+                show_toast(&toast_overlay, "Image reframe ended");
+                glib::Propagation::Stop
+            }
             gtk4::gdk::Key::Escape if state.active_tool() == ToolKind::Crop => {
                 state.cancel_crop_mode();
                 refresh_labels(&state, &title_label, &subtitle_label);

@@ -1,5 +1,7 @@
 use snapix_core::canvas::{Annotation, Background, Color, Document, Image, Point, Rect, TextStyle};
 
+use crate::widgets::{layout_for_document, natural_image_bounds};
+
 // ─── Tool kind ────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -121,6 +123,7 @@ pub(crate) struct EditorState {
     rect_drag: Option<CropDrag>,
     ellipse_drag: Option<CropDrag>,
     blur_drag: Option<CropDrag>,
+    reframing_image: bool,
     undo_stack: Vec<Document>,
     redo_stack: Vec<Document>,
 }
@@ -144,6 +147,7 @@ impl Default for EditorState {
             rect_drag: None,
             ellipse_drag: None,
             blur_drag: None,
+            reframing_image: false,
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
         }
@@ -188,6 +192,9 @@ impl EditorState {
     pub(crate) fn blur_drag(&self) -> Option<&CropDrag> {
         self.blur_drag.as_ref()
     }
+    pub(crate) fn is_reframing_image(&self) -> bool {
+        self.reframing_image
+    }
 
     pub(crate) fn set_active_color(&mut self, color: Color) {
         self.active_color = color;
@@ -203,6 +210,7 @@ impl EditorState {
         self.rect_drag = None;
         self.ellipse_drag = None;
         self.blur_drag = None;
+        self.reframing_image = false;
         if tool == ToolKind::Crop {
             self.ensure_default_crop_selection();
         } else {
@@ -538,6 +546,86 @@ impl EditorState {
         !self.redo_stack.is_empty()
     }
 
+    pub(crate) fn enter_image_reframe_mode(&mut self) -> bool {
+        if self.document.base_image.is_none() {
+            return false;
+        }
+        self.reframing_image = true;
+        self.selected_annotation = None;
+        self.document.image_scale_mode = snapix_core::canvas::ImageScaleMode::Fill;
+        true
+    }
+
+    pub(crate) fn exit_image_reframe_mode(&mut self) {
+        self.reframing_image = false;
+    }
+
+    pub(crate) fn reset_image_reframe(&mut self) -> bool {
+        let changed = self.update_document(|document| {
+            document.image_scale_mode = snapix_core::canvas::ImageScaleMode::Fit;
+            document.image_anchor = snapix_core::canvas::ImageAnchor::Center;
+            document.image_zoom = 1.0;
+            document.image_offset_x = 0.0;
+            document.image_offset_y = 0.0;
+        });
+        if changed {
+            self.reframing_image = false;
+        }
+        changed
+    }
+
+    pub(crate) fn preview_pan_image(&mut self, before: &Document, offset_x: f64, offset_y: f64) {
+        let Some(image) = before.base_image.as_ref() else {
+            return;
+        };
+        self.document = before.clone();
+        self.document.image_scale_mode = snapix_core::canvas::ImageScaleMode::Fill;
+        let bounds = natural_image_bounds(&self.document);
+        let Some(layout) = layout_for_document(image, bounds, &self.document) else {
+            return;
+        };
+        self.document.image_offset_x += (offset_x / layout.image_scale) as f32;
+        self.document.image_offset_y += (offset_y / layout.image_scale) as f32;
+    }
+
+    pub(crate) fn preview_zoom_image(&mut self, before: &Document, scale_delta: f64) {
+        if before.base_image.is_none() {
+            return;
+        }
+        self.document = before.clone();
+        self.document.image_scale_mode = snapix_core::canvas::ImageScaleMode::Fill;
+        let current = before.image_zoom.max(1.0);
+        self.document.image_zoom = (current * scale_delta as f32).clamp(1.0, 6.0);
+    }
+
+    pub(crate) fn finalize_image_reframe(&mut self, before: Document) -> bool {
+        if self.document_changed(&before) {
+            self.undo_stack.push(before);
+            self.redo_stack.clear();
+            true
+        } else {
+            false
+        }
+    }
+
+    pub(crate) fn zoom_reframed_image(&mut self, direction: f64) -> bool {
+        if self.document.base_image.is_none() {
+            return false;
+        }
+        self.update_document(|document| {
+            document.image_scale_mode = snapix_core::canvas::ImageScaleMode::Fill;
+            let current = document.image_zoom.max(1.0);
+            let next = if direction < 0.0 {
+                current * 1.12
+            } else if direction > 0.0 {
+                current / 1.12
+            } else {
+                current
+            };
+            document.image_zoom = next.clamp(1.0, 6.0);
+        })
+    }
+
     pub(crate) fn update_document<F>(&mut self, update: F) -> bool
     where
         F: FnOnce(&mut Document),
@@ -559,6 +647,7 @@ impl EditorState {
         };
         self.redo_stack.push(self.document.clone());
         self.document = previous;
+        self.reframing_image = false;
         self.selected_annotation = None;
         self.crop_drag = None;
         self.crop_selection = None;
@@ -574,6 +663,7 @@ impl EditorState {
         };
         self.undo_stack.push(self.document.clone());
         self.document = next;
+        self.reframing_image = false;
         self.selected_annotation = None;
         self.crop_drag = None;
         self.crop_selection = None;
@@ -759,6 +849,7 @@ impl EditorState {
             self.ellipse_drag = None;
             self.blur_drag = None;
             self.active_tool = ToolKind::Select;
+            self.reframing_image = false;
             self.selected_annotation = None;
         }
         changed
@@ -777,6 +868,7 @@ impl EditorState {
             self.ellipse_drag = None;
             self.blur_drag = None;
             self.active_tool = ToolKind::Select;
+            self.reframing_image = false;
             self.selected_annotation = None;
         }
         changed
@@ -829,6 +921,9 @@ impl EditorState {
             || self.document.output_ratio != previous.output_ratio
             || self.document.image_scale_mode != previous.image_scale_mode
             || self.document.image_anchor != previous.image_anchor
+            || self.document.image_zoom != previous.image_zoom
+            || self.document.image_offset_x != previous.image_offset_x
+            || self.document.image_offset_y != previous.image_offset_y
             || format!("{:?}", self.document.annotations) != format!("{:?}", previous.annotations)
             || !same_background(&self.document.background, &previous.background)
     }

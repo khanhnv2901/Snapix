@@ -100,13 +100,13 @@ snapix capture --mode full -o test.png
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Background: gradient picker | 🔲 Pending | |
-| Background: solid color | 🔲 Pending | |
+| Background: gradient picker | ✅ Done | Inspector now supports a native gradient mode with editable start/end colors and angle control |
+| Background: solid color | ✅ Done | Inspector now supports a native solid-color mode with direct color picking |
 | Background: blur of screenshot | ✅ Done | Inspector can switch to `Screenshot Blur`, adjust blur radius, and preview/export use the same cached blurred background rendering |
 | Frame: padding slider | ✅ Done | Live frame padding control is wired in the GTK editor |
 | Frame: corner radius | ✅ Done | Live corner radius control is wired in the GTK editor |
 | Frame: drop shadow | ✅ Done | Shadow toggle, direction, padding, blur, and strength are all live in the GTK editor |
-| Preset system (save/load) | 🔲 Pending | |
+| Preset system (save/load) | ✅ Done | Saved style presets can now be stored locally, reapplied, overwritten, and deleted from the inspector |
 
 ---
 
@@ -244,6 +244,10 @@ snapix/
   - Wired blurred screenshot background rendering into both preview and export so output matches the editor
   - Extended the blur surface cache to reuse full-background blur renders in addition to annotation blur regions
   - Kept background preset swatches working alongside blur mode selection
+  - Added direct `Gradient` and `Solid` background modes with native color pickers in the inspector
+  - Added editable gradient angle control and updated gradient rendering to honor the chosen angle
+  - Added a local saved-preset system for beautify settings with save/apply/delete actions in the inspector
+  - Persisted style presets to the user config directory as JSON and covered preset roundtrip with tests
   - Verified the workspace with `cargo test`
 
 ### 2026-04-20

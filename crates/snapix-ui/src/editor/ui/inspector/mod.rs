@@ -1,5 +1,6 @@
-mod background;
+pub(super) mod background;
 mod frame;
+mod presets;
 mod shadow;
 
 use std::cell::RefCell;
@@ -15,6 +16,7 @@ use background::build_background_section;
 use frame::{
     build_frame_section, build_image_fit_section, build_image_position_section, build_ratio_section,
 };
+use presets::build_preset_section;
 use shadow::build_shadow_section;
 
 pub(super) fn build_inspector(
@@ -100,8 +102,8 @@ pub(super) fn build_inspector(
 
     let background_section = build_background_section(
         &panel,
-        state,
-        canvas,
+        state.clone(),
+        canvas.clone(),
         subtitle_label,
         undo_button,
         redo_button,
@@ -114,10 +116,9 @@ pub(super) fn build_inspector(
         .propagate_natural_height(false)
         .width_request(260)
         .build();
-    scroller.set_child(Some(&panel));
 
-    InspectorControls {
-        widget: scroller.upcast(),
+    let controls = InspectorControls {
+        widget: scroller.clone().upcast(),
         padding_scale: frame_section.padding_scale,
         padding_value: frame_section.padding_value,
         radius_scale: frame_section.radius_scale,
@@ -134,10 +135,36 @@ pub(super) fn build_inspector(
         image_scale_mode_buttons,
         image_anchor_buttons,
         background_buttons: background_section.swatch_buttons,
+        background_gradient_button: background_section.gradient_button,
+        background_solid_button: background_section.solid_button,
         background_blur_button: background_section.blur_button,
+        background_solid_color_button: background_section.solid_color_button,
+        background_solid_row: background_section.solid_row,
+        background_gradient_from_button: background_section.gradient_from_button,
+        background_gradient_to_button: background_section.gradient_to_button,
+        background_gradient_from_row: background_section.gradient_from_row,
+        background_gradient_to_row: background_section.gradient_to_row,
+        background_gradient_angle_scale: background_section.gradient_angle_scale,
+        background_gradient_angle_value: background_section.gradient_angle_value,
+        background_gradient_angle_row: background_section.gradient_angle_row,
         background_blur_scale: background_section.blur_radius_scale,
         background_blur_value: background_section.blur_radius_value,
-    }
+        background_blur_row: background_section.blur_row,
+        background_suppress_sync_events: background_section.suppress_sync_events,
+    };
+
+    build_preset_section(
+        &panel,
+        state,
+        canvas,
+        subtitle_label,
+        undo_button,
+        redo_button,
+        controls.clone(),
+    );
+
+    scroller.set_child(Some(&panel));
+    controls
 }
 
 fn labeled_row<W: IsA<gtk4::Widget>>(label: &str, widget: &W) -> gtk4::Widget {
