@@ -26,7 +26,7 @@ use super::{BottomBar, HistoryAction, InspectorControls, SaveFormat};
 use crate::app::LaunchContext;
 use crate::editor::show_toast;
 use crate::editor::state::EditorState;
-use crate::widgets::DocumentCanvas;
+use crate::widgets::{DocumentCanvas, SharedColorButtons};
 
 pub struct EditorWindow {
     window: ApplicationWindow,
@@ -84,8 +84,7 @@ impl EditorWindow {
             },
         ));
         let shared_width_scale: Rc<RefCell<Option<gtk4::Scale>>> = Rc::new(RefCell::new(None));
-        let shared_color_buttons: Rc<RefCell<Vec<((u8, u8, u8), gtk4::Button)>>> =
-            Rc::new(RefCell::new(Vec::new()));
+        let shared_color_buttons: SharedColorButtons = Rc::new(RefCell::new(Vec::new()));
 
         let canvas = DocumentCanvas::new(
             state.clone(),
@@ -365,6 +364,7 @@ fn connect_export_format_preferences(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn connect_crop_shortcuts(
     window: &ApplicationWindow,
     toast_overlay: &ToastOverlay,
@@ -488,6 +488,7 @@ fn connect_crop_shortcuts(
     window.add_controller(controller);
 }
 
+#[allow(clippy::too_many_arguments)]
 fn connect_history_button(
     button: &gtk4::Button,
     state: Rc<RefCell<EditorState>>,

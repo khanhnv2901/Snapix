@@ -5,6 +5,7 @@ mod render;
 use snapix_core::canvas::{Annotation, Document};
 
 pub use canvas::DocumentCanvas;
+pub(crate) use canvas::SharedColorButtons;
 pub(crate) use geometry::composition_size;
 pub(crate) use geometry::{layout_for_document, natural_image_bounds};
 pub(crate) use render::render_document_rgba;

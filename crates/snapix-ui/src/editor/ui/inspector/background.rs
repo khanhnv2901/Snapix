@@ -11,9 +11,30 @@ use crate::editor::i18n;
 use crate::editor::state::{same_background, EditorState};
 use crate::widgets::DocumentCanvas;
 
+type BackgroundSwatchButtons = Rc<RefCell<Vec<(Background, gtk4::Button)>>>;
+type BackgroundModeControls = (
+    gtk4::Button,
+    gtk4::Button,
+    gtk4::Button,
+    gtk4::Widget,
+    gtk4::Widget,
+    gtk4::Widget,
+    gtk4::Widget,
+    gtk4::Widget,
+);
+type BackgroundEditorControls = (
+    gtk4::ColorButton,
+    gtk4::ColorButton,
+    gtk4::ColorButton,
+    gtk4::Scale,
+    gtk4::Label,
+    gtk4::Scale,
+    gtk4::Label,
+);
+
 #[derive(Clone)]
 pub(super) struct BackgroundSection {
-    pub(super) swatch_buttons: Rc<RefCell<Vec<(Background, gtk4::Button)>>>,
+    pub(super) swatch_buttons: BackgroundSwatchButtons,
     pub(super) gradient_button: gtk4::Button,
     pub(super) solid_button: gtk4::Button,
     pub(super) blur_button: gtk4::Button,
@@ -50,8 +71,7 @@ pub(super) fn build_background_section(
 
     let current_background = state.borrow().document.background.clone();
     let suppress_sync_events = Rc::new(Cell::new(false));
-    let swatch_buttons: Rc<RefCell<Vec<(Background, gtk4::Button)>>> =
-        Rc::new(RefCell::new(Vec::new()));
+    let swatch_buttons: BackgroundSwatchButtons = Rc::new(RefCell::new(Vec::new()));
 
     let mode_row = gtk4::Box::builder()
         .orientation(gtk4::Orientation::Horizontal)
@@ -118,7 +138,7 @@ pub(super) fn build_background_section(
         _ => 135.0,
     };
     let gradient_angle_value = gtk4::Label::builder()
-        .label(&format!("{}°", current_gradient_angle.round() as i32))
+        .label(format!("{}°", current_gradient_angle.round() as i32))
         .css_classes(["dim-copy"])
         .build();
     let gradient_angle_scale =
@@ -135,7 +155,7 @@ pub(super) fn build_background_section(
         _ => 24.0,
     };
     let blur_radius_value = gtk4::Label::builder()
-        .label(&format!("{}px", current_blur_radius.round() as u32))
+        .label(format!("{}px", current_blur_radius.round() as u32))
         .css_classes(["dim-copy"])
         .build();
     let blur_radius_scale = gtk4::Scale::with_range(gtk4::Orientation::Horizontal, 4.0, 64.0, 1.0);
@@ -872,6 +892,7 @@ pub(super) fn build_background_section(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn apply_background_change(
     state: Rc<RefCell<EditorState>>,
     canvas: DocumentCanvas,
@@ -879,27 +900,10 @@ fn apply_background_change(
     undo_button: &gtk4::Button,
     redo_button: &gtk4::Button,
     next_background: Background,
-    mode_controls: Option<(
-        gtk4::Button,
-        gtk4::Button,
-        gtk4::Button,
-        gtk4::Widget,
-        gtk4::Widget,
-        gtk4::Widget,
-        gtk4::Widget,
-        gtk4::Widget,
-    )>,
-    editor_controls: Option<(
-        gtk4::ColorButton,
-        gtk4::ColorButton,
-        gtk4::ColorButton,
-        gtk4::Scale,
-        gtk4::Label,
-        gtk4::Scale,
-        gtk4::Label,
-    )>,
+    mode_controls: Option<BackgroundModeControls>,
+    editor_controls: Option<BackgroundEditorControls>,
     suppress_sync_events: Option<Rc<Cell<bool>>>,
-    swatch_buttons: Option<Rc<RefCell<Vec<(Background, gtk4::Button)>>>>,
+    swatch_buttons: Option<BackgroundSwatchButtons>,
 ) {
     let mut state = state.borrow_mut();
     if state.update_document(|doc| doc.background = next_background.clone()) {
@@ -962,6 +966,7 @@ fn apply_background_change(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn refresh_background_mode_controls(
     background: &Background,
     gradient_button: &gtk4::Button,
@@ -988,6 +993,7 @@ pub(crate) fn refresh_background_mode_controls(
     blur_row.set_visible(is_blur);
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn sync_background_editor_values(
     background: &Background,
     solid_color_button: &gtk4::ColorButton,

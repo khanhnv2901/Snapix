@@ -113,7 +113,9 @@ impl BlurSurfaceCache {
     }
 
     fn surface_for(&mut self, image: &Image, key: BlurCacheKey) -> Option<&cairo::ImageSurface> {
-        if !self.annotation_surfaces.contains_key(&key) {
+        if let std::collections::hash_map::Entry::Vacant(entry) =
+            self.annotation_surfaces.entry(key)
+        {
             let region = blurred_region_image(
                 image,
                 key.x,
@@ -123,7 +125,7 @@ impl BlurSurfaceCache {
                 f32::from_bits(key.radius_bits),
             )?;
             let surface = make_surface(&region)?;
-            self.annotation_surfaces.insert(key, surface);
+            entry.insert(surface);
         }
         self.annotation_surfaces.get(&key)
     }
@@ -373,6 +375,7 @@ fn draw_ellipse_annotation(
     draw_ellipse_shape(cr, x, y, shape_width, shape_height, color, width, fill);
 }
 
+#[allow(clippy::too_many_arguments)]
 fn draw_rect_shape(
     cr: &cairo::Context,
     x: f64,
@@ -397,6 +400,7 @@ fn draw_rect_shape(
     cr.restore().ok();
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn draw_ellipse_shape(
     cr: &cairo::Context,
     x: f64,
@@ -474,7 +478,7 @@ fn draw_blur_annotation(
     cr.clip();
     cr.translate(draw_x, draw_y);
     cr.scale(layout.image_scale, layout.image_scale);
-    cr.set_source_surface(&surface, 0.0, 0.0).ok();
+    cr.set_source_surface(surface, 0.0, 0.0).ok();
     cr.paint().ok();
     cr.restore().ok();
 }
@@ -537,6 +541,7 @@ fn draw_text_annotation(
     cr.restore().ok();
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn draw_arrow(
     cr: &cairo::Context,
     layout: CanvasLayout,

@@ -16,6 +16,9 @@ use self::reframe::attach_reframe_support;
 use super::geometry::{draw_crop_mode_canvas, draw_crop_overlay};
 use super::render::{draw_editor_canvas, BlurSurfaceCache};
 
+pub(crate) type SharedColorButton = ((u8, u8, u8), gtk4::Button);
+pub(crate) type SharedColorButtons = Rc<RefCell<Vec<SharedColorButton>>>;
+
 #[derive(Clone)]
 pub(super) struct CanvasUi {
     pub(super) subtitle_label: gtk4::Label,
@@ -26,7 +29,7 @@ pub(super) struct CanvasUi {
     pub(super) toast_overlay: ToastOverlay,
     pub(super) delete_button: gtk4::Button,
     pub(super) shared_width_scale: Rc<RefCell<Option<gtk4::Scale>>>,
-    pub(super) shared_color_buttons: Rc<RefCell<Vec<((u8, u8, u8), gtk4::Button)>>>,
+    pub(super) shared_color_buttons: SharedColorButtons,
 }
 
 #[derive(Clone)]
@@ -35,6 +38,7 @@ pub struct DocumentCanvas {
 }
 
 impl DocumentCanvas {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         state: Rc<RefCell<EditorState>>,
         subtitle_label: gtk4::Label,
@@ -45,7 +49,7 @@ impl DocumentCanvas {
         toast_overlay: ToastOverlay,
         delete_button: gtk4::Button,
         shared_width_scale: Rc<RefCell<Option<gtk4::Scale>>>,
-        shared_color_buttons: Rc<RefCell<Vec<((u8, u8, u8), gtk4::Button)>>>,
+        shared_color_buttons: SharedColorButtons,
     ) -> Self {
         let drawing_area = gtk4::DrawingArea::builder()
             .content_width(720)

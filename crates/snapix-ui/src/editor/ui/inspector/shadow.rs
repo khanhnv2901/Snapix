@@ -109,7 +109,7 @@ pub(super) fn build_shadow_section(
     ));
 
     let shadow_padding_value = gtk4::Label::builder()
-        .label(&format!(
+        .label(format!(
             "{}px",
             state.borrow().document.frame.shadow_padding as u32
         ))
@@ -140,7 +140,7 @@ pub(super) fn build_shadow_section(
     ));
 
     let shadow_blur_value = gtk4::Label::builder()
-        .label(&format!(
+        .label(format!(
             "{}px",
             state.borrow().document.frame.shadow_blur as u32
         ))
@@ -170,7 +170,7 @@ pub(super) fn build_shadow_section(
     ));
 
     let shadow_strength_value = gtk4::Label::builder()
-        .label(&format!(
+        .label(format!(
             "{}%",
             (state.borrow().document.frame.shadow_strength * 100.0).round() as u32
         ))

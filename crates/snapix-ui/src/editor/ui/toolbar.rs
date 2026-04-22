@@ -11,7 +11,7 @@ use super::helpers::{refresh_history_buttons, refresh_scope_label, refresh_width
 use super::{BottomBar, CaptureActionRow, SaveFormat};
 use crate::editor::i18n;
 use crate::editor::state::{same_color_rgb, EditorState, ToolKind};
-use crate::widgets::DocumentCanvas;
+use crate::widgets::{DocumentCanvas, SharedColorButtons};
 
 pub(super) fn build_capture_row(bottom_bar: &BottomBar) -> CaptureActionRow {
     let row = gtk4::Box::builder()
@@ -195,6 +195,7 @@ fn build_capture_action_icon(id: &str, fallback_icon: &str) -> gtk4::Widget {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn build_tool_row(
     state: Rc<RefCell<EditorState>>,
     canvas: DocumentCanvas,
@@ -205,7 +206,7 @@ pub(super) fn build_tool_row(
     redo_button: &gtk4::Button,
     delete_button: &gtk4::Button,
     shared_width_scale: Rc<RefCell<Option<gtk4::Scale>>>,
-    shared_color_buttons: Rc<RefCell<Vec<((u8, u8, u8), gtk4::Button)>>>,
+    shared_color_buttons: SharedColorButtons,
 ) -> gtk4::Widget {
     let row = gtk4::Box::builder()
         .orientation(gtk4::Orientation::Horizontal)

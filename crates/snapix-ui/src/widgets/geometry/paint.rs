@@ -163,6 +163,7 @@ pub(crate) fn paint_image_for_document(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn paint_surface(
     cr: &cairo::Context,
     bounds: (f64, f64, f64, f64),

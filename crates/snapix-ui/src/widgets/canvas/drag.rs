@@ -74,6 +74,7 @@ pub(super) fn attach_drag_controller(
     drawing_area.add_controller(drag);
 }
 
+#[allow(clippy::too_many_arguments)]
 fn connect_drag_begin(
     drag: &gtk4::GestureDrag,
     drawing_area: &gtk4::DrawingArea,
@@ -217,6 +218,7 @@ fn connect_drag_begin(
     });
 }
 
+#[allow(clippy::too_many_arguments)]
 fn connect_drag_update(
     drag: &gtk4::GestureDrag,
     drawing_area: &gtk4::DrawingArea,
@@ -372,6 +374,7 @@ fn connect_drag_update(
     });
 }
 
+#[allow(clippy::too_many_arguments)]
 fn connect_drag_end(
     drag: &gtk4::GestureDrag,
     drawing_area: &gtk4::DrawingArea,
@@ -596,34 +599,23 @@ fn begin_tool_drag(state: &mut EditorState, width: i32, height: i32, x: f64, y: 
                 false
             }
         }
-        ToolKind::Rectangle => {
-            if point_in_layout(x, y, layout) {
-                state.begin_rect_drag(x, y);
-                true
-            } else {
-                false
-            }
+        ToolKind::Rectangle if point_in_layout(x, y, layout) => {
+            state.begin_rect_drag(x, y);
+            true
         }
-        ToolKind::Ellipse => {
-            if point_in_layout(x, y, layout) {
-                state.begin_ellipse_drag(x, y);
-                true
-            } else {
-                false
-            }
+        ToolKind::Ellipse if point_in_layout(x, y, layout) => {
+            state.begin_ellipse_drag(x, y);
+            true
         }
-        ToolKind::Blur => {
-            if point_in_layout(x, y, layout) {
-                state.begin_blur_drag(x, y);
-                true
-            } else {
-                false
-            }
+        ToolKind::Blur if point_in_layout(x, y, layout) => {
+            state.begin_blur_drag(x, y);
+            true
         }
         _ => false,
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn commit_shape_drag<F, C>(
     state: &mut EditorState,
     width: i32,

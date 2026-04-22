@@ -20,6 +20,7 @@ use crate::widgets::{render_document_rgba, DocumentCanvas};
 
 // ─── Capture actions ──────────────────────────────────────────────────────────
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn connect_capture_actions(
     actions: &CaptureActionRow,
     window: &ApplicationWindow,
@@ -109,6 +110,7 @@ pub(crate) enum CaptureAction {
     Window,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn connect_capture_button(
     button: &gtk4::Button,
     window: &ApplicationWindow,
@@ -263,6 +265,7 @@ pub(crate) async fn perform_capture_action(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn connect_import_button(
     button: &gtk4::Button,
     window: &ApplicationWindow,
@@ -363,6 +366,7 @@ fn connect_import_button(
     });
 }
 
+#[allow(clippy::too_many_arguments)]
 fn connect_clear_button(
     button: &gtk4::Button,
     toast_overlay: &ToastOverlay,

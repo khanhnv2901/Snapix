@@ -57,7 +57,7 @@ pub(crate) fn save_style_preset(preset: StylePreset) -> Result<Vec<StylePreset>>
         *existing = preset;
     } else {
         presets.push(preset);
-        presets.sort_by(|left, right| left.name.to_lowercase().cmp(&right.name.to_lowercase()));
+        presets.sort_by_key(|left| left.name.to_lowercase());
     }
     write_style_presets_to_path(&path, &presets)?;
     Ok(presets)

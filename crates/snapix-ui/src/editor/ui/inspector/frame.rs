@@ -25,7 +25,7 @@ pub(super) fn build_frame_section(
     redo_button: &gtk4::Button,
 ) -> FrameSection {
     let padding_value = gtk4::Label::builder()
-        .label(&format!(
+        .label(format!(
             "{}px",
             state.borrow().document.frame.padding as u32
         ))
@@ -55,7 +55,7 @@ pub(super) fn build_frame_section(
     ));
 
     let radius_value = gtk4::Label::builder()
-        .label(&format!(
+        .label(format!(
             "{}px",
             state.borrow().document.frame.corner_radius as u32
         ))
