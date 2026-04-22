@@ -36,6 +36,6 @@ This file tracks the current product and release status at a high level.
 
 ## Reference
 
-- Main build and run instructions: [README.md](/home/kainwyn/Project/Snapix/README.md:1)
-- Flatpak manifest: [flatpak/io.github.snapix.Snapix.yml](/home/kainwyn/Project/Snapix/flatpak/io.github.snapix.Snapix.yml:1)
-- AppStream metadata: [data/io.github.snapix.Snapix.metainfo.xml](/home/kainwyn/Project/Snapix/data/io.github.snapix.Snapix.metainfo.xml:1)
+- Main build and run instructions: [README.md](README.md)
+- Flatpak manifest: [flatpak/io.github.snapix.Snapix.yml](flatpak/io.github.snapix.Snapix.yml)
+- AppStream metadata: [data/io.github.snapix.Snapix.metainfo.xml](data/io.github.snapix.Snapix.metainfo.xml)
