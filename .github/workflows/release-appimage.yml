@@ -70,10 +70,12 @@ jobs:
         run: |
           curl -fsSL -o linuxdeploy.AppImage \
             https://github.com/linuxdeploy/linuxdeploy/releases/latest/download/linuxdeploy-x86_64.AppImage
+          curl -fsSL -o appimagetool.AppImage \
+            https://github.com/AppImage/appimagetool/releases/latest/download/appimagetool-x86_64.AppImage
           curl -fsSL -o linuxdeploy-plugin-gtk.sh \
             https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh
 
-          chmod +x linuxdeploy.AppImage linuxdeploy-plugin-gtk.sh
+          chmod +x linuxdeploy.AppImage appimagetool.AppImage linuxdeploy-plugin-gtk.sh
 
       - name: Build AppImage
         run: |
@@ -88,13 +90,9 @@ jobs:
             --desktop-file AppDir/usr/share/applications/${APP_ID}.desktop \
             --icon-file AppDir/usr/share/icons/hicolor/scalable/apps/${APP_ID}.svg \
             --executable AppDir/usr/bin/${BIN_NAME} \
-            --plugin gtk \
-            --output appimage
+            --plugin gtk
 
-          APPIMAGE_PATH="$(find . -maxdepth 1 -type f -name '*.AppImage' | head -n 1)"
-          if [ "${APPIMAGE_PATH}" != "./${TARGET_APPIMAGE}" ] && [ "${APPIMAGE_PATH}" != "${TARGET_APPIMAGE}" ]; then
-            mv "${APPIMAGE_PATH}" "${TARGET_APPIMAGE}"
-          fi
+          ./appimagetool.AppImage AppDir "${TARGET_APPIMAGE}"
 
       - name: Upload AppImage artifact
         uses: actions/upload-artifact@v4
