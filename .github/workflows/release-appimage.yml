@@ -79,18 +79,20 @@ jobs:
 
       - name: Build AppImage
         run: |
-          export APPIMAGE_EXTRACT_AND_RUN=1
           export VERSION="${GITHUB_REF_NAME:-dev}"
           export VERSION="${VERSION#v}"
           export ARCH=x86_64
           export TARGET_APPIMAGE="${APP_NAME}-${VERSION}-x86_64.AppImage"
 
-          ./linuxdeploy.AppImage \
+          APPIMAGE_EXTRACT_AND_RUN=1 ./linuxdeploy.AppImage \
             --appdir AppDir \
             --desktop-file AppDir/usr/share/applications/${APP_ID}.desktop \
             --icon-file AppDir/usr/share/icons/hicolor/scalable/apps/${APP_ID}.svg \
             --executable AppDir/usr/bin/${BIN_NAME} \
             --plugin gtk
+
+          ls -la
+          find AppDir -maxdepth 3 -type f | sort | sed -n '1,120p'
 
           ./appimagetool.AppImage AppDir "${TARGET_APPIMAGE}"
 
