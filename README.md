@@ -5,6 +5,8 @@
 [![CI](https://github.com/khanhnv2901/snapix/actions/workflows/ci.yml/badge.svg)](https://github.com/khanhnv2901/snapix/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
+![Snapix polished export](images/Snapix-screenshot-result.png)
+
 ## Overview
 
 Snapix is a native Linux screenshot editor built with GTK4 and libadwaita. It is designed for the common workflow of taking a screenshot, marking it up quickly, and exporting something that already looks presentable without extra editing in another app.
@@ -16,6 +18,15 @@ Main capabilities:
 - Beautify screenshots with gradients, solid backgrounds, padding, rounded corners, and shadows
 - Export to PNG/JPG or copy directly to the clipboard
 - Run as a GUI app or from the command line for scripted capture flows
+
+## Quick Demo
+
+![Snapix editor UI](images/Snapix-UI.png)
+
+1. Build the release binary with `cargo build --release`.
+2. Launch the editor with `./target/release/snapix`.
+3. Capture a screenshot, add annotations, then use Quick Save or Export.
+4. For CLI capture, run `./target/release/snapix capture --mode full --output screenshot.png`.
 
 ## Build And Run
 
