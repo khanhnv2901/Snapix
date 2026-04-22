@@ -94,7 +94,20 @@ jobs:
           ls -la
           find AppDir -maxdepth 3 -type f | sort | sed -n '1,120p'
 
-          ./appimagetool.AppImage AppDir "${TARGET_APPIMAGE}"
+          APPIMAGE_EXTRACT_AND_RUN=1 ./appimagetool.AppImage AppDir
+
+          APPIMAGE_PATH="$(find . -maxdepth 1 -type f -name '*.AppImage' \
+            ! -name 'linuxdeploy.AppImage' \
+            ! -name 'appimagetool.AppImage' | head -n 1)"
+
+          if [ -z "${APPIMAGE_PATH}" ]; then
+            echo "No generated AppImage found"
+            exit 1
+          fi
+
+          if [ "${APPIMAGE_PATH}" != "./${TARGET_APPIMAGE}" ] && [ "${APPIMAGE_PATH}" != "${TARGET_APPIMAGE}" ]; then
+            mv "${APPIMAGE_PATH}" "${TARGET_APPIMAGE}"
+          fi
 
       - name: Upload AppImage artifact
         uses: actions/upload-artifact@v4
