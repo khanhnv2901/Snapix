@@ -1,5 +1,7 @@
 use gtk4::prelude::*;
 
+use crate::editor::i18n;
+
 pub(super) fn present_text_dialog<F>(
     window: &gtk4::ApplicationWindow,
     title: &str,
@@ -15,7 +17,7 @@ pub(super) fn present_text_dialog<F>(
         .transient_for(window)
         .modal(true)
         .build();
-    dialog.add_button("Cancel", gtk4::ResponseType::Cancel);
+    dialog.add_button(i18n::text_dialog_cancel_button(), gtk4::ResponseType::Cancel);
     dialog.add_button(accept_label, gtk4::ResponseType::Accept);
     dialog.set_default_response(gtk4::ResponseType::Accept);
 
@@ -28,7 +30,7 @@ pub(super) fn present_text_dialog<F>(
 
     let entry = gtk4::Entry::builder()
         .text(initial_text)
-        .placeholder_text("Type a short label")
+        .placeholder_text(i18n::text_dialog_placeholder())
         .activates_default(true)
         .build();
     entry.select_region(0, -1);

@@ -116,7 +116,7 @@ snapix capture --mode full -o test.png
 | Task | Status | Notes |
 |------|--------|-------|
 | Preferences dialog | ✅ Done | Preferences window now manages appearance, export defaults, remember-last-format, and Pro activation entry point |
-| i18n (English + Vietnamese) | 🔲 Pending | |
+| i18n / localization | ⏸️ Removed from current scope | Runtime UI is English-only. Localization scaffolding and non-English metadata have been removed from the current M4 plan |
 | App icon | ✅ Done | Replaced placeholder icon with a release-grade SVG in `data/icons/hicolor/scalable/apps/` |
 | .desktop file | ✅ Done | Desktop entry updated with better categories, keywords, startup WM class, and WebP mime support |
 | AppStream metadata | ✅ Done | Metainfo now reflects current editor features and 2026-04-22 release notes |
@@ -234,6 +234,11 @@ snapix/
 - Refactored reframe logic into dedicated modules so canvas/render files stay smaller:
   - `crates/snapix-ui/src/widgets/canvas/reframe.rs`
   - `crates/snapix-ui/src/widgets/render/reframe.rs`
+- Re-scoped the M4 localization work:
+  - removed the temporary Vietnamese runtime/UI layer and language selector
+  - kept the editor string helper module as an English-only source of UI copy
+  - removed the temporary `po/` scaffold because localization is no longer in scope
+  - kept tests green after the cleanup
 
 ### 2026-04-21
 - **M2 Progress**

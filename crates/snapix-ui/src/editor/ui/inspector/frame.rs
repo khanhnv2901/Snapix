@@ -5,6 +5,7 @@ use gtk4::prelude::*;
 use snapix_core::canvas::{ImageAnchor, ImageScaleMode, OutputRatio};
 
 use super::{super::helpers::connect_frame_slider, labeled_row_with_value};
+use crate::editor::i18n;
 use crate::editor::state::EditorState;
 use crate::widgets::DocumentCanvas;
 
@@ -48,7 +49,7 @@ pub(super) fn build_frame_section(
         );
     }
     panel.append(&labeled_row_with_value(
-        "Padding",
+        i18n::inspector_padding_label(),
         &padding_scale,
         &padding_value,
     ));
@@ -78,7 +79,7 @@ pub(super) fn build_frame_section(
         );
     }
     panel.append(&labeled_row_with_value(
-        "Corner Radius",
+        i18n::inspector_corner_radius_label(),
         &radius_scale,
         &radius_value,
     ));
@@ -101,7 +102,7 @@ pub(super) fn build_ratio_section(
 ) -> Rc<RefCell<Vec<(OutputRatio, gtk4::Button)>>> {
     panel.append(
         &gtk4::Label::builder()
-            .label("Output Ratio")
+            .label(i18n::inspector_output_ratio_title())
             .xalign(0.0)
             .css_classes(["heading", "section-title"])
             .build(),
@@ -130,7 +131,7 @@ pub(super) fn build_ratio_section(
     for (index, ratio) in ratio_options.into_iter().enumerate() {
         let button = gtk4::Button::builder()
             .label(ratio.label())
-            .tooltip_text(ratio_tooltip(ratio))
+            .tooltip_text(i18n::ratio_tooltip(ratio))
             .hexpand(true)
             .build();
         button.add_css_class("ratio-btn");
@@ -176,7 +177,7 @@ pub(super) fn build_image_fit_section(
 ) -> Rc<RefCell<Vec<(ImageScaleMode, gtk4::Button)>>> {
     panel.append(
         &gtk4::Label::builder()
-            .label("Image Reframe")
+            .label(i18n::inspector_image_reframe_title())
             .xalign(0.0)
             .css_classes(["heading", "section-title"])
             .margin_top(8)
@@ -185,7 +186,7 @@ pub(super) fn build_image_fit_section(
 
     panel.append(
         &gtk4::Label::builder()
-            .label("Double-click the image in Select mode, then drag to reposition and use the mouse wheel to zoom.")
+            .label(i18n::inspector_image_reframe_help())
             .xalign(0.0)
             .wrap(true)
             .css_classes(["dim-copy"])
@@ -193,7 +194,7 @@ pub(super) fn build_image_fit_section(
     );
 
     let reset_button = gtk4::Button::builder()
-        .label("Reset View")
+        .label(i18n::reset_view_button_label())
         .halign(gtk4::Align::Start)
         .build();
     {
@@ -226,7 +227,7 @@ pub(super) fn build_image_position_section(
 ) -> Rc<RefCell<Vec<(ImageAnchor, gtk4::Button)>>> {
     panel.append(
         &gtk4::Label::builder()
-            .label("Reset View returns the image to Fit and clears any manual pan or zoom.")
+            .label(i18n::inspector_reset_view_help())
             .xalign(0.0)
             .wrap(true)
             .css_classes(["dim-copy"])
@@ -234,18 +235,4 @@ pub(super) fn build_image_position_section(
     );
     let _ = (state, canvas, subtitle_label, undo_button, redo_button);
     Rc::new(RefCell::new(Vec::new()))
-}
-
-fn ratio_tooltip(ratio: OutputRatio) -> &'static str {
-    match ratio {
-        OutputRatio::Auto => "Match the image's natural aspect ratio",
-        OutputRatio::Square => "Square output, useful for thumbnails and social posts",
-        OutputRatio::Landscape4x3 => "Classic landscape frame",
-        OutputRatio::Landscape3x2 => "Balanced landscape frame",
-        OutputRatio::Landscape16x9 => "Wide landscape frame for presentations and video stills",
-        OutputRatio::Landscape5x3 => "Extra-wide landscape frame",
-        OutputRatio::Portrait9x16 => "Tall portrait frame for stories and reels",
-        OutputRatio::Portrait3x4 => "Classic portrait frame",
-        OutputRatio::Portrait2x3 => "Photo-style portrait frame",
-    }
 }

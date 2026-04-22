@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use gtk4::prelude::*;
 
+use crate::editor::i18n;
 use crate::editor::{
     refresh_history_buttons, refresh_scope_label, refresh_tool_actions, show_toast, EditorState,
     ToolKind,
@@ -485,7 +486,7 @@ fn connect_drag_end(
                 }
             }
             if !state.commit_arrow_drag() {
-                show_toast(&ui.toast_overlay, "Arrow is too small");
+                show_toast(&ui.toast_overlay, i18n::arrow_too_small_toast());
             }
             refresh_scope_label(&state, &ui.scope_label);
             refresh_history_buttons(&state, &ui.undo_button, &ui.redo_button);
@@ -502,7 +503,7 @@ fn connect_drag_end(
                 &ui,
                 &drawing_area,
                 &rect_drag,
-                "Rectangle drag was too small",
+                i18n::rectangle_too_small_toast(),
                 |state, x, y, w, h| state.commit_rect_annotation(x, y, w, h),
                 EditorState::clear_rect_drag,
             );
@@ -518,7 +519,7 @@ fn connect_drag_end(
                 &ui,
                 &drawing_area,
                 &ellipse_drag,
-                "Ellipse drag was too small",
+                i18n::ellipse_too_small_toast(),
                 |state, x, y, w, h| state.commit_ellipse_annotation(x, y, w, h),
                 EditorState::clear_ellipse_drag,
             );
@@ -534,7 +535,7 @@ fn connect_drag_end(
                 &ui,
                 &drawing_area,
                 &blur_drag,
-                "Blur region was too small",
+                i18n::blur_too_small_toast(),
                 |state, x, y, w, h| state.commit_blur_rect(x, y, w, h),
                 EditorState::clear_blur_drag,
             );
@@ -561,7 +562,7 @@ fn connect_drag_end(
                     refresh_scope_label(&state, &ui.scope_label);
                     refresh_history_buttons(&state, &ui.undo_button, &ui.redo_button);
                     refresh_tool_actions(&state, &ui.delete_button);
-                    show_toast(&ui.toast_overlay, "Crop selection is too small");
+                    show_toast(&ui.toast_overlay, i18n::crop_too_small_toast());
                 }
             } else {
                 state.clear_crop_drag();
@@ -569,7 +570,7 @@ fn connect_drag_end(
                 refresh_scope_label(&state, &ui.scope_label);
                 refresh_history_buttons(&state, &ui.undo_button, &ui.redo_button);
                 refresh_tool_actions(&state, &ui.delete_button);
-                show_toast(&ui.toast_overlay, "Crop selection is too small");
+                show_toast(&ui.toast_overlay, i18n::crop_too_small_toast());
             }
         }
         *crop_interaction.borrow_mut() = None;

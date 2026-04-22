@@ -6,6 +6,7 @@ use tracing::warn;
 
 use super::super::helpers::{refresh_history_buttons, refresh_subtitle};
 use super::InspectorControls;
+use crate::editor::i18n;
 use crate::editor::presets::{
     delete_style_preset, load_style_presets, save_style_preset, StylePreset,
 };
@@ -30,7 +31,7 @@ pub(super) fn build_preset_section(
 
     panel.append(
         &gtk4::Label::builder()
-            .label("Saved Presets")
+            .label(i18n::inspector_saved_presets_title())
             .xalign(0.0)
             .css_classes(["heading", "section-title"])
             .build(),
@@ -44,7 +45,7 @@ pub(super) fn build_preset_section(
     panel.append(&combo);
 
     let name_entry = gtk4::Entry::builder()
-        .placeholder_text("Preset name")
+        .placeholder_text(i18n::inspector_preset_name_placeholder())
         .hexpand(true)
         .build();
     panel.append(&name_entry);
@@ -53,10 +54,16 @@ pub(super) fn build_preset_section(
         .orientation(gtk4::Orientation::Horizontal)
         .spacing(6)
         .build();
-    let save_button = gtk4::Button::builder().label("Save").hexpand(true).build();
-    let apply_button = gtk4::Button::builder().label("Apply").hexpand(true).build();
+    let save_button = gtk4::Button::builder()
+        .label(i18n::save_button_label())
+        .hexpand(true)
+        .build();
+    let apply_button = gtk4::Button::builder()
+        .label(i18n::apply_button_label())
+        .hexpand(true)
+        .build();
     let delete_button = gtk4::Button::builder()
-        .label("Delete")
+        .label(i18n::delete_button_label())
         .hexpand(true)
         .build();
     button_row.append(&save_button);

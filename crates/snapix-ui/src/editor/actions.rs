@@ -10,6 +10,7 @@ use libadwaita::{ApplicationWindow, Toast, ToastOverlay};
 use snapix_capture::{CaptureBackend, SessionType};
 use snapix_core::canvas::{Document, Image, Rect};
 
+use super::i18n;
 use super::state::EditorState;
 use super::ui::{
     refresh_export_actions, refresh_history_buttons, refresh_labels, refresh_scope_label,
@@ -38,13 +39,13 @@ pub(super) fn connect_capture_actions(
     let backend = snapix_capture::detect_backend();
     if session == snapix_capture::SessionType::Wayland && backend.name() == "ashpd-portal" {
         actions.fullscreen_button.set_tooltip_text(Some(
-            "Hides Snapix, captures the full screen, then restores the window.",
+            i18n::capture_wayland_fullscreen_tooltip(),
         ));
         actions.region_button.set_tooltip_text(Some(
-            "Opens the portal picker — drag to select an area to capture.",
+            i18n::capture_wayland_region_tooltip(),
         ));
         actions.window_button.set_tooltip_text(Some(
-            "Opens the portal picker — click a window to capture it.",
+            i18n::capture_wayland_window_tooltip(),
         ));
     }
 
@@ -187,9 +188,9 @@ fn connect_capture_button(
                         show_toast(&toast_overlay, &message);
                     } else {
                         let message = match action {
-                            CaptureAction::Fullscreen => "Full screen captured",
-                            CaptureAction::Region => "Selection captured",
-                            CaptureAction::Window => "Window captured",
+                            CaptureAction::Fullscreen => i18n::capture_success_toast("fullscreen"),
+                            CaptureAction::Region => i18n::capture_success_toast("region"),
+                            CaptureAction::Window => i18n::capture_success_toast("window"),
                         };
                         show_toast(&toast_overlay, message);
                     }
@@ -197,12 +198,16 @@ fn connect_capture_button(
                 Err(error) => {
                     let detail = match action {
                         CaptureAction::Fullscreen => {
-                            format!("Fullscreen capture failed: {error}")
+                            i18n::capture_failed_detail("fullscreen", &error.to_string())
                         }
-                        CaptureAction::Region => format!("Region capture failed: {error}"),
-                        CaptureAction::Window => format!("Window capture failed: {error}"),
+                        CaptureAction::Region => {
+                            i18n::capture_failed_detail("region", &error.to_string())
+                        }
+                        CaptureAction::Window => {
+                            i18n::capture_failed_detail("window", &error.to_string())
+                        }
                     };
-                    show_error(&window, "Capture failed", &detail);
+                    show_error(&window, i18n::capture_failed_title(), &detail);
                 }
             }
         });
@@ -238,10 +243,7 @@ pub(crate) async fn perform_capture_action(
                 {
                     Ok(image) => Ok((
                         image,
-                        Some(
-                            "Fullscreen capture failed; switched to interactive capture."
-                                .to_string(),
-                        ),
+                        Some(i18n::capture_fallback_toast().to_string()),
                     )),
                     Err(region_error) => Err(anyhow::anyhow!(
                         "Fullscreen capture failed: {full_error}. \
@@ -291,15 +293,15 @@ fn connect_import_button(
     let inspector = inspector.clone();
     button.connect_clicked(move |_| {
         let chooser = gtk4::FileChooserNative::builder()
-            .title("Import image")
+            .title(i18n::import_dialog_title())
             .transient_for(&window)
             .action(gtk4::FileChooserAction::Open)
-            .accept_label("Import")
-            .cancel_label("Cancel")
+            .accept_label(i18n::import_accept_button())
+            .cancel_label(i18n::cancel_button_label())
             .modal(true)
             .build();
         let filter = gtk4::FileFilter::new();
-        filter.set_name(Some("Images"));
+        filter.set_name(Some(i18n::images_filter_name()));
         for mime in ["image/png", "image/jpeg", "image/webp"] {
             filter.add_mime_type(mime);
         }
@@ -338,19 +340,22 @@ fn connect_import_button(
                                 }
                                 show_toast(
                                     &response_toast_overlay,
-                                    &format!("Imported image from {}", path.display()),
+                                    &i18n::imported_image_toast(&path.display().to_string()),
                                 );
                             }
                             Err(error) => show_error(
                                 &window,
-                                "Import failed",
-                                &format!("Failed to open {}: {error}", path.display()),
+                                i18n::import_failed_title(),
+                                &i18n::import_failed_open_detail(
+                                    &path.display().to_string(),
+                                    &error.to_string(),
+                                ),
                             ),
                         },
                         None => show_error(
                             &window,
-                            "Import failed",
-                            "The selected image is not a local file path.",
+                            i18n::import_failed_title(),
+                            i18n::import_failed_non_local_detail(),
                         ),
                     }
                 }
@@ -394,7 +399,7 @@ fn connect_clear_button(
             refresh_tool_actions(&state, &delete_button);
             inspector.refresh_from_state(&state);
             canvas.refresh();
-            show_toast(&toast_overlay, "Image cleared");
+            show_toast(&toast_overlay, i18n::image_cleared_toast());
         }
     });
 }
@@ -418,8 +423,8 @@ pub(super) fn connect_copy_button(
                     Err(error) => {
                         show_error(
                             &window,
-                            "Copy failed",
-                            &format!("Clipboard unavailable: {error}"),
+                            i18n::copy_failed_title(),
+                            &i18n::clipboard_unavailable_detail(&error.to_string()),
                         );
                         return;
                     }
@@ -431,14 +436,14 @@ pub(super) fn connect_copy_button(
                 }) {
                     show_error(
                         &window,
-                        "Copy failed",
-                        &format!("Clipboard write failed: {error}"),
+                        i18n::copy_failed_title(),
+                        &i18n::clipboard_write_failed_detail(&error.to_string()),
                     );
                 } else {
-                    show_toast(&toast_overlay, "Image copied to clipboard");
+                    show_toast(&toast_overlay, i18n::image_copied_to_clipboard_toast());
                 }
             }
-            Err(error) => show_error(&window, "Copy failed", &error.to_string()),
+            Err(error) => show_error(&window, i18n::copy_failed_title(), &error.to_string()),
         }
     });
 }
@@ -468,12 +473,9 @@ pub(super) fn connect_quick_save_button(
         };
         let path = pictures_dir.join(format!("snapix-{ts}.{ext}"));
         if let Err(error) = save_image_to_path(&document, &path, format) {
-            show_error(&window, "Quick save failed", &error.to_string());
+            show_error(&window, i18n::quick_save_failed_title(), &error.to_string());
         } else {
-            show_toast(
-                &toast_overlay,
-                &format!("Saved image to {}", path.display()),
-            );
+            show_toast(&toast_overlay, &i18n::saved_image_toast(&path.display().to_string()));
         }
     });
 }
@@ -491,15 +493,15 @@ pub(super) fn connect_save_as_button(
         let format = *save_format.borrow();
         let (title_str, accept_str, default_name, mime, pattern) = match format {
             SaveFormat::Png => (
-                "Export PNG",
-                "Save",
+                i18n::export_dialog_title("png"),
+                i18n::save_button_label(),
                 "snapix-export.png",
                 "image/png",
                 "*.png",
             ),
             SaveFormat::Jpeg => (
-                "Export JPEG",
-                "Save",
+                i18n::export_dialog_title("jpeg"),
+                i18n::save_button_label(),
                 "snapix-export.jpg",
                 "image/jpeg",
                 "*.jpg",
@@ -510,7 +512,7 @@ pub(super) fn connect_save_as_button(
             .transient_for(&window)
             .action(gtk4::FileChooserAction::Save)
             .accept_label(accept_str)
-            .cancel_label("Cancel")
+            .cancel_label(i18n::cancel_button_label())
             .modal(true)
             .build();
         chooser.set_current_name(default_name);
@@ -532,18 +534,15 @@ pub(super) fn connect_save_as_button(
                             let document = state.borrow().document().clone();
                             let fmt = *save_format.borrow();
                             if let Err(error) = save_image_to_path(&document, &path, fmt) {
-                                show_error(&window, "Export failed", &error.to_string());
+                                show_error(&window, i18n::export_failed_title(), &error.to_string());
                             } else {
-                                show_toast(
-                                    &toast_overlay,
-                                    &format!("Exported image to {}", path.display()),
-                                );
+                                show_toast(&toast_overlay, &i18n::exported_image_toast(&path.display().to_string()));
                             }
                         }
                         None => show_error(
                             &window,
-                            "Export failed",
-                            "The selected destination is not a local file path.",
+                            i18n::export_failed_title(),
+                            i18n::export_failed_non_local_detail(),
                         ),
                     }
                 }

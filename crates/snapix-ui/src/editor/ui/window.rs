@@ -8,6 +8,9 @@ use libadwaita::{Application, ApplicationWindow, HeaderBar, ToastOverlay, Toolba
 use super::super::actions::{
     connect_capture_actions, connect_copy_button, connect_quick_save_button, connect_save_as_button,
 };
+use super::super::i18n::{
+    app_window_title, delete_tooltip, preferences_button_tooltip, redo_tooltip, undo_tooltip,
+};
 use super::super::preferences::{
     load_preferences, save_preferences, AppPreferences, PreferredSaveFormat,
 };
@@ -47,23 +50,23 @@ impl EditorWindow {
 
         let undo_button = gtk4::Button::builder()
             .icon_name("edit-undo-symbolic")
-            .tooltip_text("Undo (Ctrl+Z)")
+            .tooltip_text(undo_tooltip())
             .sensitive(false)
             .build();
         let redo_button = gtk4::Button::builder()
             .icon_name("edit-redo-symbolic")
-            .tooltip_text("Redo (Ctrl+Shift+Z)")
+            .tooltip_text(redo_tooltip())
             .sensitive(false)
             .build();
         let delete_button = gtk4::Button::builder()
             .icon_name("edit-delete-symbolic")
-            .tooltip_text("Delete selected annotation (Backspace/Delete)")
+            .tooltip_text(delete_tooltip())
             .css_classes(["tool-delete-btn"])
             .sensitive(false)
             .build();
         let preferences_button = gtk4::Button::builder()
             .icon_name("emblem-system-symbolic")
-            .tooltip_text("Preferences")
+            .tooltip_text(preferences_button_tooltip())
             .build();
         let width_label = gtk4::Label::builder()
             .label(super::helpers::width_label_text(&state.borrow()))
@@ -171,7 +174,7 @@ impl EditorWindow {
 
         let window = ApplicationWindow::builder()
             .application(app)
-            .title("Snapix")
+            .title(app_window_title())
             .default_width(1280)
             .default_height(820)
             .content(&toolbar_view)

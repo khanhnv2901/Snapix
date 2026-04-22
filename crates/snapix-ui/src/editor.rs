@@ -1,4 +1,5 @@
 mod actions;
+pub(crate) mod i18n;
 mod preferences;
 mod presets;
 mod state;

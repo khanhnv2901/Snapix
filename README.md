@@ -26,7 +26,7 @@
 
 See [PROGRESS.md](PROGRESS.md) for detailed progress tracking.
 
-Current progress includes the full editor MVP plus completed Beautify features: native gradient and solid background pickers, screenshot blur background, frame padding/radius/shadow controls, local style presets, and direct on-canvas `Image Reframe`. Reframe mode now supports drag-to-pan, wheel zoom, pinch zoom on touchpads, focus-aware zoom toward the cursor or pinch center, visible grid overlay, zoom HUD, reset-by-double-click, and stable `Esc` exit behavior. The main remaining work is M4 release polish: preferences, i18n, branding/assets, production license verification, and distribution polish.
+Current progress includes the full editor MVP plus completed Beautify features: native gradient and solid background pickers, screenshot blur background, frame padding/radius/shadow controls, local style presets, and direct on-canvas `Image Reframe`. Reframe mode now supports drag-to-pan, wheel zoom, pinch zoom on touchpads, focus-aware zoom toward the cursor or pinch center, visible grid overlay, zoom HUD, reset-by-double-click, and stable `Esc` exit behavior. The main remaining work is M4 release polish: branding/assets, production license verification, and distribution polish.
 
 ## Building
 

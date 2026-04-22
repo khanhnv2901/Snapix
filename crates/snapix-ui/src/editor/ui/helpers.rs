@@ -3,9 +3,10 @@ use std::rc::Rc;
 
 use gtk4::prelude::*;
 use snapix_core::canvas::{
-    Annotation, Document, FrameSettings, Image, ImageAnchor, ImageScaleMode, OutputRatio,
+    Annotation, Document, FrameSettings, Image, ImageAnchor, ImageScaleMode,
 };
 
+use crate::editor::i18n;
 use crate::editor::state::{EditorState, ToolKind};
 use crate::widgets::{composition_size, DocumentCanvas};
 
@@ -14,7 +15,7 @@ pub(crate) fn refresh_labels(
     title_label: &gtk4::Label,
     subtitle_label: &gtk4::Label,
 ) {
-    title_label.set_label(&format!("Editor • {}", state.active_tool.label()));
+    title_label.set_label(&i18n::editor_header_title(state.active_tool()));
     refresh_subtitle(state, subtitle_label);
 }
 
@@ -45,74 +46,49 @@ pub(crate) fn subtitle_text(document: &Document) -> String {
         Some(Image { width, height, .. }) => {
             let (output_width, output_height) = composition_size(document);
             let annotation_count = document.annotations.len();
-            let annotation_text = match annotation_count {
-                0 => "no annotations yet".to_string(),
-                1 => "1 annotation".to_string(),
-                count => format!("{count} annotations"),
-            };
-            let output_text = format!(
-                "output {}×{}",
-                output_width.round() as u32,
-                output_height.round() as u32
-            );
-            let ratio_text = match document.output_ratio {
-                OutputRatio::Auto => "ratio auto".to_string(),
-                ratio => format!("ratio {}", ratio.label()),
-            };
+            let annotation_text = i18n::subtitle_annotations(annotation_count);
+            let output_text = i18n::subtitle_output_text(output_width, output_height);
+            let ratio_text = i18n::subtitle_ratio_text(document.output_ratio);
             let image_mode_text = image_mode_text(document.image_scale_mode, document.image_anchor);
             format!(
                 "Image: {width}×{height} • {output_text} • {annotation_text} • {ratio_text} • {image_mode_text}"
             )
         }
-        None => "No image loaded. Capture or import an image to begin.".to_string(),
+        None => i18n::subtitle_text_empty().to_string(),
     }
 }
 
 fn image_mode_text(mode: ImageScaleMode, anchor: ImageAnchor) -> String {
     match mode {
-        ImageScaleMode::Fit => "image fit".to_string(),
-        ImageScaleMode::Fill => format!("image fill {}", image_anchor_label(anchor)),
-    }
-}
-
-fn image_anchor_label(anchor: ImageAnchor) -> &'static str {
-    match anchor {
-        ImageAnchor::TopLeft => "top-left",
-        ImageAnchor::Top => "top",
-        ImageAnchor::TopRight => "top-right",
-        ImageAnchor::Left => "left",
-        ImageAnchor::Center => "center",
-        ImageAnchor::Right => "right",
-        ImageAnchor::BottomLeft => "bottom-left",
-        ImageAnchor::Bottom => "bottom",
-        ImageAnchor::BottomRight => "bottom-right",
+        ImageScaleMode::Fit => i18n::image_mode_text_fit().to_string(),
+        ImageScaleMode::Fill => i18n::image_mode_text_fill(anchor),
     }
 }
 
 pub(crate) fn shortcut_hint_text(state: &EditorState) -> Option<String> {
     if state.document().base_image.is_none() {
-        return Some("Fullscreen / Region / Import to begin".to_string());
+        return Some(i18n::shortcut_hint_empty().to_string());
     }
 
     match state.active_tool() {
         ToolKind::Select => {
             if state.is_reframing_image() {
-                Some("Drag pan • Scroll zoom • Esc exit reframe".to_string())
+                Some(i18n::shortcut_hint_reframe().to_string())
             } else if state.selected_annotation().is_some() {
-                Some("Delete remove • Ctrl+Z undo".to_string())
+                Some(i18n::shortcut_hint_selected().to_string())
             } else {
-                Some("Click annotation to edit • Double-click image to reframe".to_string())
+                Some(i18n::shortcut_hint_select_idle().to_string())
             }
         }
         ToolKind::Crop => Some(if state.has_pending_crop() {
-            "Enter apply • Esc cancel".to_string()
+            i18n::shortcut_hint_crop_active().to_string()
         } else {
-            "Drag to select • Esc cancel".to_string()
+            i18n::shortcut_hint_crop_idle().to_string()
         }),
         ToolKind::Arrow | ToolKind::Rectangle | ToolKind::Ellipse | ToolKind::Blur => {
-            Some("Drag on image to draw • Ctrl+Z undo".to_string())
+            Some(i18n::shortcut_hint_draw_shape().to_string())
         }
-        ToolKind::Text => Some("Click to place • Double-click text to edit".to_string()),
+        ToolKind::Text => Some(i18n::shortcut_hint_text().to_string()),
     }
 }
 
@@ -123,7 +99,6 @@ pub(crate) fn export_actions_enabled(document: &Document) -> bool {
 #[derive(Clone, Copy)]
 pub(crate) struct ShadowDirectionPreset {
     pub(crate) label: &'static str,
-    pub(crate) tooltip: &'static str,
     pub(crate) offset_x: f32,
     pub(crate) offset_y: f32,
 }
@@ -131,55 +106,46 @@ pub(crate) struct ShadowDirectionPreset {
 pub(crate) const SHADOW_DIRECTION_PRESETS: [ShadowDirectionPreset; 9] = [
     ShadowDirectionPreset {
         label: "↖",
-        tooltip: "Shadow toward top left",
         offset_x: -18.0,
         offset_y: -18.0,
     },
     ShadowDirectionPreset {
         label: "↑",
-        tooltip: "Shadow toward top",
         offset_x: 0.0,
         offset_y: -22.0,
     },
     ShadowDirectionPreset {
         label: "↗",
-        tooltip: "Shadow toward top right",
         offset_x: 18.0,
         offset_y: -18.0,
     },
     ShadowDirectionPreset {
         label: "←",
-        tooltip: "Shadow toward left",
         offset_x: -24.0,
         offset_y: 0.0,
     },
     ShadowDirectionPreset {
         label: "·",
-        tooltip: "Centered glow shadow",
         offset_x: 0.0,
         offset_y: 0.0,
     },
     ShadowDirectionPreset {
         label: "→",
-        tooltip: "Shadow toward right",
         offset_x: 24.0,
         offset_y: 0.0,
     },
     ShadowDirectionPreset {
         label: "↙",
-        tooltip: "Shadow toward bottom left",
         offset_x: -18.0,
         offset_y: 18.0,
     },
     ShadowDirectionPreset {
         label: "↓",
-        tooltip: "Shadow toward bottom",
         offset_x: 0.0,
         offset_y: 22.0,
     },
     ShadowDirectionPreset {
         label: "↘",
-        tooltip: "Shadow toward bottom right",
         offset_x: 18.0,
         offset_y: 18.0,
     },
@@ -201,54 +167,47 @@ pub(crate) fn nearest_shadow_direction_index(offset_x: f32, offset_y: f32) -> us
 }
 
 pub(crate) fn width_label_text(state: &EditorState) -> &'static str {
-    match state
+    let is_text = match state
         .selected_annotation()
         .and_then(|index| state.document().annotations.get(index))
     {
-        Some(Annotation::Text { .. }) => "Size:",
-        _ if state.active_tool() == ToolKind::Text => "Size:",
-        _ => "Width:",
-    }
+        Some(Annotation::Text { .. }) => true,
+        _ if state.active_tool() == ToolKind::Text => true,
+        _ => false,
+    };
+    i18n::width_label_text(is_text)
 }
 
 pub(crate) fn scope_text(state: &EditorState) -> String {
     match state.active_tool() {
         ToolKind::Select => match state.selected_annotation() {
             _ if state.is_reframing_image() => {
-                "Reframe: drag the image to reposition it, use the mouse wheel to zoom, and press Esc to exit."
-                    .to_string()
+                i18n::scope_text_reframe().to_string()
             }
-            Some(index) => format!(
-                "Selected {}. Adjust color or size, or press Delete to remove it.",
-                annotation_kind_label(state.document(), index)
-            ),
-            None => {
-                "Select: click an annotation to edit it. Press Delete to remove it, Ctrl+Z to undo."
-                    .to_string()
+            Some(index) => {
+                i18n::scope_text_selected(&annotation_kind_label(state.document(), index))
             }
+            None => i18n::scope_text_select_idle().to_string(),
         },
         ToolKind::Crop => {
             if state.document().base_image.is_none() {
-                "Crop: capture or import an image first.".to_string()
+                i18n::scope_text_crop_empty().to_string()
             } else if state.has_pending_crop() {
-                "Crop: drag handles to adjust, press Enter to apply, or Esc to cancel.".to_string()
+                i18n::scope_text_crop_active().to_string()
             } else {
-                "Crop: drag on the image to create a selection, then press Enter to apply."
-                    .to_string()
+                i18n::scope_text_crop_idle().to_string()
             }
         }
-        ToolKind::Arrow => "Arrow: drag on the image to place an arrow.".to_string(),
-        ToolKind::Rectangle => "Rectangle: drag on the image to draw a box.".to_string(),
-        ToolKind::Ellipse => "Ellipse: drag on the image to draw an oval.".to_string(),
-        ToolKind::Text => {
-            "Text: click on the image to place a label. Double-click text to edit it.".to_string()
-        }
-        ToolKind::Blur => "Blur: drag on the image to blur part of the image.".to_string(),
+        ToolKind::Arrow => i18n::scope_text_arrow().to_string(),
+        ToolKind::Rectangle => i18n::scope_text_rectangle().to_string(),
+        ToolKind::Ellipse => i18n::scope_text_ellipse().to_string(),
+        ToolKind::Text => i18n::scope_text_text().to_string(),
+        ToolKind::Blur => i18n::scope_text_blur().to_string(),
     }
 }
 
-fn annotation_kind_label(document: &Document, index: usize) -> &'static str {
-    match document.annotations.get(index) {
+fn annotation_kind_label(document: &Document, index: usize) -> String {
+    let kind = match document.annotations.get(index) {
         Some(Annotation::Arrow { .. }) => "arrow",
         Some(Annotation::Rect { .. }) => "rectangle",
         Some(Annotation::Ellipse { .. }) => "ellipse",
@@ -256,7 +215,8 @@ fn annotation_kind_label(document: &Document, index: usize) -> &'static str {
         Some(Annotation::Blur { .. }) => "blur region",
         Some(Annotation::Redact { .. }) => "redaction",
         None => "annotation",
-    }
+    };
+    i18n::annotation_kind_label(kind)
 }
 
 pub(crate) fn refresh_tool_actions(state: &EditorState, delete_button: &gtk4::Button) {

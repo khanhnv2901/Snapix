@@ -7,6 +7,7 @@ use libadwaita::Bin;
 use libadwaita::StyleManager;
 use snapix_core::canvas::Color;
 
+use crate::editor::i18n;
 use super::helpers::{refresh_history_buttons, refresh_scope_label, refresh_width_label};
 use super::{BottomBar, CaptureActionRow, SaveFormat};
 use crate::editor::state::{same_color_rgb, EditorState, ToolKind};
@@ -32,7 +33,7 @@ pub(super) fn build_capture_row(bottom_bar: &BottomBar) -> CaptureActionRow {
         .build();
     capture_box.add_css_class("capture-cluster");
     let capture_label = gtk4::Label::builder()
-        .label("Capture")
+        .label(i18n::capture_section_label())
         .xalign(0.0)
         .css_classes(["cluster-title"])
         .build();
@@ -40,38 +41,32 @@ pub(super) fn build_capture_row(bottom_bar: &BottomBar) -> CaptureActionRow {
     capture_section.append(&capture_box);
 
     let mut built = Vec::new();
-    for (label, icon, classes) in [
+    for (id, icon, classes) in [
         (
-            "Fullscreen",
+            "fullscreen",
             "view-fullscreen-symbolic",
             ["capture-pill", "fullscreen"],
         ),
         (
-            "Region",
+            "region",
             "view-fullscreen-symbolic",
             ["capture-pill", "region"],
         ),
         (
-            "Window",
+            "window",
             "focus-windows-symbolic",
             ["capture-pill", "window"],
         ),
         (
-            "Import",
+            "import",
             "document-open-symbolic",
             ["capture-pill", "import"],
         ),
-        ("Clear", "edit-clear-symbolic", ["capture-pill", "utility"]),
+        ("clear", "edit-clear-symbolic", ["capture-pill", "utility"]),
     ] {
-        let tooltip = match label {
-            "Fullscreen" => "Capture the entire screen",
-            "Region" => "Choose part of the screen to capture",
-            "Window" => "Capture the active window",
-            "Import" => "Open an image from disk",
-            "Clear" => "Clear the current image and annotations",
-            _ => label,
-        };
-        let icon_widget = build_capture_action_icon(label, icon);
+        let label = i18n::capture_action_label(id);
+        let tooltip = i18n::capture_action_tooltip(id);
+        let icon_widget = build_capture_action_icon(id, icon);
         let text_widget = gtk4::Label::builder().label(label).xalign(0.0).build();
         text_widget.add_css_class("capture-pill-label");
         let content = gtk4::Box::builder()
@@ -106,7 +101,7 @@ pub(super) fn build_capture_row(bottom_bar: &BottomBar) -> CaptureActionRow {
         .build();
     export_box.add_css_class("capture-export-row");
     let export_label = gtk4::Label::builder()
-        .label("Export")
+        .label(i18n::export_section_label())
         .xalign(0.0)
         .css_classes(["cluster-title"])
         .build();
@@ -139,9 +134,9 @@ pub(super) fn build_capture_row(bottom_bar: &BottomBar) -> CaptureActionRow {
     }
 }
 
-fn build_capture_action_icon(label: &str, fallback_icon: &str) -> gtk4::Widget {
-    match label {
-        "Fullscreen" => {
+fn build_capture_action_icon(id: &str, fallback_icon: &str) -> gtk4::Widget {
+    match id {
+        "fullscreen" => {
             let area = gtk4::DrawingArea::builder()
                 .content_width(16)
                 .content_height(16)
@@ -157,7 +152,7 @@ fn build_capture_action_icon(label: &str, fallback_icon: &str) -> gtk4::Widget {
             });
             area.upcast()
         }
-        "Region" => {
+        "region" => {
             let area = gtk4::DrawingArea::builder()
                 .content_width(16)
                 .content_height(16)
@@ -242,7 +237,7 @@ pub(super) fn build_tool_row(
     ] {
         let btn = gtk4::ToggleButton::builder()
             .active(tool == ToolKind::Select)
-            .tooltip_text(tool_tooltip(tool))
+            .tooltip_text(i18n::tool_tooltip(tool))
             .build();
         btn.set_child(Some(&build_tool_icon(tool)));
         btn.add_css_class("tool-pill");
@@ -263,7 +258,7 @@ pub(super) fn build_tool_row(
         btn.connect_clicked(move |_| {
             let mut state = state.borrow_mut();
             state.set_active_tool(tool);
-            title_label.set_label(&format!("Editor • {}", tool.label()));
+            title_label.set_label(&i18n::editor_header_title(tool));
             refresh_scope_label(&state, &scope_label);
             refresh_width_label(&state, &width_label);
             for (bt, b) in &all {
@@ -283,23 +278,23 @@ pub(super) fn build_tool_row(
     );
 
     // ── Color palette swatches ───────────────────────────────────────────────
-    let palette: &[((u8, u8, u8), &str, &str)] = &[
-        ((255, 98, 54), "color-dot-0", "Orange"),
-        ((229, 57, 53), "color-dot-1", "Red"),
-        ((233, 30, 140), "color-dot-2", "Pink"),
-        ((124, 77, 255), "color-dot-3", "Purple"),
-        ((33, 150, 243), "color-dot-4", "Blue"),
-        ((0, 150, 136), "color-dot-5", "Teal"),
-        ((76, 175, 80), "color-dot-6", "Green"),
-        ((255, 214, 0), "color-dot-7", "Yellow"),
-        ((240, 240, 240), "color-dot-8", "White"),
-        ((30, 30, 46), "color-dot-9", "Dark"),
+    let palette: &[((u8, u8, u8), &str)] = &[
+        ((255, 98, 54), "color-dot-0"),
+        ((229, 57, 53), "color-dot-1"),
+        ((233, 30, 140), "color-dot-2"),
+        ((124, 77, 255), "color-dot-3"),
+        ((33, 150, 243), "color-dot-4"),
+        ((0, 150, 136), "color-dot-5"),
+        ((76, 175, 80), "color-dot-6"),
+        ((255, 214, 0), "color-dot-7"),
+        ((240, 240, 240), "color-dot-8"),
+        ((30, 30, 46), "color-dot-9"),
     ];
 
     let color_btns: Rc<RefCell<Vec<gtk4::Button>>> = Rc::new(RefCell::new(Vec::new()));
     let init_color = state.borrow().active_color();
 
-    for (i, ((r, g, b), dot_class, tooltip)) in palette.iter().enumerate() {
+    for (i, ((r, g, b), dot_class)) in palette.iter().enumerate() {
         let color = Color {
             r: *r,
             g: *g,
@@ -316,7 +311,7 @@ pub(super) fn build_tool_row(
         dot.add_css_class(dot_class);
 
         let btn = gtk4::Button::builder()
-            .tooltip_text(*tooltip)
+            .tooltip_text(i18n::color_name(i))
             .child(&dot)
             .valign(gtk4::Align::Center)
             .halign(gtk4::Align::Center)
@@ -410,7 +405,7 @@ pub(super) fn build_tool_row(
                 refresh_history_buttons(&s, &undo_button, &redo_button);
                 refresh_width_label(&s, &width_label);
                 delete_btn_ref.set_sensitive(false);
-                title_label.set_label(&format!("Editor • {}", s.active_tool().label()));
+                title_label.set_label(&i18n::editor_header_title(s.active_tool()));
                 canvas.refresh();
             }
         });
@@ -633,17 +628,5 @@ pub(super) fn build_bottom_bar(
         save_as_button: save_as_btn,
         png_button: png_btn,
         jpeg_button: jpg_btn,
-    }
-}
-
-fn tool_tooltip(tool: ToolKind) -> &'static str {
-    match tool {
-        ToolKind::Select => "Select and edit annotations",
-        ToolKind::Crop => "Crop the current image",
-        ToolKind::Arrow => "Draw an arrow",
-        ToolKind::Rectangle => "Draw a rectangle",
-        ToolKind::Ellipse => "Draw an ellipse",
-        ToolKind::Text => "Add a text label",
-        ToolKind::Blur => "Blur part of the image",
     }
 }

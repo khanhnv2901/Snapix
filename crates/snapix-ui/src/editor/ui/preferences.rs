@@ -7,6 +7,17 @@ use libadwaita::{
     ActionRow, ApplicationWindow, PreferencesDialog, PreferencesGroup, PreferencesPage, SwitchRow,
 };
 
+use crate::editor::i18n::{
+    preferences_about_description, preferences_about_title, preferences_appearance_description,
+    preferences_appearance_title, preferences_appearance_updated_toast,
+    preferences_color_scheme_subtitle, preferences_color_scheme_title,
+    preferences_default_format_updated_toast, preferences_dialog_title,
+    preferences_export_description, preferences_export_preference_updated_toast,
+    preferences_export_title, preferences_pro_description, preferences_pro_row_title,
+    preferences_pro_title, preferences_remember_format_subtitle, preferences_remember_format_title,
+    preferences_save_format_subtitle, preferences_save_format_title,
+    preferences_storage_subtitle, preferences_storage_title,
+};
 use crate::editor::preferences::{
     apply_style_preferences, save_preferences, AppPreferences, AppearancePreference,
     PreferredSaveFormat,
@@ -24,7 +35,7 @@ pub(super) fn present_preferences_window(
     toast_overlay: &libadwaita::ToastOverlay,
 ) {
     let dialog = PreferencesDialog::builder()
-        .title("Preferences")
+        .title(preferences_dialog_title())
         .search_enabled(false)
         .follows_content_size(true)
         .content_width(560)
@@ -32,17 +43,17 @@ pub(super) fn present_preferences_window(
 
     let page = PreferencesPage::new();
     let export_group = PreferencesGroup::builder()
-        .title("Export")
-        .description("Choose how Snapix should default export behavior in the editor.")
+        .title(preferences_export_title())
+        .description(preferences_export_description())
         .build();
     let appearance_group = PreferencesGroup::builder()
-        .title("Appearance")
-        .description("Control how Snapix follows or overrides the system color scheme.")
+        .title(preferences_appearance_title())
+        .description(preferences_appearance_description())
         .build();
 
     let appearance_row = ActionRow::builder()
-        .title("Color Scheme")
-        .subtitle("Choose whether Snapix follows the system appearance or forces light/dark.")
+        .title(preferences_color_scheme_title())
+        .subtitle(preferences_color_scheme_subtitle())
         .build();
     let appearance_dropdown = gtk4::DropDown::from_strings(&["System", "Light", "Dark"]);
     appearance_dropdown.set_valign(gtk4::Align::Center);
@@ -56,8 +67,8 @@ pub(super) fn present_preferences_window(
     appearance_group.add(&appearance_row);
 
     let format_row = ActionRow::builder()
-        .title("Default Save Format")
-        .subtitle("Used when Snapix is not remembering the last export format.")
+        .title(preferences_save_format_title())
+        .subtitle(preferences_save_format_subtitle())
         .build();
     let format_dropdown = gtk4::DropDown::from_strings(&["PNG", "JPEG"]);
     format_dropdown.set_valign(gtk4::Align::Center);
@@ -70,27 +81,29 @@ pub(super) fn present_preferences_window(
     export_group.add(&format_row);
 
     let remember_row = SwitchRow::builder()
-        .title("Remember Last Export Format")
-        .subtitle("Keep using the most recently selected PNG/JPEG format between launches.")
+        .title(preferences_remember_format_title())
+        .subtitle(preferences_remember_format_subtitle())
         .active(preferences.borrow().remember_last_export_format)
         .build();
     export_group.add(&remember_row);
 
     let notes_group = PreferencesGroup::builder()
-        .title("About")
-        .description("This is the first M4 preferences pass. More release settings can be added here without growing the editor window.")
+        .title(preferences_about_title())
+        .description(preferences_about_description())
         .build();
     let notes_row = ActionRow::builder()
-        .title("Storage")
-        .subtitle("Preferences are stored locally in your user config directory.")
+        .title(preferences_storage_title())
+        .subtitle(preferences_storage_subtitle())
         .build();
     notes_group.add(&notes_row);
 
     let license_group = PreferencesGroup::builder()
-        .title("Pro")
-        .description("Optional activation for paid features and future release extras.")
+        .title(preferences_pro_title())
+        .description(preferences_pro_description())
         .build();
-    let license_row = ActionRow::builder().title("Snapix Pro").build();
+    let license_row = ActionRow::builder()
+        .title(preferences_pro_row_title())
+        .build();
     let license_button = gtk4::Button::new();
     refresh_unlock_entry(&license_button, &license_row, &preferences.borrow());
     license_row.add_suffix(&license_button);
@@ -138,7 +151,7 @@ pub(super) fn present_preferences_window(
             if let Err(error) = save_preferences(&preferences) {
                 tracing::warn!("Failed to save preferences: {error:#}");
             }
-            show_toast(&toast_overlay, "Appearance updated");
+            show_toast(&toast_overlay, preferences_appearance_updated_toast());
         });
     }
 
@@ -173,7 +186,7 @@ pub(super) fn present_preferences_window(
                     },
                 );
             }
-            show_toast(&toast_overlay, "Default export format updated");
+            show_toast(&toast_overlay, preferences_default_format_updated_toast());
         });
     }
 
@@ -205,7 +218,7 @@ pub(super) fn present_preferences_window(
                     },
                 );
             }
-            show_toast(&toast_overlay, "Export preference updated");
+            show_toast(&toast_overlay, preferences_export_preference_updated_toast());
         });
     }
 

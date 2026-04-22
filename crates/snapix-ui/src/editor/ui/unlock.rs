@@ -6,6 +6,13 @@ use libadwaita::prelude::*;
 use libadwaita::ActionRow;
 use libadwaita::ToastOverlay;
 
+use crate::editor::i18n::{
+    cancel_button_label, unlock_activate_button, unlock_activated_toast, unlock_deactivated_toast,
+    unlock_dialog_body, unlock_dialog_heading, unlock_dialog_title,
+    unlock_failed_to_save_activation, unlock_manage_button, unlock_placeholder,
+    unlock_row_subtitle_active, unlock_row_subtitle_free, unlock_status_active,
+    unlock_status_free, unlock_unlock_button, unlock_use_free_tier_button,
+};
 use crate::editor::preferences::{save_preferences, AppPreferences};
 use crate::editor::show_toast;
 
@@ -16,13 +23,13 @@ pub(super) fn refresh_unlock_entry(
 ) {
     let is_pro = preferences.entitlements().is_pro();
     if is_pro {
-        button.set_label("Manage");
+        button.set_label(unlock_manage_button());
         button.remove_css_class("suggested-action");
-        row.set_subtitle("Snapix Pro is active on this device.");
+        row.set_subtitle(unlock_row_subtitle_active());
     } else {
-        button.set_label("Unlock");
+        button.set_label(unlock_unlock_button());
         button.add_css_class("suggested-action");
-        row.set_subtitle("Free tier is active. Enter a key only if you need Pro features.");
+        row.set_subtitle(unlock_row_subtitle_free());
     }
 }
 
@@ -33,7 +40,7 @@ pub(super) fn present_unlock_dialog(
     on_change: Rc<dyn Fn(&AppPreferences)>,
 ) {
     let dialog = gtk4::Window::builder()
-        .title("Unlock Pro")
+        .title(unlock_dialog_title())
         .transient_for(parent)
         .modal(true)
         .default_width(420)
@@ -51,12 +58,12 @@ pub(super) fn present_unlock_dialog(
         .build();
 
     let title = gtk4::Label::builder()
-        .label("Unlock Snapix Pro")
+        .label(unlock_dialog_heading())
         .xalign(0.0)
         .css_classes(["title-3"])
         .build();
     let body = gtk4::Label::builder()
-        .label("Enter your activation key to unlock Pro features on this device. During M4 this still uses the local development verifier.")
+        .label(unlock_dialog_body())
         .xalign(0.0)
         .wrap(true)
         .build();
@@ -66,7 +73,7 @@ pub(super) fn present_unlock_dialog(
     status.add_css_class("dim-label");
 
     let entry = gtk4::Entry::builder()
-        .placeholder_text("SNAPIX-PRO-DEV")
+        .placeholder_text(unlock_placeholder())
         .hexpand(true)
         .build();
     if let Some(existing_key) = preferences.borrow().license_key.clone() {
@@ -78,9 +85,9 @@ pub(super) fn present_unlock_dialog(
         .spacing(8)
         .halign(gtk4::Align::End)
         .build();
-    let deactivate_button = gtk4::Button::with_label("Use Free Tier");
-    let cancel_button = gtk4::Button::with_label("Cancel");
-    let activate_button = gtk4::Button::with_label("Unlock Pro");
+    let deactivate_button = gtk4::Button::with_label(unlock_use_free_tier_button());
+    let cancel_button = gtk4::Button::with_label(cancel_button_label());
+    let activate_button = gtk4::Button::with_label(unlock_activate_button());
     activate_button.add_css_class("suggested-action");
     actions.append(&deactivate_button);
     actions.append(&cancel_button);
@@ -98,9 +105,9 @@ pub(super) fn present_unlock_dialog(
         let is_pro = preferences.borrow().entitlements().is_pro();
         deactivate_button.set_sensitive(is_pro);
         if is_pro {
-            status.set_label("Pro is currently active on this device.");
+            status.set_label(unlock_status_active());
         } else {
-            status.set_label("Free tier is currently active.");
+            status.set_label(unlock_status_free());
         }
     }
 
@@ -121,12 +128,12 @@ pub(super) fn present_unlock_dialog(
             let mut preferences = preferences.borrow_mut();
             preferences.clear_license_key();
             if let Err(error) = save_preferences(&preferences) {
-                status.set_label(&format!("Failed to save activation state: {error}"));
+                status.set_label(&unlock_failed_to_save_activation(&error.to_string()));
                 return;
             }
             on_change(&preferences);
             drop(preferences);
-            show_toast(&toast_overlay, "Pro deactivated on this device");
+            show_toast(&toast_overlay, unlock_deactivated_toast());
             dialog.close();
         });
     }
@@ -144,12 +151,12 @@ pub(super) fn present_unlock_dialog(
             match preferences.activate_license_key(&key) {
                 Ok(_) => {
                     if let Err(error) = save_preferences(&preferences) {
-                        status.set_label(&format!("Failed to save activation state: {error}"));
+                        status.set_label(&unlock_failed_to_save_activation(&error.to_string()));
                         return;
                     }
                     on_change(&preferences);
                     drop(preferences);
-                    show_toast(&toast_overlay, "Snapix Pro activated");
+                    show_toast(&toast_overlay, unlock_activated_toast());
                     dialog.close();
                 }
                 Err(error) => {

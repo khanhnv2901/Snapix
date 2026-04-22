@@ -9,6 +9,7 @@ use std::rc::Rc;
 use gtk4::prelude::*;
 
 use super::InspectorControls;
+use crate::editor::i18n;
 use crate::editor::state::EditorState;
 use crate::widgets::DocumentCanvas;
 
@@ -36,7 +37,7 @@ pub(super) fn build_inspector(
 
     panel.append(
         &gtk4::Label::builder()
-            .label("Settings")
+            .label(i18n::inspector_settings_title())
             .xalign(0.0)
             .css_classes(["title-4", "section-title"])
             .build(),

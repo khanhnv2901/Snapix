@@ -15,20 +15,6 @@ pub(crate) enum ToolKind {
     Blur,
 }
 
-impl ToolKind {
-    pub(crate) fn label(self) -> &'static str {
-        match self {
-            Self::Select => "Select",
-            Self::Crop => "Crop",
-            Self::Arrow => "Arrow",
-            Self::Rectangle => "Rect",
-            Self::Ellipse => "Ellipse",
-            Self::Text => "Text",
-            Self::Blur => "Blur",
-        }
-    }
-}
-
 // ─── Drag / selection state ───────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]

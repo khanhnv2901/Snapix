@@ -24,7 +24,6 @@
       <li>Wayland and X11 support</li>
     </ul>
   </description>
-
   <launchable type="desktop-id">io.github.snapix.Snapix.desktop</launchable>
 
   <url type="homepage">https://github.com/khanhnv2901/snapix</url>

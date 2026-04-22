@@ -7,6 +7,7 @@ use snapix_core::canvas::{Background, Color};
 
 use super::super::helpers::{refresh_history_buttons, refresh_subtitle};
 use super::labeled_row_with_value;
+use crate::editor::i18n;
 use crate::editor::state::{same_background, EditorState};
 use crate::widgets::DocumentCanvas;
 
@@ -41,7 +42,7 @@ pub(super) fn build_background_section(
 ) -> BackgroundSection {
     panel.append(
         &gtk4::Label::builder()
-            .label("Background")
+            .label(i18n::inspector_background_title())
             .xalign(0.0)
             .css_classes(["heading", "section-title"])
             .build(),
@@ -57,13 +58,16 @@ pub(super) fn build_background_section(
         .spacing(6)
         .build();
     let gradient_button = gtk4::Button::builder()
-        .label("Gradient")
+        .label(i18n::inspector_background_mode_gradient())
         .hexpand(true)
         .build();
-    let solid_button = gtk4::Button::builder().label("Solid").hexpand(true).build();
+    let solid_button = gtk4::Button::builder()
+        .label(i18n::inspector_background_mode_solid())
+        .hexpand(true)
+        .build();
     let blur_button = gtk4::Button::builder()
-        .label("Screenshot Blur")
-        .tooltip_text("Use the captured image as a blurred background fill")
+        .label(i18n::inspector_background_mode_blur())
+        .tooltip_text(i18n::inspector_background_blur_tooltip())
         .hexpand(true)
         .build();
     for button in [&gradient_button, &solid_button, &blur_button] {
@@ -75,36 +79,36 @@ pub(super) fn build_background_section(
     let solid_color_button =
         gtk4::ColorButton::with_rgba(&rgba_from_color(&extract_solid_color(&current_background)));
     #[allow(deprecated)]
-    solid_color_button.set_title("Pick Background Color");
+    solid_color_button.set_title(i18n::inspector_pick_background_color());
     solid_color_button.set_show_editor(true);
     solid_color_button.set_hexpand(true);
     let gradient_from_button = gtk4::ColorButton::with_rgba(&rgba_from_color(
         &extract_gradient_from(&current_background),
     ));
     #[allow(deprecated)]
-    gradient_from_button.set_title("Pick Gradient Start");
+    gradient_from_button.set_title(i18n::inspector_pick_gradient_start());
     gradient_from_button.set_show_editor(true);
     gradient_from_button.set_hexpand(true);
     let gradient_to_button =
         gtk4::ColorButton::with_rgba(&rgba_from_color(&extract_gradient_to(&current_background)));
     #[allow(deprecated)]
-    gradient_to_button.set_title("Pick Gradient End");
+    gradient_to_button.set_title(i18n::inspector_pick_gradient_end());
     gradient_to_button.set_show_editor(true);
     gradient_to_button.set_hexpand(true);
 
     let solid_row = labeled_row_with_value(
-        "Solid Color",
+        i18n::inspector_solid_color_label(),
         &solid_color_button,
         &gtk4::Label::builder().label("").build(),
     );
 
     let gradient_from_row = labeled_row_with_value(
-        "Gradient From",
+        i18n::inspector_gradient_from_label(),
         &gradient_from_button,
         &gtk4::Label::builder().label("").build(),
     );
     let gradient_to_row = labeled_row_with_value(
-        "Gradient To",
+        i18n::inspector_gradient_to_label(),
         &gradient_to_button,
         &gtk4::Label::builder().label("").build(),
     );
@@ -121,7 +125,7 @@ pub(super) fn build_background_section(
         gtk4::Scale::with_range(gtk4::Orientation::Horizontal, 0.0, 360.0, 1.0);
     gradient_angle_scale.set_value(current_gradient_angle as f64);
     let gradient_angle_row = labeled_row_with_value(
-        "Gradient Angle",
+        i18n::inspector_gradient_angle_label(),
         &gradient_angle_scale,
         &gradient_angle_value,
     );
@@ -136,7 +140,11 @@ pub(super) fn build_background_section(
         .build();
     let blur_radius_scale = gtk4::Scale::with_range(gtk4::Orientation::Horizontal, 4.0, 64.0, 1.0);
     blur_radius_scale.set_value(current_blur_radius as f64);
-    let blur_row = labeled_row_with_value("Blur Radius", &blur_radius_scale, &blur_radius_value);
+    let blur_row = labeled_row_with_value(
+        i18n::inspector_blur_radius_label(),
+        &blur_radius_scale,
+        &blur_radius_value,
+    );
 
     panel.append(&solid_row);
     panel.append(&gradient_from_row);

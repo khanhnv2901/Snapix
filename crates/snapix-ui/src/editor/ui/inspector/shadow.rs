@@ -8,6 +8,7 @@ use super::super::helpers::{
     refresh_subtitle, SHADOW_DIRECTION_PRESETS,
 };
 use super::{labeled_row, labeled_row_with_value};
+use crate::editor::i18n;
 use crate::editor::state::EditorState;
 use crate::widgets::DocumentCanvas;
 
@@ -49,7 +50,7 @@ pub(super) fn build_shadow_section(
             }
         });
     }
-    panel.append(&labeled_row("Shadow", &shadow_switch));
+    panel.append(&labeled_row(i18n::inspector_shadow_label(), &shadow_switch));
 
     let shadow_direction_grid = gtk4::Grid::builder()
         .row_spacing(5)
@@ -65,7 +66,7 @@ pub(super) fn build_shadow_section(
     for (index, preset) in SHADOW_DIRECTION_PRESETS.iter().enumerate() {
         let button = gtk4::Button::builder()
             .label(preset.label)
-            .tooltip_text(preset.tooltip)
+            .tooltip_text(i18n::shadow_direction_tooltip(index))
             .build();
         button.add_css_class("shadow-dir-btn");
         if index == selected_direction {
@@ -102,7 +103,10 @@ pub(super) fn build_shadow_section(
         shadow_direction_buttons.borrow_mut().push(button.clone());
         shadow_direction_grid.attach(&button, (index % 3) as i32, (index / 3) as i32, 1, 1);
     }
-    panel.append(&labeled_row("Shadow Direction", &shadow_direction_grid));
+    panel.append(&labeled_row(
+        i18n::inspector_shadow_direction_label(),
+        &shadow_direction_grid,
+    ));
 
     let shadow_padding_value = gtk4::Label::builder()
         .label(&format!(
@@ -130,7 +134,7 @@ pub(super) fn build_shadow_section(
         );
     }
     panel.append(&labeled_row_with_value(
-        "Shadow Padding",
+        i18n::inspector_shadow_padding_label(),
         &shadow_padding_scale,
         &shadow_padding_value,
     ));
@@ -160,7 +164,7 @@ pub(super) fn build_shadow_section(
         );
     }
     panel.append(&labeled_row_with_value(
-        "Shadow Blur",
+        i18n::inspector_shadow_blur_label(),
         &shadow_blur_scale,
         &shadow_blur_value,
     ));
@@ -191,7 +195,7 @@ pub(super) fn build_shadow_section(
         );
     }
     panel.append(&labeled_row_with_value(
-        "Shadow Strength",
+        i18n::inspector_shadow_strength_label(),
         &shadow_strength_scale,
         &shadow_strength_value,
     ));

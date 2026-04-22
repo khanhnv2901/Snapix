@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use gtk4::prelude::*;
 
+use crate::editor::i18n;
 use crate::editor::{
     refresh_history_buttons, refresh_scope_label, refresh_tool_actions, refresh_width_label,
     same_color_rgb, show_toast, EditorState, ToolKind,
@@ -52,7 +53,7 @@ pub(super) fn attach_click_controller(
                             crate::editor::refresh_subtitle(&state_ref, &ui.subtitle_label);
                             refresh_history_buttons(&state_ref, &ui.undo_button, &ui.redo_button);
                             drawing_area.queue_draw();
-                            show_toast(&ui.toast_overlay, "Image view reset");
+                            show_toast(&ui.toast_overlay, i18n::image_view_reset_toast());
                         }
                     } else {
                         state_ref.exit_image_reframe_mode();
@@ -98,9 +99,9 @@ pub(super) fn attach_click_controller(
                     };
                     present_text_dialog(
                         &window,
-                        "Edit Text",
-                        "Update",
-                        "Text content",
+                        i18n::edit_text_dialog_title(),
+                        i18n::edit_text_accept_button(),
+                        i18n::text_content_field_label(),
                         &initial_text,
                         {
                             let state = state.clone();
@@ -123,10 +124,7 @@ pub(super) fn attach_click_controller(
                         },
                     );
                 } else if should_enter_reframe {
-                    show_toast(
-                        &ui.toast_overlay,
-                        "Image reframe active: drag to pan, scroll to zoom, Esc to exit",
-                    );
+                    show_toast(&ui.toast_overlay, i18n::reframe_active_toast());
                 }
                 return;
             }
@@ -156,7 +154,13 @@ pub(super) fn attach_click_controller(
             };
 
             let response_toast_overlay = ui.toast_overlay.clone();
-            present_text_dialog(&window, "Add Text", "Add", "Text content", "", {
+            present_text_dialog(
+                &window,
+                i18n::add_text_dialog_title(),
+                i18n::add_button_label(),
+                i18n::text_content_field_label(),
+                "",
+                {
                 let state = state.clone();
                 let drawing_area = drawing_area.clone();
                 let ui = ui.clone();
@@ -169,10 +173,11 @@ pub(super) fn attach_click_controller(
                         crate::editor::refresh_subtitle(&state, &ui.subtitle_label);
                         drawing_area.queue_draw();
                     } else {
-                        show_toast(&response_toast_overlay, "Couldn't add text label");
+                        show_toast(&response_toast_overlay, i18n::couldnt_add_text_label_toast());
                     }
                 }
-            });
+            },
+            );
         });
     }
     drawing_area.add_controller(click);
