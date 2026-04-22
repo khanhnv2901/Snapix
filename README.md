@@ -140,6 +140,8 @@ snapix/
 
 For Flatpak/Flathub packaging, see [flatpak/io.github.snapix.Snapix.yml](/home/kainwyn/Project/Snapix/flatpak/io.github.snapix.Snapix.yml:1). The main repo stays lightweight for normal Cargo builds; Flathub should provide Cargo sources separately via `cargo-sources.json`.
 
+Release notes are tracked in [CHANGELOG.md](/home/kainwyn/Project/Snapix/CHANGELOG.md:1).
+
 ## License
 
 Apache-2.0 © 2026 Khanh Nguyen
