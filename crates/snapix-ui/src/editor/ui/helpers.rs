@@ -2,7 +2,9 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use gtk4::prelude::*;
-use snapix_core::canvas::{Annotation, Document, FrameSettings, Image, ImageAnchor, ImageScaleMode, OutputRatio};
+use snapix_core::canvas::{
+    Annotation, Document, FrameSettings, Image, ImageAnchor, ImageScaleMode, OutputRatio,
+};
 
 use crate::editor::state::{EditorState, ToolKind};
 use crate::widgets::{composition_size, DocumentCanvas};
@@ -223,8 +225,7 @@ pub(crate) fn scope_text(state: &EditorState) -> String {
             if state.document().base_image.is_none() {
                 "Crop: capture or import an image first.".to_string()
             } else if state.has_pending_crop() {
-                "Crop: drag handles to adjust, press Enter to apply, or Esc to cancel."
-                    .to_string()
+                "Crop: drag handles to adjust, press Enter to apply, or Esc to cancel.".to_string()
             } else {
                 "Crop: drag on the image to create a selection, then press Enter to apply."
                     .to_string()
@@ -233,8 +234,9 @@ pub(crate) fn scope_text(state: &EditorState) -> String {
         ToolKind::Arrow => "Arrow: drag on the image to place an arrow.".to_string(),
         ToolKind::Rectangle => "Rectangle: drag on the image to draw a box.".to_string(),
         ToolKind::Ellipse => "Ellipse: drag on the image to draw an oval.".to_string(),
-        ToolKind::Text => "Text: click on the image to place a label. Double-click text to edit it."
-            .to_string(),
+        ToolKind::Text => {
+            "Text: click on the image to place a label. Double-click text to edit it.".to_string()
+        }
         ToolKind::Blur => "Blur: drag on the image to blur part of the image.".to_string(),
     }
 }

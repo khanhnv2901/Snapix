@@ -1,6 +1,4 @@
-use snapix_core::canvas::{
-    Annotation, Background, Color, Document, Image, Point, Rect, TextStyle,
-};
+use snapix_core::canvas::{Annotation, Background, Color, Document, Image, Point, Rect, TextStyle};
 
 // ─── Tool kind ────────────────────────────────────────────────────────────────
 

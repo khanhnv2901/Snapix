@@ -3,11 +3,16 @@ use snapix_core::canvas::{Document, ImageScaleMode};
 
 use crate::editor::{CropDrag, CropSelection, EditorState, ToolKind};
 
+use super::super::{CanvasLayout, CropInteractionMode};
 use super::layout::{canvas_layout, composition_frame_bounds};
 use super::paint::{paint_empty_state, paint_image, rounded_rect};
-use super::super::{CanvasLayout, CropInteractionMode};
 
-pub(crate) fn draw_crop_mode_canvas(cr: &cairo::Context, width: i32, height: i32, document: &Document) {
+pub(crate) fn draw_crop_mode_canvas(
+    cr: &cairo::Context,
+    width: i32,
+    height: i32,
+    document: &Document,
+) {
     cr.set_source_rgb(0.07, 0.08, 0.10);
     cr.paint().ok();
 

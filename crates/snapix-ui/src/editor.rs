@@ -358,10 +358,25 @@ mod tests {
 
         assert!(!state.apply_crop_selection());
         assert_eq!(state.active_tool(), ToolKind::Crop);
-        assert_eq!(state.document().base_image.as_ref().map(|img| (img.width, img.height)), Some((32, 24)));
+        assert_eq!(
+            state
+                .document()
+                .base_image
+                .as_ref()
+                .map(|img| (img.width, img.height)),
+            Some((32, 24))
+        );
 
         let selection = state.crop_selection().expect("selection should remain");
-        assert_eq!((selection.x(), selection.y(), selection.width(), selection.height()), (3, 4, 3, 2));
+        assert_eq!(
+            (
+                selection.x(),
+                selection.y(),
+                selection.width(),
+                selection.height()
+            ),
+            (3, 4, 3, 2)
+        );
         assert!(state.document().annotations.is_empty());
     }
 
@@ -376,7 +391,10 @@ mod tests {
         let Annotation::Rect { bounds, .. } = &state.document().annotations[0] else {
             panic!("expected rectangle annotation");
         };
-        assert_eq!((bounds.x, bounds.y, bounds.width, bounds.height), (20.0, 16.0, 12.0, 8.0));
+        assert_eq!(
+            (bounds.x, bounds.y, bounds.width, bounds.height),
+            (20.0, 16.0, 12.0, 8.0)
+        );
     }
 
     #[test]
@@ -394,11 +412,22 @@ mod tests {
 
         state.preview_resize_annotation(0, &original, 8, 9, 14, 11);
 
-        let Annotation::Ellipse { bounds, stroke, fill } = &state.document().annotations[0] else {
+        let Annotation::Ellipse {
+            bounds,
+            stroke,
+            fill,
+        } = &state.document().annotations[0]
+        else {
             panic!("expected ellipse annotation");
         };
-        assert_eq!((bounds.x, bounds.y, bounds.width, bounds.height), (8.0, 9.0, 14.0, 11.0));
-        assert_eq!((stroke.color.r, stroke.color.g, stroke.color.b, stroke.width), (80, 90, 100, 7.0));
+        assert_eq!(
+            (bounds.x, bounds.y, bounds.width, bounds.height),
+            (8.0, 9.0, 14.0, 11.0)
+        );
+        assert_eq!(
+            (stroke.color.r, stroke.color.g, stroke.color.b, stroke.width),
+            (80, 90, 100, 7.0)
+        );
         assert!(fill.is_none());
     }
 

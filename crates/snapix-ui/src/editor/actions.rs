@@ -432,7 +432,10 @@ pub(super) fn connect_quick_save_button(
         if let Err(error) = save_image_to_path(&document, &path, format) {
             show_error(&window, "Quick save failed", &error.to_string());
         } else {
-            show_toast(&toast_overlay, &format!("Saved image to {}", path.display()));
+            show_toast(
+                &toast_overlay,
+                &format!("Saved image to {}", path.display()),
+            );
         }
     });
 }
@@ -599,11 +602,7 @@ pub(crate) fn show_toast(toast_overlay: &ToastOverlay, message: &str) {
     toast_overlay.add_toast(Toast::new(message));
 }
 
-fn should_suppress_toast(
-    last_toast: &Option<(String, u128)>,
-    message: &str,
-    now_ms: u128,
-) -> bool {
+fn should_suppress_toast(last_toast: &Option<(String, u128)>, message: &str, now_ms: u128) -> bool {
     last_toast.as_ref().is_some_and(|(last_message, last_ms)| {
         last_message == message && now_ms.saturating_sub(*last_ms) < TOAST_DEDUPE_WINDOW_MS
     })

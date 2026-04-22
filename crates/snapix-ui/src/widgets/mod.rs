@@ -4,9 +4,9 @@ mod render;
 
 use snapix_core::canvas::{Annotation, Document};
 
-pub(crate) use render::render_document_rgba;
 pub use canvas::DocumentCanvas;
 pub(crate) use geometry::composition_size;
+pub(crate) use render::render_document_rgba;
 
 #[derive(Clone, Copy)]
 pub(super) struct CanvasLayout {

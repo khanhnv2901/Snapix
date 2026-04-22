@@ -5,6 +5,7 @@ mod drag;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use gtk4::glib;
 use gtk4::prelude::*;
 use libadwaita::ToastOverlay;
 
@@ -64,6 +65,19 @@ impl DocumentCanvas {
             shared_color_buttons,
         };
         let blur_surface_cache = Rc::new(RefCell::new(BlurSurfaceCache::default()));
+        let cache_for_updates = blur_surface_cache.clone();
+        let drawing_area_weak = drawing_area.downgrade();
+        glib::timeout_add_local(std::time::Duration::from_millis(33), move || {
+            let Some(drawing_area) = drawing_area_weak.upgrade() else {
+                return glib::ControlFlow::Break;
+            };
+
+            if cache_for_updates.borrow_mut().poll_background_updates() {
+                drawing_area.queue_draw();
+            }
+
+            glib::ControlFlow::Continue
+        });
 
         let draw_state = state.clone();
         let draw_blur_cache = blur_surface_cache.clone();
@@ -73,13 +87,7 @@ impl DocumentCanvas {
                 draw_crop_mode_canvas(cr, width, height, state.document());
                 draw_crop_overlay(cr, &state, width, height);
             } else {
-                draw_editor_canvas(
-                    cr,
-                    width,
-                    height,
-                    &state,
-                    &mut draw_blur_cache.borrow_mut(),
-                );
+                draw_editor_canvas(cr, width, height, &state, &mut draw_blur_cache.borrow_mut());
             }
         });
 

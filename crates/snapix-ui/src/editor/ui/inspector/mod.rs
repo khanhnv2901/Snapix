@@ -13,8 +13,7 @@ use crate::widgets::DocumentCanvas;
 
 use background::build_background_section;
 use frame::{
-    build_frame_section, build_image_fit_section, build_image_position_section,
-    build_ratio_section,
+    build_frame_section, build_image_fit_section, build_image_position_section, build_ratio_section,
 };
 use shadow::build_shadow_section;
 
@@ -99,7 +98,7 @@ pub(super) fn build_inspector(
             .build(),
     );
 
-    let background_buttons = build_background_section(
+    let background_section = build_background_section(
         &panel,
         state,
         canvas,
@@ -134,7 +133,10 @@ pub(super) fn build_inspector(
         ratio_buttons,
         image_scale_mode_buttons,
         image_anchor_buttons,
-        background_buttons,
+        background_buttons: background_section.swatch_buttons,
+        background_blur_button: background_section.blur_button,
+        background_blur_scale: background_section.blur_radius_scale,
+        background_blur_value: background_section.blur_radius_value,
     }
 }
 

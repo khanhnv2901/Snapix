@@ -104,10 +104,12 @@ fn connect_drag_begin(
                 }
             }
             if let Some(index) = state.selected_annotation() {
-                if let Some(bounds) = resizable_annotation_widget_bounds(state.document(), layout, index)
+                if let Some(bounds) =
+                    resizable_annotation_widget_bounds(state.document(), layout, index)
                 {
                     if let Some(mode) = hit_resize_handle(bounds, x, y) {
-                        let Some(original) = state.document().annotations.get(index).cloned() else {
+                        let Some(original) = state.document().annotations.get(index).cloned()
+                        else {
                             return;
                         };
                         *annotation_resize.borrow_mut() = Some(AnnotationResizeSession {
@@ -295,16 +297,25 @@ fn connect_drag_update(
                 }
             }
         } else if let Some(rect_drag) = state.rect_drag().cloned() {
-            state.update_rect_drag(rect_drag.start_x() + offset_x, rect_drag.start_y() + offset_y);
+            state.update_rect_drag(
+                rect_drag.start_x() + offset_x,
+                rect_drag.start_y() + offset_y,
+            );
         } else if let Some(ellipse_drag) = state.ellipse_drag().cloned() {
             state.update_ellipse_drag(
                 ellipse_drag.start_x() + offset_x,
                 ellipse_drag.start_y() + offset_y,
             );
         } else if let Some(blur_drag) = state.blur_drag().cloned() {
-            state.update_blur_drag(blur_drag.start_x() + offset_x, blur_drag.start_y() + offset_y);
+            state.update_blur_drag(
+                blur_drag.start_x() + offset_x,
+                blur_drag.start_y() + offset_y,
+            );
         } else if let Some(crop_drag) = state.crop_drag().cloned() {
-            state.update_crop_drag(crop_drag.start_x() + offset_x, crop_drag.start_y() + offset_y);
+            state.update_crop_drag(
+                crop_drag.start_x() + offset_x,
+                crop_drag.start_y() + offset_y,
+            );
         } else if let Some(session) = *crop_interaction.borrow() {
             let width = drawing_area.allocated_width();
             let height = drawing_area.allocated_height();
@@ -449,7 +460,10 @@ fn connect_drag_end(
             refresh_history_buttons(&state, &ui.undo_button, &ui.redo_button);
             refresh_tool_actions(&state, &ui.delete_button);
         } else if let Some(rect_drag) = state.rect_drag().cloned() {
-            state.update_rect_drag(rect_drag.start_x() + offset_x, rect_drag.start_y() + offset_y);
+            state.update_rect_drag(
+                rect_drag.start_x() + offset_x,
+                rect_drag.start_y() + offset_y,
+            );
             commit_shape_drag(
                 &mut state,
                 width,
@@ -478,7 +492,10 @@ fn connect_drag_end(
                 EditorState::clear_ellipse_drag,
             );
         } else if let Some(blur_drag) = state.blur_drag().cloned() {
-            state.update_blur_drag(blur_drag.start_x() + offset_x, blur_drag.start_y() + offset_y);
+            state.update_blur_drag(
+                blur_drag.start_x() + offset_x,
+                blur_drag.start_y() + offset_y,
+            );
             commit_shape_drag(
                 &mut state,
                 width,
@@ -491,13 +508,17 @@ fn connect_drag_end(
                 EditorState::clear_blur_drag,
             );
         } else if let Some(crop_drag) = state.crop_drag().cloned() {
-            state.update_crop_drag(crop_drag.start_x() + offset_x, crop_drag.start_y() + offset_y);
+            state.update_crop_drag(
+                crop_drag.start_x() + offset_x,
+                crop_drag.start_y() + offset_y,
+            );
             let final_crop_drag = state.crop_drag().cloned();
 
             if let Some(layout) = canvas_layout(state.document(), width, height) {
-                if let Some((crop_x, crop_y, crop_width, crop_height)) = final_crop_drag
-                    .as_ref()
-                    .and_then(|crop_drag| crop_rect_to_image_pixels(state.document(), layout, crop_drag))
+                if let Some((crop_x, crop_y, crop_width, crop_height)) =
+                    final_crop_drag.as_ref().and_then(|crop_drag| {
+                        crop_rect_to_image_pixels(state.document(), layout, crop_drag)
+                    })
                 {
                     state.set_crop_selection(crop_x, crop_y, crop_width, crop_height);
                     refresh_scope_label(&state, &ui.scope_label);
@@ -527,20 +548,15 @@ fn connect_drag_end(
     });
 }
 
-fn begin_tool_drag(
-    state: &mut EditorState,
-    width: i32,
-    height: i32,
-    x: f64,
-    y: f64,
-) -> bool {
+fn begin_tool_drag(state: &mut EditorState, width: i32, height: i32, x: f64, y: f64) -> bool {
     let Some(layout) = preview_canvas_layout(state.document(), width, height) else {
         return false;
     };
 
     match state.active_tool() {
         ToolKind::Arrow => {
-            if let Some((image_x, image_y)) = widget_point_to_image_pixel(state.document(), layout, x, y)
+            if let Some((image_x, image_y)) =
+                widget_point_to_image_pixel(state.document(), layout, x, y)
             {
                 state.begin_arrow_drag(x, y, image_x as f32, image_y as f32);
                 true

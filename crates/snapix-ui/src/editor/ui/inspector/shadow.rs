@@ -136,11 +136,13 @@ pub(super) fn build_shadow_section(
     ));
 
     let shadow_blur_value = gtk4::Label::builder()
-        .label(&format!("{}px", state.borrow().document.frame.shadow_blur as u32))
+        .label(&format!(
+            "{}px",
+            state.borrow().document.frame.shadow_blur as u32
+        ))
         .css_classes(["dim-copy"])
         .build();
-    let shadow_blur_scale =
-        gtk4::Scale::with_range(gtk4::Orientation::Horizontal, 0.0, 64.0, 1.0);
+    let shadow_blur_scale = gtk4::Scale::with_range(gtk4::Orientation::Horizontal, 0.0, 64.0, 1.0);
     shadow_blur_scale.set_value(state.borrow().document.frame.shadow_blur as f64);
     {
         let value = shadow_blur_value.clone();

@@ -6,7 +6,11 @@ pub(crate) fn canvas_layout(document: &Document, width: i32, height: i32) -> Opt
     preview_canvas_layout(document, width, height)
 }
 
-pub(crate) fn preview_canvas_layout(document: &Document, width: i32, height: i32) -> Option<CanvasLayout> {
+pub(crate) fn preview_canvas_layout(
+    document: &Document,
+    width: i32,
+    height: i32,
+) -> Option<CanvasLayout> {
     let image = document.base_image.as_ref()?;
     let (frame_x, frame_y, frame_w, frame_h) = composition_frame_bounds(document, width, height);
     let composition_scale = composition_scale(document, width, height);
@@ -58,7 +62,11 @@ fn expand_to_output_ratio(width: f64, height: f64, document: &Document) -> (f64,
     }
 }
 
-pub(crate) fn composition_frame_bounds(document: &Document, width: i32, height: i32) -> (f64, f64, f64, f64) {
+pub(crate) fn composition_frame_bounds(
+    document: &Document,
+    width: i32,
+    height: i32,
+) -> (f64, f64, f64, f64) {
     let (natural_width, natural_height) = composition_size(document);
     let available_width = (width as f64).max(160.0);
     let available_height = (height as f64).max(160.0);
@@ -191,7 +199,13 @@ pub(crate) fn widget_point_to_image_pixel(
     Some((image_x, image_y))
 }
 
-pub(crate) fn inset_frame(x: f64, y: f64, width: f64, height: f64, padding: f64) -> (f64, f64, f64, f64) {
+pub(crate) fn inset_frame(
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+    padding: f64,
+) -> (f64, f64, f64, f64) {
     let padded_x = x + padding;
     let padded_y = y + padding;
     let padded_w = (width - padding * 2.0).max(80.0);

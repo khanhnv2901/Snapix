@@ -102,7 +102,7 @@ snapix capture --mode full -o test.png
 |------|--------|-------|
 | Background: gradient picker | 🔲 Pending | |
 | Background: solid color | 🔲 Pending | |
-| Background: blur of screenshot | 🔲 Pending | |
+| Background: blur of screenshot | ✅ Done | Inspector can switch to `Screenshot Blur`, adjust blur radius, and preview/export use the same cached blurred background rendering |
 | Frame: padding slider | ✅ Done | Live frame padding control is wired in the GTK editor |
 | Frame: corner radius | ✅ Done | Live corner radius control is wired in the GTK editor |
 | Frame: drop shadow | ✅ Done | Shadow toggle, direction, padding, blur, and strength are all live in the GTK editor |
@@ -237,6 +237,14 @@ snapix/
   - Unified preview/export composition rules so canvas layout matches `Copy`/`Save` output more closely
   - Added tests for CLI region validation, Wayland capture fallback behavior, selection/edit helpers, and editor state helpers
   - Documented current Wayland portal capture limitations in the UI behavior
+
+### 2026-04-22
+- **M3 Progress**
+  - Added a real `Screenshot Blur` background mode in the inspector with adjustable blur radius
+  - Wired blurred screenshot background rendering into both preview and export so output matches the editor
+  - Extended the blur surface cache to reuse full-background blur renders in addition to annotation blur regions
+  - Kept background preset swatches working alongside blur mode selection
+  - Verified the workspace with `cargo test`
 
 ### 2026-04-20
 - **M0 Complete** 🎉

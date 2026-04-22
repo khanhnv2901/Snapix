@@ -1,11 +1,11 @@
 use gtk4::cairo;
-use snapix_core::canvas::{Annotation, Document, ImageScaleMode};
+use snapix_core::canvas::{Annotation, Background, Document, ImageAnchor, ImageScaleMode};
 
 use crate::editor::{EditorState, ToolKind};
 use crate::widgets::geometry::{
     composition_frame_bounds, composition_scale, directional_shadow_padding,
     draw_arrow_resize_handles, draw_resize_handles, inset_frame, layout_for_bounds_with_mode,
-    paint_background, paint_empty_state, paint_image, preview_canvas_layout,
+    paint_background, paint_empty_state, paint_image, paint_surface, preview_canvas_layout,
     resizable_annotation_widget_bounds, rounded_rect, selection_annotation_widget_bounds,
 };
 use crate::widgets::CanvasLayout;
@@ -28,7 +28,31 @@ pub(super) fn draw_canvas(
     let (frame_x, frame_y, frame_w, frame_h) = composition_frame_bounds(document, width, height);
     let composition_scale = composition_scale(document, width, height);
 
-    paint_background(cr, frame_x, frame_y, frame_w, frame_h, &document.background);
+    let background_radius = 28.0;
+    let painted_blurred_background = match (&document.background, document.base_image.as_ref()) {
+        (Background::BlurredScreenshot { radius }, Some(image)) => {
+            blur_cache.prepare_for_document(document);
+            if let Some(surface) = blur_cache.background_surface_for(image, *radius) {
+                paint_surface(
+                    cr,
+                    (frame_x, frame_y, frame_w, frame_h),
+                    image.width,
+                    image.height,
+                    surface,
+                    background_radius,
+                    ImageScaleMode::Fill,
+                    ImageAnchor::Center,
+                );
+                true
+            } else {
+                false
+            }
+        }
+        _ => false,
+    };
+    if !painted_blurred_background {
+        paint_background(cr, frame_x, frame_y, frame_w, frame_h, &document.background);
+    }
 
     let image_bounds = inset_frame(
         frame_x,
@@ -49,15 +73,15 @@ pub(super) fn draw_canvas(
                     document.image_scale_mode,
                     document.image_anchor,
                 )
-                    .map(|layout| {
-                        (
-                            layout.image_x,
-                            layout.image_y,
-                            layout.image_width,
-                            layout.image_height,
-                        )
-                    })
-                    .unwrap_or(image_bounds)
+                .map(|layout| {
+                    (
+                        layout.image_x,
+                        layout.image_y,
+                        layout.image_width,
+                        layout.image_height,
+                    )
+                })
+                .unwrap_or(image_bounds)
             }
         }
         None => image_bounds,

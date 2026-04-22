@@ -10,7 +10,9 @@ use crate::editor::{
 
 use super::dialog::present_text_dialog;
 use super::CanvasUi;
-use crate::widgets::geometry::{hit_test_annotation, preview_canvas_layout, widget_point_to_image_pixel};
+use crate::widgets::geometry::{
+    hit_test_annotation, preview_canvas_layout, widget_point_to_image_pixel,
+};
 
 pub(super) fn attach_click_controller(
     drawing_area: &gtk4::DrawingArea,
@@ -29,7 +31,8 @@ pub(super) fn attach_click_controller(
             let mut synced_style = None;
             let mut state_ref = state.borrow_mut();
             if state_ref.active_tool() == ToolKind::Select {
-                let Some(layout) = preview_canvas_layout(state_ref.document(), width, height) else {
+                let Some(layout) = preview_canvas_layout(state_ref.document(), width, height)
+                else {
                     state_ref.set_selected_annotation(None);
                     refresh_width_label(&state_ref, &ui.width_label);
                     refresh_tool_actions(&state_ref, &ui.delete_button);

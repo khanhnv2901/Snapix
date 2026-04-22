@@ -1,8 +1,11 @@
 use std::collections::{HashMap, HashSet};
+use std::sync::mpsc;
+use std::thread;
 
 use gtk4::cairo;
-use snapix_core::canvas::{Annotation, Color, Document, TextStyle};
+use image::imageops::FilterType;
 use snapix_core::canvas::Image;
+use snapix_core::canvas::{Annotation, Color, Document, TextStyle};
 
 use crate::editor::CropDrag;
 use crate::widgets::geometry::{
@@ -53,7 +56,18 @@ impl BlurCacheKey {
 #[derive(Default)]
 pub(crate) struct BlurSurfaceCache {
     image_identity: Option<BlurImageIdentity>,
-    surfaces: HashMap<BlurCacheKey, cairo::ImageSurface>,
+    annotation_surfaces: HashMap<BlurCacheKey, cairo::ImageSurface>,
+    background_surfaces: HashMap<u32, cairo::ImageSurface>,
+    pending_background_surfaces: HashSet<u32>,
+    background_results_tx: Option<mpsc::Sender<BackgroundBlurResult>>,
+    background_results_rx: Option<mpsc::Receiver<BackgroundBlurResult>>,
+}
+
+#[derive(Debug)]
+struct BackgroundBlurResult {
+    identity: BlurImageIdentity,
+    radius_bits: u32,
+    image: Image,
 }
 
 impl BlurSurfaceCache {
@@ -66,7 +80,15 @@ impl BlurSurfaceCache {
         let identity = BlurImageIdentity::from_image(image);
         if self.image_identity != Some(identity) {
             self.image_identity = Some(identity);
-            self.surfaces.clear();
+            self.annotation_surfaces.clear();
+            self.background_surfaces.clear();
+            self.pending_background_surfaces.clear();
+        }
+
+        if self.background_results_tx.is_none() || self.background_results_rx.is_none() {
+            let (tx, rx) = mpsc::channel();
+            self.background_results_tx = Some(tx);
+            self.background_results_rx = Some(rx);
         }
     }
 
@@ -87,26 +109,112 @@ impl BlurSurfaceCache {
             })
             .collect();
 
-        self.surfaces.retain(|key, _| keys.contains(key));
+        self.annotation_surfaces.retain(|key, _| keys.contains(key));
     }
 
-    fn surface_for(
+    fn surface_for(&mut self, image: &Image, key: BlurCacheKey) -> Option<&cairo::ImageSurface> {
+        if !self.annotation_surfaces.contains_key(&key) {
+            let region = blurred_region_image(
+                image,
+                key.x,
+                key.y,
+                key.width,
+                key.height,
+                f32::from_bits(key.radius_bits),
+            )?;
+            let surface = make_surface(&region)?;
+            self.annotation_surfaces.insert(key, surface);
+        }
+        self.annotation_surfaces.get(&key)
+    }
+
+    pub(crate) fn background_surface_for(
         &mut self,
         image: &Image,
-        key: BlurCacheKey,
+        radius: f32,
     ) -> Option<&cairo::ImageSurface> {
-        if !self.surfaces.contains_key(&key) {
-            let region =
-                blurred_region_image(image, key.x, key.y, key.width, key.height, f32::from_bits(key.radius_bits))?;
-            let surface = make_surface(&region)?;
-            self.surfaces.insert(key, surface);
+        self.sync_background_results();
+
+        let radius_bits = radius.to_bits();
+        if !self.background_surfaces.contains_key(&radius_bits) {
+            self.request_background_surface(image, radius);
         }
-        self.surfaces.get(&key)
+
+        self.background_surfaces
+            .get(&radius_bits)
+            .or_else(|| self.nearest_background_surface(radius_bits))
+    }
+
+    pub(crate) fn poll_background_updates(&mut self) -> bool {
+        self.sync_background_results()
     }
 
     pub(crate) fn clear(&mut self) {
         self.image_identity = None;
-        self.surfaces.clear();
+        self.annotation_surfaces.clear();
+        self.background_surfaces.clear();
+        self.pending_background_surfaces.clear();
+        self.background_results_tx = None;
+        self.background_results_rx = None;
+    }
+
+    fn request_background_surface(&mut self, image: &Image, radius: f32) {
+        let radius_bits = radius.to_bits();
+        if self.pending_background_surfaces.contains(&radius_bits) {
+            return;
+        }
+
+        let Some(sender) = self.background_results_tx.clone() else {
+            return;
+        };
+        let Some(identity) = self.image_identity else {
+            return;
+        };
+
+        self.pending_background_surfaces.insert(radius_bits);
+        let image = image.clone();
+        thread::spawn(move || {
+            let Some(blurred_image) = make_background_blur_image(&image, radius) else {
+                return;
+            };
+            let _ = sender.send(BackgroundBlurResult {
+                identity,
+                radius_bits,
+                image: blurred_image,
+            });
+        });
+    }
+
+    fn sync_background_results(&mut self) -> bool {
+        let mut updated = false;
+        let Some(receiver) = self.background_results_rx.as_ref() else {
+            return false;
+        };
+
+        while let Ok(result) = receiver.try_recv() {
+            self.pending_background_surfaces.remove(&result.radius_bits);
+            if self.image_identity != Some(result.identity) {
+                continue;
+            }
+            let Some(surface) = make_surface(&result.image) else {
+                continue;
+            };
+            self.background_surfaces.insert(result.radius_bits, surface);
+            updated = true;
+        }
+
+        updated
+    }
+
+    fn nearest_background_surface(&self, radius_bits: u32) -> Option<&cairo::ImageSurface> {
+        self.background_surfaces
+            .iter()
+            .min_by_key(|(candidate_bits, _)| {
+                let candidate = f32::from_bits(**candidate_bits);
+                let target = f32::from_bits(radius_bits);
+                ((candidate - target).abs() * 100.0).round() as i32
+            })
+            .map(|(_, surface)| surface)
     }
 }
 
@@ -180,6 +288,32 @@ pub(super) fn draw_blur_preview(cr: &cairo::Context, layout: CanvasLayout, blur_
     cr.rectangle(x, y, width, height);
     cr.stroke().ok();
     cr.restore().ok();
+}
+
+fn make_background_blur_image(image: &Image, radius: f32) -> Option<Image> {
+    const BACKGROUND_BLUR_TARGET_MAX_DIMENSION: u32 = 960;
+
+    let rgba = image.to_dynamic().to_rgba8();
+    let max_dimension = image.width.max(image.height).max(1);
+    let scale = if max_dimension > BACKGROUND_BLUR_TARGET_MAX_DIMENSION {
+        BACKGROUND_BLUR_TARGET_MAX_DIMENSION as f32 / max_dimension as f32
+    } else {
+        1.0
+    };
+
+    let working = if scale < 1.0 {
+        let width = ((image.width as f32 * scale).round() as u32).max(1);
+        let height = ((image.height as f32 * scale).round() as u32).max(1);
+        image::imageops::resize(&rgba, width, height, FilterType::Triangle)
+    } else {
+        rgba
+    };
+
+    let effective_radius = (radius.max(2.0) * scale.max(0.35)).max(1.5);
+    let blurred = image::imageops::blur(&working, effective_radius);
+    Some(Image::from_dynamic(image::DynamicImage::ImageRgba8(
+        blurred,
+    )))
 }
 
 pub(super) fn draw_rect_preview(
@@ -460,7 +594,7 @@ mod tests {
     use gtk4::cairo::{Antialias, Context, Format, ImageSurface};
     use snapix_core::canvas::{Annotation, Color, Document, Image, Rect};
 
-    use super::{blur_cache_key, BlurSurfaceCache, draw_ellipse_shape};
+    use super::{blur_cache_key, draw_ellipse_shape, make_background_blur_image, BlurSurfaceCache};
 
     fn alpha_at(surface: &mut ImageSurface, x: i32, y: i32) -> u8 {
         let stride = surface.stride() as usize;
@@ -530,11 +664,29 @@ mod tests {
         )
         .expect("blur key");
         assert!(cache.surface_for(image, key).is_some());
-        assert_eq!(cache.surfaces.len(), 1);
+        assert_eq!(cache.annotation_surfaces.len(), 1);
+        cache.request_background_surface(image, 18.0);
+        assert!(cache
+            .pending_background_surfaces
+            .contains(&18.0f32.to_bits()));
 
         document.base_image = Some(image_b);
         cache.prepare_for_document(&document);
 
-        assert!(cache.surfaces.is_empty());
+        assert!(cache.annotation_surfaces.is_empty());
+        assert!(cache.background_surfaces.is_empty());
+        assert!(cache.pending_background_surfaces.is_empty());
+    }
+
+    #[test]
+    fn large_background_blur_uses_downscaled_surface() {
+        let image = Image::new(3200, 1800, vec![200; 3200 * 1800 * 4]);
+
+        let blurred = make_background_blur_image(&image, 24.0).expect("blurred image");
+
+        assert!(blurred.width < image.width);
+        assert!(blurred.height < image.height);
+        assert_eq!(blurred.width, 960);
+        assert_eq!(blurred.height, 540);
     }
 }

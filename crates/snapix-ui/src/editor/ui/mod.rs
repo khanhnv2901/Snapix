@@ -64,6 +64,9 @@ pub(super) struct InspectorControls {
     image_scale_mode_buttons: Rc<RefCell<Vec<(ImageScaleMode, gtk4::Button)>>>,
     image_anchor_buttons: Rc<RefCell<Vec<(ImageAnchor, gtk4::Button)>>>,
     background_buttons: Rc<RefCell<Vec<(Background, gtk4::Button)>>>,
+    background_blur_button: gtk4::Button,
+    background_blur_scale: gtk4::Scale,
+    background_blur_value: gtk4::Label,
 }
 
 impl InspectorControls {
@@ -138,6 +141,20 @@ impl InspectorControls {
                 button.add_css_class("selected");
             } else {
                 button.remove_css_class("selected");
+            }
+        }
+
+        match &state.document().background {
+            Background::BlurredScreenshot { radius } => {
+                self.background_blur_button.add_css_class("selected");
+                self.background_blur_scale.set_sensitive(true);
+                self.background_blur_scale.set_value(*radius as f64);
+                self.background_blur_value
+                    .set_label(&format!("{}px", radius.round() as u32));
+            }
+            _ => {
+                self.background_blur_button.remove_css_class("selected");
+                self.background_blur_scale.set_sensitive(false);
             }
         }
     }

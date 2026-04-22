@@ -86,28 +86,58 @@ pub(crate) fn paint_image(
     mode: ImageScaleMode,
     anchor: ImageAnchor,
 ) {
+    if let Some(surface) = make_surface(image) {
+        paint_surface(
+            cr,
+            bounds,
+            image.width,
+            image.height,
+            &surface,
+            radius,
+            mode,
+            anchor,
+        );
+    }
+}
+
+pub(crate) fn paint_surface(
+    cr: &cairo::Context,
+    bounds: (f64, f64, f64, f64),
+    source_width: u32,
+    source_height: u32,
+    surface: &cairo::ImageSurface,
+    radius: f64,
+    mode: ImageScaleMode,
+    anchor: ImageAnchor,
+) {
     let (x, y, max_width, max_height) = bounds;
-    let Some(layout) = layout_for_bounds_with_mode(image, bounds, mode, anchor) else {
+    let source = Image {
+        width: source_width,
+        height: source_height,
+        data: Vec::new(),
+    };
+    let Some(layout) = layout_for_bounds_with_mode(&source, bounds, mode, anchor) else {
         return;
     };
-    let draw_x = layout.image_x;
-    let draw_y = layout.image_y;
-    let draw_w = layout.image_width;
-    let draw_h = layout.image_height;
 
     rounded_rect(cr, x, y, max_width, max_height, radius);
     cr.clip();
-    rounded_rect(cr, draw_x, draw_y, draw_w, draw_h, radius);
+    rounded_rect(
+        cr,
+        layout.image_x,
+        layout.image_y,
+        layout.image_width,
+        layout.image_height,
+        radius,
+    );
     cr.clip();
 
-    if let Some(surface) = make_surface(image) {
-        cr.save().ok();
-        cr.translate(draw_x, draw_y);
-        cr.scale(layout.image_scale, layout.image_scale);
-        cr.set_source_surface(&surface, 0.0, 0.0).ok();
-        cr.paint().ok();
-        cr.restore().ok();
-    }
+    cr.save().ok();
+    cr.translate(layout.image_x, layout.image_y);
+    cr.scale(layout.image_scale, layout.image_scale);
+    cr.set_source_surface(surface, 0.0, 0.0).ok();
+    cr.paint().ok();
+    cr.restore().ok();
 
     cr.reset_clip();
 }
@@ -198,7 +228,11 @@ pub(crate) fn draw_resize_handles(cr: &cairo::Context, bounds: (f64, f64, f64, f
     }
 }
 
-pub(crate) fn draw_arrow_resize_handles(cr: &cairo::Context, layout: CanvasLayout, annotation: &Annotation) {
+pub(crate) fn draw_arrow_resize_handles(
+    cr: &cairo::Context,
+    layout: CanvasLayout,
+    annotation: &Annotation,
+) {
     let Annotation::Arrow { from, to, .. } = annotation else {
         return;
     };
@@ -223,7 +257,14 @@ pub(crate) fn draw_arrow_resize_handles(cr: &cairo::Context, layout: CanvasLayou
     }
 }
 
-pub(crate) fn rounded_rect(cr: &cairo::Context, x: f64, y: f64, width: f64, height: f64, radius: f64) {
+pub(crate) fn rounded_rect(
+    cr: &cairo::Context,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+    radius: f64,
+) {
     let radius = radius.min(width / 2.0).min(height / 2.0);
     let degrees = std::f64::consts::PI / 180.0;
 

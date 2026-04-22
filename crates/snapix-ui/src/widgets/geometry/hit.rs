@@ -1,7 +1,7 @@
 use snapix_core::canvas::Annotation;
 
-use super::layout::{annotation_rect_to_widget_bounds, expand_bounds, point_in_bounds};
 use super::super::{CanvasLayout, CropInteractionMode};
+use super::layout::{annotation_rect_to_widget_bounds, expand_bounds, point_in_bounds};
 use snapix_core::canvas::Document;
 
 pub(crate) fn hit_test_annotation(
@@ -221,9 +221,18 @@ mod tests {
             width: 6.0,
         };
 
-        assert_eq!(hit_arrow_resize_handle(layout, &annotation, 20.0, 36.0), Some(true));
-        assert_eq!(hit_arrow_resize_handle(layout, &annotation, 90.0, 68.0), Some(false));
-        assert_eq!(hit_arrow_resize_handle(layout, &annotation, 55.0, 50.0), None);
+        assert_eq!(
+            hit_arrow_resize_handle(layout, &annotation, 20.0, 36.0),
+            Some(true)
+        );
+        assert_eq!(
+            hit_arrow_resize_handle(layout, &annotation, 90.0, 68.0),
+            Some(false)
+        );
+        assert_eq!(
+            hit_arrow_resize_handle(layout, &annotation, 55.0, 50.0),
+            None
+        );
     }
 
     #[test]
@@ -281,7 +290,10 @@ mod tests {
             fill: None,
         });
 
-        assert_eq!(hit_test_annotation(&document, sample_layout(), 45.0, 50.0), Some(1));
+        assert_eq!(
+            hit_test_annotation(&document, sample_layout(), 45.0, 50.0),
+            Some(1)
+        );
     }
 
     #[test]

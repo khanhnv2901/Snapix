@@ -4,7 +4,7 @@ use std::rc::Rc;
 use gtk4::prelude::*;
 use snapix_core::canvas::{ImageAnchor, ImageScaleMode, OutputRatio};
 
-use super::{labeled_row_with_value, super::helpers::connect_frame_slider};
+use super::{super::helpers::connect_frame_slider, labeled_row_with_value};
 use crate::editor::state::EditorState;
 use crate::widgets::DocumentCanvas;
 
@@ -24,7 +24,10 @@ pub(super) fn build_frame_section(
     redo_button: &gtk4::Button,
 ) -> FrameSection {
     let padding_value = gtk4::Label::builder()
-        .label(&format!("{}px", state.borrow().document.frame.padding as u32))
+        .label(&format!(
+            "{}px",
+            state.borrow().document.frame.padding as u32
+        ))
         .css_classes(["dim-copy"])
         .build();
     let padding_scale = gtk4::Scale::with_range(gtk4::Orientation::Horizontal, 0.0, 160.0, 1.0);
@@ -151,11 +154,7 @@ pub(super) fn build_ratio_section(
                     }
                 }
                 super::super::helpers::refresh_subtitle(&state, &subtitle_label);
-                super::super::helpers::refresh_history_buttons(
-                    &state,
-                    &undo_button,
-                    &redo_button,
-                );
+                super::super::helpers::refresh_history_buttons(&state, &undo_button, &redo_button);
                 canvas.refresh();
             }
         });
@@ -219,11 +218,7 @@ pub(super) fn build_image_fit_section(
                     }
                 }
                 super::super::helpers::refresh_subtitle(&state, &subtitle_label);
-                super::super::helpers::refresh_history_buttons(
-                    &state,
-                    &undo_button,
-                    &redo_button,
-                );
+                super::super::helpers::refresh_history_buttons(&state, &undo_button, &redo_button);
                 canvas.refresh();
             }
         });
@@ -303,11 +298,7 @@ pub(super) fn build_image_position_section(
                     }
                 }
                 super::super::helpers::refresh_subtitle(&state, &subtitle_label);
-                super::super::helpers::refresh_history_buttons(
-                    &state,
-                    &undo_button,
-                    &redo_button,
-                );
+                super::super::helpers::refresh_history_buttons(&state, &undo_button, &redo_button);
                 canvas.refresh();
             }
         });

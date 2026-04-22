@@ -4,6 +4,10 @@ use std::rc::Rc;
 use gtk4::prelude::*;
 use libadwaita::{Application, ApplicationWindow, HeaderBar, ToastOverlay, ToolbarView};
 
+use super::super::actions::{
+    connect_capture_actions, connect_copy_button, connect_quick_save_button, connect_save_as_button,
+};
+use super::super::state::ToolKind;
 use super::helpers::{
     refresh_history_buttons, refresh_labels, refresh_scope_label, refresh_subtitle,
     refresh_tool_actions,
@@ -12,14 +16,9 @@ use super::inspector::build_inspector;
 use super::toolbar::{build_bottom_bar, build_canvas_panel, build_capture_row, build_tool_row};
 use super::{BottomBar, HistoryAction, InspectorControls, SaveFormat};
 use crate::app::LaunchContext;
+use crate::editor::show_toast;
 use crate::editor::state::EditorState;
 use crate::widgets::DocumentCanvas;
-use super::super::actions::{
-    connect_capture_actions, connect_copy_button, connect_quick_save_button,
-    connect_save_as_button,
-};
-use super::super::state::ToolKind;
-use crate::editor::show_toast;
 
 pub struct EditorWindow {
     window: ApplicationWindow,
@@ -296,7 +295,10 @@ fn connect_crop_shortcuts(
                     canvas.refresh();
                     show_toast(&toast_overlay, "Crop applied");
                 } else {
-                    show_toast(&toast_overlay, "Crop area is too small. Minimum size is 4×4 px.");
+                    show_toast(
+                        &toast_overlay,
+                        "Crop area is too small. Minimum size is 4×4 px.",
+                    );
                 }
                 glib::Propagation::Stop
             }
