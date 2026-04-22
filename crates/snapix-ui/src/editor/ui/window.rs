@@ -2,10 +2,14 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use gtk4::prelude::*;
+use libadwaita::prelude::*;
 use libadwaita::{Application, ApplicationWindow, HeaderBar, ToastOverlay, ToolbarView};
 
 use super::super::actions::{
     connect_capture_actions, connect_copy_button, connect_quick_save_button, connect_save_as_button,
+};
+use super::super::preferences::{
+    load_preferences, save_preferences, AppPreferences, PreferredSaveFormat,
 };
 use super::super::state::ToolKind;
 use super::helpers::{
@@ -13,6 +17,7 @@ use super::helpers::{
     refresh_tool_actions,
 };
 use super::inspector::build_inspector;
+use super::preferences::present_preferences_window;
 use super::toolbar::{build_bottom_bar, build_canvas_panel, build_capture_row, build_tool_row};
 use super::{BottomBar, HistoryAction, InspectorControls, SaveFormat};
 use crate::app::LaunchContext;
@@ -27,6 +32,10 @@ pub struct EditorWindow {
 impl EditorWindow {
     pub fn new(app: &Application, context: LaunchContext) -> Self {
         let state = Rc::new(RefCell::new(EditorState::with_document(context.document)));
+        let preferences = Rc::new(RefCell::new(load_preferences().unwrap_or_else(|error| {
+            tracing::warn!("Failed to load preferences: {error:#}");
+            AppPreferences::default()
+        })));
 
         let title_label = gtk4::Label::new(None);
         let scope_label = gtk4::Label::new(None);
@@ -52,6 +61,10 @@ impl EditorWindow {
             .css_classes(["tool-delete-btn"])
             .sensitive(false)
             .build();
+        let preferences_button = gtk4::Button::builder()
+            .icon_name("emblem-system-symbolic")
+            .tooltip_text("Preferences")
+            .build();
         let width_label = gtk4::Label::builder()
             .label(super::helpers::width_label_text(&state.borrow()))
             .margin_start(12)
@@ -61,7 +74,12 @@ impl EditorWindow {
             .build();
 
         let toast_overlay = ToastOverlay::new();
-        let save_format = Rc::new(RefCell::new(SaveFormat::Png));
+        let save_format = Rc::new(RefCell::new(
+            match preferences.borrow().effective_save_format() {
+                super::super::preferences::PreferredSaveFormat::Png => SaveFormat::Png,
+                super::super::preferences::PreferredSaveFormat::Jpeg => SaveFormat::Jpeg,
+            },
+        ));
         let shared_width_scale: Rc<RefCell<Option<gtk4::Scale>>> = Rc::new(RefCell::new(None));
         let shared_color_buttons: Rc<RefCell<Vec<((u8, u8, u8), gtk4::Button)>>> =
             Rc::new(RefCell::new(Vec::new()));
@@ -99,14 +117,16 @@ impl EditorWindow {
             &undo_button,
             &redo_button,
         );
-        let capture_row = build_capture_row();
-        let canvas_panel = build_canvas_panel(canvas_widget);
         let bottom_bar = build_bottom_bar(&subtitle_label, save_format.clone());
+        let capture_row = build_capture_row(&bottom_bar);
+        let canvas_panel = build_canvas_panel(canvas_widget);
 
         let workspace = gtk4::Paned::builder()
             .orientation(gtk4::Orientation::Horizontal)
             .margin_start(8)
             .margin_end(8)
+            .margin_top(8)
+            .margin_bottom(8)
             .hexpand(true)
             .vexpand(true)
             .wide_handle(false)
@@ -126,17 +146,28 @@ impl EditorWindow {
         content.append(&capture_row.widget);
         content.append(&tool_row);
         content.append(&workspace);
-        content.append(&bottom_bar.widget);
 
         let header = HeaderBar::new();
+        header.pack_end(&preferences_button);
         header.pack_end(&redo_button);
         header.pack_end(&undo_button);
 
         toast_overlay.set_child(Some(&content));
+        toast_overlay.add_css_class("snapix-shell");
 
         let toolbar_view = ToolbarView::new();
+        toolbar_view.add_css_class("snapix-shell");
         toolbar_view.add_top_bar(&header);
         toolbar_view.set_content(Some(&toast_overlay));
+        toolbar_view.add_bottom_bar(&bottom_bar.widget);
+        bind_shell_appearance(
+            &app.style_manager(),
+            &[
+                content.clone().upcast(),
+                toast_overlay.clone().upcast(),
+                toolbar_view.clone().upcast(),
+            ],
+        );
 
         let window = ApplicationWindow::builder()
             .application(app)
@@ -221,7 +252,16 @@ impl EditorWindow {
             &window,
             &toast_overlay,
             state.clone(),
+            save_format.clone(),
+        );
+        connect_export_format_preferences(preferences.clone(), save_format.clone(), &bottom_bar);
+        connect_preferences_button(
+            &preferences_button,
+            &window,
+            preferences.clone(),
             save_format,
+            bottom_bar.clone(),
+            toast_overlay.clone(),
         );
 
         if let Some(banner) = context.banner {
@@ -240,6 +280,85 @@ impl EditorWindow {
 
     pub fn present(&self) {
         self.window.present();
+    }
+}
+
+fn bind_shell_appearance(style_manager: &libadwaita::StyleManager, widgets: &[gtk4::Widget]) {
+    apply_shell_appearance(widgets, style_manager.is_dark());
+    let widgets = widgets.to_vec();
+    style_manager.connect_dark_notify(move |manager| {
+        apply_shell_appearance(&widgets, manager.is_dark());
+    });
+}
+
+fn apply_shell_appearance(widgets: &[gtk4::Widget], is_dark: bool) {
+    for widget in widgets {
+        if is_dark {
+            widget.remove_css_class("snapix-light");
+        } else {
+            widget.add_css_class("snapix-light");
+        }
+    }
+}
+
+fn connect_preferences_button(
+    button: &gtk4::Button,
+    window: &ApplicationWindow,
+    preferences: Rc<RefCell<AppPreferences>>,
+    save_format: Rc<RefCell<SaveFormat>>,
+    bottom_bar: BottomBar,
+    toast_overlay: ToastOverlay,
+) {
+    let window = window.clone();
+    button.connect_clicked(move |_| {
+        present_preferences_window(
+            &window,
+            preferences.clone(),
+            save_format.clone(),
+            &bottom_bar,
+            &toast_overlay,
+        );
+    });
+}
+
+fn connect_export_format_preferences(
+    preferences: Rc<RefCell<AppPreferences>>,
+    save_format: Rc<RefCell<SaveFormat>>,
+    bottom_bar: &BottomBar,
+) {
+    {
+        let preferences = preferences.clone();
+        let save_format = save_format.clone();
+        bottom_bar.png_button.connect_toggled(move |button| {
+            if !button.is_active() {
+                return;
+            }
+            let mut preferences = preferences.borrow_mut();
+            if preferences.remember_last_export_format {
+                preferences.last_export_format = Some(PreferredSaveFormat::Png);
+                if let Err(error) = save_preferences(&preferences) {
+                    tracing::warn!("Failed to save preferences: {error:#}");
+                }
+            }
+            *save_format.borrow_mut() = SaveFormat::Png;
+        });
+    }
+    {
+        let preferences = preferences.clone();
+        let save_format = save_format.clone();
+        bottom_bar.jpeg_button.connect_toggled(move |button| {
+            if !button.is_active() {
+                return;
+            }
+            let mut preferences = preferences.borrow_mut();
+            if preferences.remember_last_export_format {
+                preferences.last_export_format = Some(PreferredSaveFormat::Jpeg);
+                if let Err(error) = save_preferences(&preferences) {
+                    tracing::warn!("Failed to save preferences: {error:#}");
+                }
+            }
+            *save_format.borrow_mut() = SaveFormat::Jpeg;
+        });
     }
 }
 

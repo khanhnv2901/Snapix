@@ -1,9 +1,11 @@
 mod actions;
+mod preferences;
 mod presets;
 mod state;
 mod ui;
 
 pub(crate) use actions::show_toast;
+pub(crate) use preferences::{apply_style_preferences, load_preferences};
 pub(crate) use state::{same_color_rgb, CropDrag, CropSelection, EditorState, ToolKind};
 pub(crate) use ui::{
     refresh_history_buttons, refresh_scope_label, refresh_subtitle, refresh_tool_actions,
@@ -478,7 +480,7 @@ mod tests {
         assert!(message.is_some());
         assert_eq!(
             message.unwrap(),
-            "Fullscreen capture failed, switched to region capture."
+            "Fullscreen capture failed; switched to interactive capture."
         );
 
         let calls = backend.region_calls();
@@ -506,7 +508,7 @@ mod tests {
 
         let text = error.to_string();
         assert!(text.contains("Fullscreen capture failed"));
-        assert!(text.contains("Interactive region fallback also failed"));
+        assert!(text.contains("Interactive fallback also failed"));
     }
 
     #[test]

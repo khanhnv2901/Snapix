@@ -4,6 +4,7 @@ use std::rc::Rc;
 use gtk4::cairo;
 use gtk4::prelude::*;
 use libadwaita::Bin;
+use libadwaita::StyleManager;
 use snapix_core::canvas::Color;
 
 use super::helpers::{refresh_history_buttons, refresh_scope_label, refresh_width_label};
@@ -11,13 +12,32 @@ use super::{BottomBar, CaptureActionRow, SaveFormat};
 use crate::editor::state::{same_color_rgb, EditorState, ToolKind};
 use crate::widgets::DocumentCanvas;
 
-pub(super) fn build_capture_row() -> CaptureActionRow {
+pub(super) fn build_capture_row(bottom_bar: &BottomBar) -> CaptureActionRow {
     let row = gtk4::Box::builder()
         .orientation(gtk4::Orientation::Horizontal)
         .spacing(8)
         .halign(gtk4::Align::Fill)
         .build();
     row.add_css_class("capture-row");
+
+    let capture_section = gtk4::Box::builder()
+        .orientation(gtk4::Orientation::Vertical)
+        .spacing(4)
+        .valign(gtk4::Align::Center)
+        .build();
+    let capture_box = gtk4::Box::builder()
+        .orientation(gtk4::Orientation::Horizontal)
+        .spacing(8)
+        .valign(gtk4::Align::Center)
+        .build();
+    capture_box.add_css_class("capture-cluster");
+    let capture_label = gtk4::Label::builder()
+        .label("Capture")
+        .xalign(0.0)
+        .css_classes(["cluster-title"])
+        .build();
+    capture_section.append(&capture_label);
+    capture_section.append(&capture_box);
 
     let mut built = Vec::new();
     for (label, icon, classes) in [
@@ -28,7 +48,7 @@ pub(super) fn build_capture_row() -> CaptureActionRow {
         ),
         (
             "Region",
-            "selection-rectangular-symbolic",
+            "view-fullscreen-symbolic",
             ["capture-pill", "region"],
         ),
         (
@@ -51,15 +71,63 @@ pub(super) fn build_capture_row() -> CaptureActionRow {
             "Clear" => "Clear the current image and annotations",
             _ => label,
         };
-        let btn = gtk4::Button::builder()
-            .label(label)
-            .icon_name(icon)
-            .tooltip_text(tooltip)
+        let icon_widget = build_capture_action_icon(label, icon);
+        let text_widget = gtk4::Label::builder().label(label).xalign(0.0).build();
+        text_widget.add_css_class("capture-pill-label");
+        let content = gtk4::Box::builder()
+            .orientation(gtk4::Orientation::Horizontal)
+            .spacing(8)
+            .valign(gtk4::Align::Center)
             .build();
+        content.append(&icon_widget);
+        content.append(&text_widget);
+
+        let btn = gtk4::Button::builder().tooltip_text(tooltip).build();
+        btn.set_child(Some(&content));
         btn.set_css_classes(&classes);
-        row.append(&btn);
+        capture_box.append(&btn);
         built.push(btn);
     }
+    row.append(&capture_section);
+
+    let spacer = gtk4::Box::builder().hexpand(true).build();
+    row.append(&spacer);
+
+    let export_section = gtk4::Box::builder()
+        .orientation(gtk4::Orientation::Vertical)
+        .spacing(4)
+        .valign(gtk4::Align::Center)
+        .build();
+    let export_box = gtk4::Box::builder()
+        .orientation(gtk4::Orientation::Horizontal)
+        .spacing(6)
+        .valign(gtk4::Align::Center)
+        .margin_start(12)
+        .build();
+    export_box.add_css_class("capture-export-row");
+    let export_label = gtk4::Label::builder()
+        .label("Export")
+        .xalign(0.0)
+        .css_classes(["cluster-title"])
+        .build();
+    export_section.append(&export_label);
+    export_section.append(&export_box);
+
+    export_box.append(&bottom_bar.png_button);
+    export_box.append(&bottom_bar.jpeg_button);
+
+    let sep = gtk4::Separator::builder()
+        .orientation(gtk4::Orientation::Vertical)
+        .margin_top(8)
+        .margin_bottom(8)
+        .margin_start(4)
+        .margin_end(4)
+        .build();
+    export_box.append(&sep);
+    export_box.append(&bottom_bar.copy_button);
+    export_box.append(&bottom_bar.quick_save_button);
+    export_box.append(&bottom_bar.save_as_button);
+    row.append(&export_section);
 
     CaptureActionRow {
         widget: row.upcast(),
@@ -68,6 +136,67 @@ pub(super) fn build_capture_row() -> CaptureActionRow {
         window_button: built[2].clone(),
         import_button: built[3].clone(),
         clear_button: built[4].clone(),
+    }
+}
+
+fn build_capture_action_icon(label: &str, fallback_icon: &str) -> gtk4::Widget {
+    match label {
+        "Fullscreen" => {
+            let area = gtk4::DrawingArea::builder()
+                .content_width(16)
+                .content_height(16)
+                .build();
+            area.add_css_class("capture-pill-icon");
+            area.set_draw_func(|_area, cr, width, height| {
+                let w = width as f64;
+                let h = height as f64;
+                cr.set_source_rgba(1.0, 1.0, 1.0, 0.96);
+                cr.set_line_width(1.8);
+                cr.rectangle(1.5, 3.5, w - 3.0, h - 7.0);
+                cr.stroke().ok();
+            });
+            area.upcast()
+        }
+        "Region" => {
+            let area = gtk4::DrawingArea::builder()
+                .content_width(16)
+                .content_height(16)
+                .build();
+            area.add_css_class("capture-pill-icon");
+            area.set_draw_func(|_area, cr, width, height| {
+                let w = width as f64;
+                let h = height as f64;
+                cr.set_source_rgba(1.0, 1.0, 1.0, 0.96);
+                cr.set_line_width(1.8);
+                cr.set_line_cap(cairo::LineCap::Round);
+
+                cr.move_to(2.5, 6.0);
+                cr.line_to(2.5, 2.5);
+                cr.line_to(6.0, 2.5);
+
+                cr.move_to(w - 6.0, 2.5);
+                cr.line_to(w - 2.5, 2.5);
+                cr.line_to(w - 2.5, 6.0);
+
+                cr.move_to(2.5, h - 6.0);
+                cr.line_to(2.5, h - 2.5);
+                cr.line_to(6.0, h - 2.5);
+
+                cr.move_to(w - 6.0, h - 2.5);
+                cr.line_to(w - 2.5, h - 2.5);
+                cr.line_to(w - 2.5, h - 6.0);
+                cr.stroke().ok();
+            });
+            area.upcast()
+        }
+        _ => {
+            let image = gtk4::Image::builder()
+                .icon_name(fallback_icon)
+                .pixel_size(16)
+                .build();
+            image.add_css_class("capture-pill-icon");
+            image.upcast()
+        }
     }
 }
 
@@ -305,11 +434,17 @@ fn build_tool_icon(tool: ToolKind) -> gtk4::Widget {
         let h = 20.0;
         cr.set_line_cap(cairo::LineCap::Round);
         cr.set_line_join(cairo::LineJoin::Round);
+        let is_dark = StyleManager::default().is_dark();
+        let (r, g, b, alpha, fill_alpha, accent_alpha) = if is_dark {
+            (0.93, 0.95, 1.0, 0.92, 0.20, 0.55)
+        } else {
+            (0.19, 0.24, 0.32, 0.92, 0.10, 0.45)
+        };
 
         match tool {
             ToolKind::Select => {
                 // Cursor arrow pointing top-left
-                cr.set_source_rgba(0.93, 0.95, 1.0, 0.92);
+                cr.set_source_rgba(r, g, b, alpha);
                 cr.set_line_width(1.6);
                 cr.move_to(3.5, 2.0); // tip
                 cr.line_to(3.5, 14.5); // bottom-left
@@ -320,12 +455,12 @@ fn build_tool_icon(tool: ToolKind) -> gtk4::Widget {
                 cr.line_to(13.5, 9.5); // right side
                 cr.close_path();
                 cr.stroke_preserve().ok();
-                cr.set_source_rgba(0.93, 0.95, 1.0, 0.20);
+                cr.set_source_rgba(r, g, b, fill_alpha);
                 cr.fill().ok();
             }
             ToolKind::Crop => {
                 // Two L-bracket corners (standard crop icon)
-                cr.set_source_rgba(0.93, 0.95, 1.0, 0.92);
+                cr.set_source_rgba(r, g, b, alpha);
                 cr.set_line_width(1.9);
                 cr.move_to(4.5, 9.5);
                 cr.line_to(4.5, 4.5);
@@ -336,7 +471,7 @@ fn build_tool_icon(tool: ToolKind) -> gtk4::Widget {
                 cr.stroke().ok();
             }
             ToolKind::Arrow => {
-                cr.set_source_rgba(0.93, 0.95, 1.0, 0.92);
+                cr.set_source_rgba(r, g, b, alpha);
                 cr.set_line_width(1.8);
                 // Shaft from bottom-left up to arrowhead base
                 cr.move_to(4.0, 16.0);
@@ -351,13 +486,13 @@ fn build_tool_icon(tool: ToolKind) -> gtk4::Widget {
                 cr.fill().ok();
             }
             ToolKind::Rectangle => {
-                cr.set_source_rgba(0.93, 0.95, 1.0, 0.92);
+                cr.set_source_rgba(r, g, b, alpha);
                 cr.set_line_width(1.8);
                 cr.rectangle(3.5, 5.0, w - 7.0, h - 10.0);
                 cr.stroke().ok();
             }
             ToolKind::Ellipse => {
-                cr.set_source_rgba(0.93, 0.95, 1.0, 0.92);
+                cr.set_source_rgba(r, g, b, alpha);
                 cr.set_line_width(1.8);
                 cr.save().ok();
                 cr.translate(w / 2.0, h / 2.0);
@@ -368,7 +503,7 @@ fn build_tool_icon(tool: ToolKind) -> gtk4::Widget {
             }
             ToolKind::Text => {
                 // Stroke-based T (consistent with other icons, no font rendering)
-                cr.set_source_rgba(0.93, 0.95, 1.0, 0.92);
+                cr.set_source_rgba(r, g, b, alpha);
                 cr.set_line_width(2.0);
                 cr.move_to(4.5, 5.5);
                 cr.line_to(15.5, 5.5);
@@ -382,13 +517,13 @@ fn build_tool_icon(tool: ToolKind) -> gtk4::Widget {
                 cr.stroke().ok();
             }
             ToolKind::Blur => {
-                cr.set_source_rgba(0.93, 0.95, 1.0, 0.92);
+                cr.set_source_rgba(r, g, b, alpha);
                 cr.set_line_width(1.7);
                 // Outer rectangle
                 cr.rectangle(3.5, 5.5, 13.0, 9.0);
                 cr.stroke().ok();
                 // Horizontal lines inside suggesting blur/scan effect
-                cr.set_source_rgba(0.93, 0.95, 1.0, 0.55);
+                cr.set_source_rgba(r, g, b, accent_alpha);
                 cr.set_line_width(1.1);
                 for y_pos in [8.0_f64, 10.0, 12.0] {
                     cr.move_to(5.5, y_pos);
@@ -438,18 +573,9 @@ pub(super) fn build_bottom_bar(
         .build();
     dims_box.append(subtitle_label);
 
-    // Right side actions
-    let actions_box = gtk4::Box::builder()
-        .orientation(gtk4::Orientation::Horizontal)
-        .spacing(6)
-        .valign(gtk4::Align::Center)
-        .margin_end(16)
-        .build();
-
     // Format toggle
     let png_btn = gtk4::ToggleButton::builder()
         .label("PNG")
-        .active(true)
         .css_classes(["format-pill"])
         .tooltip_text("Export with lossless quality")
         .build();
@@ -460,6 +586,10 @@ pub(super) fn build_bottom_bar(
         .tooltip_text("Export smaller files with lossy compression")
         .build();
     jpg_btn.set_group(Some(&png_btn));
+    match *save_format.borrow() {
+        SaveFormat::Png => png_btn.set_active(true),
+        SaveFormat::Jpeg => jpg_btn.set_active(true),
+    }
 
     {
         let sf = save_format.clone();
@@ -478,18 +608,6 @@ pub(super) fn build_bottom_bar(
         });
     }
 
-    actions_box.append(&png_btn);
-    actions_box.append(&jpg_btn);
-
-    let sep = gtk4::Separator::builder()
-        .orientation(gtk4::Orientation::Vertical)
-        .margin_top(8)
-        .margin_bottom(8)
-        .margin_start(4)
-        .margin_end(4)
-        .build();
-    actions_box.append(&sep);
-
     let copy_btn = gtk4::Button::builder()
         .label("Copy")
         .css_classes(["bottom-action-btn"])
@@ -506,18 +624,15 @@ pub(super) fn build_bottom_bar(
         .tooltip_text("Choose where to export the current image")
         .build();
 
-    actions_box.append(&copy_btn);
-    actions_box.append(&quick_save_btn);
-    actions_box.append(&save_as_btn);
-
     bar.append(&dims_box);
-    bar.append(&actions_box);
 
     BottomBar {
         widget: bar.upcast(),
         copy_button: copy_btn,
         quick_save_button: quick_save_btn,
         save_as_button: save_as_btn,
+        png_button: png_btn,
+        jpeg_button: jpg_btn,
     }
 }
 

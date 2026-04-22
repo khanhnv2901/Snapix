@@ -20,5 +20,5 @@ pub(crate) use layout::{
 pub(crate) use paint::{
     blurred_region_image, draw_arrow_resize_handles, draw_resize_handles, make_surface,
     paint_background, paint_empty_state, paint_image_for_document, paint_surface, rounded_rect,
-    set_color,
+    set_color, workspace_palette,
 };

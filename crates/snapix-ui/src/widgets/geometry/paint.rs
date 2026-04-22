@@ -1,10 +1,34 @@
 use gtk4::cairo;
+use libadwaita::StyleManager;
 use snapix_core::canvas::{
     Annotation, Background, Color, Document, Image, ImageAnchor, ImageScaleMode,
 };
 
 use super::super::CanvasLayout;
 use super::{layout_for_bounds_with_mode, layout_for_document};
+
+#[derive(Clone, Copy)]
+pub(crate) struct WorkspacePalette {
+    pub(crate) canvas_rgb: (f64, f64, f64),
+    pub(crate) blurred_fill_rgb: (f64, f64, f64),
+    pub(crate) crop_backdrop_rgb: (f64, f64, f64),
+}
+
+pub(crate) fn workspace_palette() -> WorkspacePalette {
+    if StyleManager::default().is_dark() {
+        WorkspacePalette {
+            canvas_rgb: (0.09, 0.10, 0.13),
+            blurred_fill_rgb: (0.15, 0.18, 0.23),
+            crop_backdrop_rgb: (0.07, 0.08, 0.10),
+        }
+    } else {
+        WorkspacePalette {
+            canvas_rgb: (0.94, 0.96, 0.99),
+            blurred_fill_rgb: (0.88, 0.91, 0.95),
+            crop_backdrop_rgb: (0.92, 0.95, 0.98),
+        }
+    }
+}
 
 pub(crate) fn paint_background(
     cr: &cairo::Context,
@@ -14,6 +38,7 @@ pub(crate) fn paint_background(
     height: f64,
     background: &Background,
 ) {
+    let palette = workspace_palette();
     match background {
         Background::Solid { color } => {
             set_color(cr, color);
@@ -40,7 +65,8 @@ pub(crate) fn paint_background(
             cr.set_source(&gradient).ok();
         }
         Background::Image { .. } | Background::BlurredScreenshot { .. } => {
-            cr.set_source_rgb(0.15, 0.18, 0.23);
+            let (r, g, b) = palette.blurred_fill_rgb;
+            cr.set_source_rgb(r, g, b);
         }
     }
 

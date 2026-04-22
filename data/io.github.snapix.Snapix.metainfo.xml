@@ -18,6 +18,8 @@
       <li>Annotate with arrows, rectangles, text, and blur</li>
       <li>Beautify with gradient backgrounds, padding, and shadows</li>
       <li>Export to PNG/JPG or copy to clipboard</li>
+      <li>Reframe screenshots directly on the canvas with pan and zoom</li>
+      <li>Save and reuse visual presets</li>
       <li>Native GTK4 + libadwaita interface</li>
       <li>Wayland and X11 support</li>
     </ul>
@@ -45,6 +47,9 @@
 
   <categories>
     <category>Graphics</category>
+    <category>2DGraphics</category>
+    <category>RasterGraphics</category>
+    <category>GTK</category>
     <category>Utility</category>
   </categories>
 
@@ -53,11 +58,25 @@
     <keyword>capture</keyword>
     <keyword>beautify</keyword>
     <keyword>annotate</keyword>
+    <keyword>editor</keyword>
+    <keyword>image</keyword>
   </keywords>
 
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="0.1.0" date="2026-04-22">
+      <description>
+        <p>Release polish and editor completion update:</p>
+        <ul>
+          <li>Added screenshot blur, solid color, and gradient background controls</li>
+          <li>Added saved style presets for beautify settings</li>
+          <li>Added direct image reframe controls with pan and zoom on canvas</li>
+          <li>Added preferences for color scheme and export defaults</li>
+          <li>Added local Unlock Pro activation flow for M4 release preparation</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.0" date="2026-04-20">
       <description>
         <p>Initial release with core functionality:</p>

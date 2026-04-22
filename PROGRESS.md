@@ -115,15 +115,15 @@ snapix capture --mode full -o test.png
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Preferences dialog | 🔲 Pending | |
+| Preferences dialog | ✅ Done | Preferences window now manages appearance, export defaults, remember-last-format, and Pro activation entry point |
 | i18n (English + Vietnamese) | 🔲 Pending | |
-| App icon | 🔲 Pending | |
-| .desktop file | 🔲 Pending | |
-| AppStream metadata | 🔲 Pending | |
+| App icon | ✅ Done | Replaced placeholder icon with a release-grade SVG in `data/icons/hicolor/scalable/apps/` |
+| .desktop file | ✅ Done | Desktop entry updated with better categories, keywords, startup WM class, and WebP mime support |
+| AppStream metadata | ✅ Done | Metainfo now reflects current editor features and 2026-04-22 release notes |
 | Website landing page | 🔲 Pending | |
 | Gumroad/Lemon Squeezy setup | 🔲 Pending | |
-| Ed25519 license key verification | 🔲 Pending | Replace StubVerifier |
-| "Unlock Pro" dialog trong app | 🔲 Pending | |
+| Ed25519 license key verification | ✅ Done | Signed key verifier added in `snapix-core`; UI falls back to `SNAPIX-PRO-DEV` when no public key env is configured |
+| "Unlock Pro" dialog trong app | ✅ Done | Activation flow lives in Preferences under the `Pro` section |
 | Flathub submission | 🔲 Pending | |
 
 ---

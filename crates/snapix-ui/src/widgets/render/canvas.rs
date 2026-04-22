@@ -7,6 +7,7 @@ use crate::widgets::geometry::{
     draw_arrow_resize_handles, draw_resize_handles, inset_frame, paint_background,
     paint_empty_state, paint_image_for_document, paint_surface, preview_canvas_layout,
     resizable_annotation_widget_bounds, rounded_rect, selection_annotation_widget_bounds,
+    workspace_palette,
 };
 use crate::widgets::CanvasLayout;
 
@@ -23,7 +24,9 @@ pub(super) fn draw_canvas(
     document: &Document,
     blur_cache: &mut BlurSurfaceCache,
 ) {
-    cr.set_source_rgb(0.09, 0.10, 0.13);
+    let palette = workspace_palette();
+    let (canvas_r, canvas_g, canvas_b) = palette.canvas_rgb;
+    cr.set_source_rgb(canvas_r, canvas_g, canvas_b);
     cr.paint().ok();
 
     let (frame_x, frame_y, frame_w, frame_h) = composition_frame_bounds(document, width, height);

@@ -1,17 +1,50 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#6495ED;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#9370DB;stop-opacity:1" />
+    <linearGradient id="shell" x1="18" y1="16" x2="112" y2="114" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7E74F2"/>
+      <stop offset="1" stop-color="#5D8FE8"/>
     </linearGradient>
+    <linearGradient id="frame" x1="28" y1="32" x2="100" y2="96" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#EEF3FF"/>
+    </linearGradient>
+    <linearGradient id="shot" x1="32" y1="38" x2="96" y2="90" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1A1C27"/>
+      <stop offset="1" stop-color="#121621"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="78" y1="36" x2="98" y2="62" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4FD1C5"/>
+      <stop offset="1" stop-color="#2CB1A7"/>
+    </linearGradient>
+    <filter id="shadow" x="10" y="10" width="108" height="108" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#18233A" flood-opacity="0.18"/>
+    </filter>
   </defs>
-  <!-- Background -->
-  <rect x="8" y="8" width="112" height="112" rx="24" fill="url(#bg)"/>
-  <!-- Camera/Screenshot icon -->
-  <rect x="28" y="40" width="72" height="52" rx="8" fill="white" fill-opacity="0.95"/>
-  <circle cx="64" cy="66" r="16" fill="none" stroke="#6495ED" stroke-width="4"/>
-  <circle cx="64" cy="66" r="8" fill="#6495ED"/>
-  <!-- Flash indicator -->
-  <rect x="76" y="46" width="16" height="8" rx="2" fill="#FFD700"/>
+
+  <rect x="12" y="12" width="104" height="104" rx="28" fill="url(#shell)"/>
+  <g opacity="0.22">
+    <path d="M26 28H60" stroke="white" stroke-width="5" stroke-linecap="round"/>
+    <path d="M26 40H46" stroke="white" stroke-width="5" stroke-linecap="round"/>
+    <path d="M82 92H102" stroke="white" stroke-width="5" stroke-linecap="round"/>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="24" y="24" width="80" height="80" rx="20" fill="url(#frame)"/>
+    <rect x="30" y="30" width="68" height="68" rx="16" fill="url(#shot)"/>
+
+    <rect x="36" y="36" width="18" height="3.5" rx="1.75" fill="#69708C"/>
+    <rect x="36" y="42" width="11" height="3.5" rx="1.75" fill="#69708C"/>
+
+    <path d="M41 81V61.5L55 70.5L49.5 73.5L56.5 86L52 88.5L45.5 75.5L41 81Z" fill="#F7FAFF"/>
+
+    <path d="M66 82L82.5 56L92 66.5L66 82Z" fill="#FF8B5C"/>
+    <path d="M82.5 56L90.5 48.5C92.6 46.6 95.8 46.7 97.8 48.8V48.8C99.8 50.8 99.8 54.1 97.8 56.1L90 63.5L82.5 56Z" fill="url(#accent)"/>
+
+    <rect x="68" y="70" width="18" height="12" rx="6" fill="#0F1320" fill-opacity="0.72"/>
+    <path d="M72 76H82" stroke="#9FB7FF" stroke-width="2.5" stroke-linecap="round"/>
+
+    <path d="M84 39H92V47" stroke="#D9E5FF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M44 89H36V81" stroke="#D9E5FF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
 </svg>

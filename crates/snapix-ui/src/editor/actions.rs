@@ -37,16 +37,15 @@ pub(super) fn connect_capture_actions(
     let session = snapix_capture::detect_session();
     let backend = snapix_capture::detect_backend();
     if session == snapix_capture::SessionType::Wayland && backend.name() == "ashpd-portal" {
-        actions.window_button.set_sensitive(false);
-        actions.window_button.set_tooltip_text(Some(
-            "Window capture is not exposed as a distinct action here on Wayland. Use Region and choose a window in the portal picker.",
-        ));
         actions.fullscreen_button.set_tooltip_text(Some(
-            "Fullscreen capture can fail on some Wayland portal setups. Snapix will fall back to interactive region capture if needed.",
+            "Hides Snapix, captures the full screen, then restores the window.",
         ));
-        actions
-            .region_button
-            .set_tooltip_text(Some("Interactive region capture via XDG portal."));
+        actions.region_button.set_tooltip_text(Some(
+            "Opens the portal picker — drag to select an area to capture.",
+        ));
+        actions.window_button.set_tooltip_text(Some(
+            "Opens the portal picker — click a window to capture it.",
+        ));
     }
 
     for (button, action) in [
@@ -137,45 +136,76 @@ fn connect_capture_button(
     let inspector = inspector.clone();
     button.connect_clicked(move |_| {
         let session = snapix_capture::detect_session();
-        let result = async_std::task::block_on(async {
-            let backend = snapix_capture::detect_backend();
-            perform_capture_action(backend.as_ref(), session, action).await
-        });
-        match result {
-            Ok((image, message)) => {
-                let mut state = state.borrow_mut();
-                if state.replace_base_image(image) {
-                    refresh_labels(&state, &title_label, &subtitle_label);
-                    refresh_scope_label(&state, &scope_label);
-                    refresh_history_buttons(&state, &undo_button, &redo_button);
-                    refresh_export_actions(&state, &bottom_bar);
-                    refresh_tool_actions(&state, &delete_button);
-                    inspector.refresh_from_state(&state);
-                    canvas.refresh();
+
+        // Hide the Snapix window before fullscreen capture so it doesn't
+        // appear in the screenshot. The delay gives the compositor time to
+        // actually remove the window from the screen before we call the portal.
+        let delay_ms: u64 = if matches!(action, CaptureAction::Fullscreen) {
+            window.set_visible(false);
+            350
+        } else {
+            0
+        };
+
+        let window = window.clone();
+        let state = state.clone();
+        let canvas = canvas.clone();
+        let title_label = title_label.clone();
+        let subtitle_label = subtitle_label.clone();
+        let scope_label = scope_label.clone();
+        let toast_overlay = toast_overlay.clone();
+        let undo_button = undo_button.clone();
+        let redo_button = redo_button.clone();
+        let bottom_bar = bottom_bar.clone();
+        let delete_button = delete_button.clone();
+        let inspector = inspector.clone();
+
+        gtk4::glib::timeout_add_local_once(std::time::Duration::from_millis(delay_ms), move || {
+            let result = async_std::task::block_on(async {
+                let backend = snapix_capture::detect_backend();
+                perform_capture_action(backend.as_ref(), session, action).await
+            });
+
+            // Always restore the window after capture completes or fails.
+            window.set_visible(true);
+            window.present();
+
+            match result {
+                Ok((image, message)) => {
+                    let mut state = state.borrow_mut();
+                    if state.replace_base_image(image) {
+                        refresh_labels(&state, &title_label, &subtitle_label);
+                        refresh_scope_label(&state, &scope_label);
+                        refresh_history_buttons(&state, &undo_button, &redo_button);
+                        refresh_export_actions(&state, &bottom_bar);
+                        refresh_tool_actions(&state, &delete_button);
+                        inspector.refresh_from_state(&state);
+                        canvas.refresh();
+                    }
+                    drop(state);
+                    if let Some(message) = message {
+                        show_toast(&toast_overlay, &message);
+                    } else {
+                        let message = match action {
+                            CaptureAction::Fullscreen => "Full screen captured",
+                            CaptureAction::Region => "Selection captured",
+                            CaptureAction::Window => "Window captured",
+                        };
+                        show_toast(&toast_overlay, message);
+                    }
                 }
-                drop(state);
-                if let Some(message) = message {
-                    show_toast(&toast_overlay, &message);
-                } else {
-                    let message = match action {
-                        CaptureAction::Fullscreen => "Full screen captured",
-                        CaptureAction::Region => "Selection captured",
-                        CaptureAction::Window => "Window captured",
+                Err(error) => {
+                    let detail = match action {
+                        CaptureAction::Fullscreen => {
+                            format!("Fullscreen capture failed: {error}")
+                        }
+                        CaptureAction::Region => format!("Region capture failed: {error}"),
+                        CaptureAction::Window => format!("Window capture failed: {error}"),
                     };
-                    show_toast(&toast_overlay, message);
+                    show_error(&window, "Capture failed", &detail);
                 }
             }
-            Err(error) => {
-                let detail = match action {
-                    CaptureAction::Fullscreen => format!(
-                        "Fullscreen capture failed: {error}. On Wayland this can fail even when Region capture works."
-                    ),
-                    CaptureAction::Region => format!("Region capture failed: {error}"),
-                    CaptureAction::Window => format!("Window capture failed: {error}"),
-                };
-                show_error(&window, "Capture failed", &detail);
-            }
-        }
+        });
     });
 }
 
@@ -187,11 +217,15 @@ pub(crate) async fn perform_capture_action(
     match action {
         CaptureAction::Fullscreen => match backend.capture_full().await {
             Ok(image) => Ok((image, None)),
+            // The window is hidden before capture arrives here, so a portal
+            // failure is a genuine compositor/permission issue rather than
+            // the Snapix window being in the way. Fall back to interactive
+            // capture as a last resort so the user still gets something.
             Err(full_error)
                 if session == SessionType::Wayland && backend.name() == "ashpd-portal" =>
             {
                 tracing::warn!(
-                    "Fullscreen portal capture failed on Wayland, retrying with interactive region capture: {full_error:#}"
+                    "Fullscreen portal capture failed, falling back to interactive: {full_error:#}"
                 );
                 match backend
                     .capture_region(Rect {
@@ -204,10 +238,14 @@ pub(crate) async fn perform_capture_action(
                 {
                     Ok(image) => Ok((
                         image,
-                        Some("Fullscreen capture failed, switched to region capture.".to_string()),
+                        Some(
+                            "Fullscreen capture failed; switched to interactive capture."
+                                .to_string(),
+                        ),
                     )),
                     Err(region_error) => Err(anyhow::anyhow!(
-                        "Fullscreen capture failed: {full_error}. Interactive region fallback also failed: {region_error}"
+                        "Fullscreen capture failed: {full_error}. \
+                         Interactive fallback also failed: {region_error}"
                     )),
                 }
             }

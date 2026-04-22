@@ -5,7 +5,7 @@ use crate::editor::{CropDrag, CropSelection, EditorState, ToolKind};
 
 use super::super::{CanvasLayout, CropInteractionMode};
 use super::layout::{canvas_layout, composition_frame_bounds};
-use super::paint::{paint_empty_state, paint_image, rounded_rect};
+use super::paint::{paint_empty_state, paint_image, rounded_rect, workspace_palette};
 
 pub(crate) fn draw_crop_mode_canvas(
     cr: &cairo::Context,
@@ -13,7 +13,9 @@ pub(crate) fn draw_crop_mode_canvas(
     height: i32,
     document: &Document,
 ) {
-    cr.set_source_rgb(0.07, 0.08, 0.10);
+    let palette = workspace_palette();
+    let (r, g, b) = palette.crop_backdrop_rgb;
+    cr.set_source_rgb(r, g, b);
     cr.paint().ok();
 
     let Some(image) = document.base_image.as_ref() else {

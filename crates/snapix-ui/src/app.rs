@@ -2,7 +2,7 @@ use gtk4::prelude::*;
 use libadwaita::Application;
 use snapix_core::canvas::Document;
 
-use crate::editor::EditorWindow;
+use crate::editor::{apply_style_preferences, load_preferences, EditorWindow};
 
 pub const APP_ID: &str = "io.github.snapix.Snapix";
 
@@ -53,6 +53,12 @@ impl SnapixApp {
 
 fn build_ui(app: &Application, context: LaunchContext) {
     install_editor_css();
+    if let Some(settings) = gtk4::Settings::default() {
+        settings.set_gtk_application_prefer_dark_theme(false);
+    }
+    if let Ok(preferences) = load_preferences() {
+        apply_style_preferences(&preferences);
+    }
     let editor = EditorWindow::new(app, context);
     editor.present();
 }
@@ -66,8 +72,27 @@ fn install_editor_css() {
 
 /* ── Capture row ────────────────────────────────────────────────── */
 .capture-row {
-    padding: 8px 16px 8px 16px;
+    padding: 7px 16px 7px 16px;
     border-bottom: 1px solid alpha(#ffffff, 0.05);
+}
+
+.capture-cluster,
+.capture-export-row {
+    background: alpha(#ffffff, 0.03);
+    border: 1px solid alpha(#ffffff, 0.06);
+    border-radius: 14px;
+    padding: 5px 8px;
+    box-shadow: inset 0 1px 0 alpha(#ffffff, 0.03);
+}
+
+.cluster-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: alpha(#f5f7ff, 0.42);
+    margin-left: 6px;
+    margin-bottom: 1px;
 }
 
 .capture-pill {
@@ -76,6 +101,14 @@ fn install_editor_css() {
     border: 1px solid alpha(#ffffff, 0.08);
     border-radius: 10px;
     box-shadow: inset 0 1px 0 alpha(#ffffff, 0.08);
+}
+
+.capture-pill-icon {
+    color: inherit;
+}
+
+.capture-pill-label {
+    font-weight: 600;
 }
 
 .capture-pill.fullscreen { background: linear-gradient(135deg, #844dff, #6e3ce8); }
@@ -98,7 +131,7 @@ fn install_editor_css() {
 
 /* ── Tool row ───────────────────────────────────────────────────── */
 .tool-row {
-    padding: 6px 16px 6px 16px;
+    padding: 5px 16px 5px 16px;
     border-bottom: 1px solid alpha(#ffffff, 0.05);
 }
 
@@ -106,7 +139,7 @@ fn install_editor_css() {
     background: #111722;
     border: 1px solid alpha(#ffffff, 0.06);
     border-radius: 14px;
-    padding: 8px 12px;
+    padding: 7px 12px;
     box-shadow: inset 0 1px 0 alpha(#ffffff, 0.03);
 }
 
@@ -215,7 +248,7 @@ paned > separator:hover {
 }
 
 .canvas-wrap {
-    padding: 4px;
+    padding: 2px;
 }
 
 /* ── Inspector ───────────────────────────────────────────────────── */
@@ -223,7 +256,7 @@ paned > separator:hover {
     background: #111722;
     border: 1px solid alpha(#ffffff, 0.06);
     border-radius: 18px;
-    padding: 16px;
+    padding: 14px;
 }
 
 .section-title {
@@ -300,8 +333,8 @@ paned > separator:hover {
 .bottom-bar {
     background: #0d1219;
     border-top: 1px solid alpha(#ffffff, 0.07);
-    padding: 8px 0;
-    min-height: 48px;
+    padding: 0;
+    min-height: 22px;
 }
 
 .format-pill {
@@ -331,6 +364,12 @@ paned > separator:hover {
     background: alpha(#ffffff, 0.04);
 }
 
+.capture-export-row .format-pill,
+.capture-export-row .bottom-action-btn {
+    padding: 4px 12px;
+    min-height: 30px;
+}
+
 .bottom-action-btn:hover {
     background: alpha(#ffffff, 0.08);
     border-color: alpha(#ffffff, 0.14);
@@ -342,6 +381,135 @@ paned > separator:hover {
 
 .bottom-action-btn:disabled {
     opacity: 0.42;
+}
+
+/* ── Light Appearance Overrides ─────────────────────────────────── */
+.snapix-shell.snapix-light {
+    background: #f3f6fb;
+}
+
+.snapix-shell.snapix-light .capture-row,
+.snapix-shell.snapix-light .tool-row {
+    border-color: alpha(#111827, 0.08);
+}
+
+.snapix-shell.snapix-light .tool-row-card,
+.snapix-shell.snapix-light .capture-cluster,
+.snapix-shell.snapix-light .capture-export-row,
+.snapix-shell.snapix-light .canvas-card,
+.snapix-shell.snapix-light .inspector-card {
+    background: #ffffff;
+    border: 1px solid alpha(#111827, 0.10);
+    box-shadow:
+        inset 0 1px 0 alpha(#ffffff, 0.60),
+        0 12px 28px alpha(#0f172a, 0.08);
+}
+
+.snapix-shell.snapix-light .tool-pill {
+    color: alpha(#111827, 0.72);
+}
+
+.snapix-shell.snapix-light .tool-pill:hover {
+    background: alpha(#111827, 0.06);
+    color: alpha(#111827, 0.96);
+}
+
+.snapix-shell.snapix-light .tool-pill:checked {
+    background: linear-gradient(135deg, #e7eef8, #dbe7f6);
+    color: #162033;
+    border-color: alpha(#4b6584, 0.28);
+    box-shadow:
+        inset 0 1px 0 alpha(#ffffff, 0.75),
+        0 6px 14px alpha(#0f172a, 0.06);
+}
+
+.snapix-shell.snapix-light .tool-pill:checked:hover {
+    background: linear-gradient(135deg, #dfe8f5, #d3e1f3);
+}
+
+.snapix-shell.snapix-light .tool-delete-btn {
+    color: alpha(#111827, 0.48);
+}
+
+.snapix-shell.snapix-light .tool-delete-btn:hover {
+    background: alpha(#e53935, 0.12);
+    color: #c62828;
+}
+
+.snapix-shell.snapix-light .section-title {
+    color: #18212d;
+}
+
+.snapix-shell.snapix-light .cluster-title {
+    color: alpha(#111827, 0.44);
+}
+
+.snapix-shell.snapix-light .dim-copy {
+    color: alpha(#111827, 0.62);
+}
+
+.snapix-shell.snapix-light .ratio-btn,
+.snapix-shell.snapix-light .shadow-dir-btn,
+.snapix-shell.snapix-light .format-pill,
+.snapix-shell.snapix-light .bottom-action-btn {
+    background: alpha(#111827, 0.04);
+    border-color: alpha(#111827, 0.10);
+    color: alpha(#111827, 0.70);
+}
+
+.snapix-shell.snapix-light .color-swatch-btn.active {
+    border-color: #334155;
+    box-shadow: 0 0 0 3px alpha(#334155, 0.12);
+}
+
+.snapix-shell.snapix-light .ratio-btn.selected,
+.snapix-shell.snapix-light .shadow-dir-btn.selected,
+.snapix-shell.snapix-light .background-swatch.selected,
+.snapix-shell.snapix-light .format-pill:checked {
+    background: alpha(#8d5bff, 0.16);
+    border-color: alpha(#7c3aed, 0.48);
+    color: #4c1d95;
+    box-shadow: 0 0 0 1px alpha(#8d5bff, 0.08);
+}
+
+.snapix-shell.snapix-light .format-pill:hover,
+.snapix-shell.snapix-light .bottom-action-btn:hover {
+    background: alpha(#111827, 0.08);
+    border-color: alpha(#111827, 0.14);
+}
+
+.snapix-shell.snapix-light .capture-pill.utility {
+    background: #eef2f8;
+    border-color: alpha(#111827, 0.10);
+    color: #223045;
+    box-shadow: inset 0 1px 0 alpha(#ffffff, 0.70);
+}
+
+.snapix-shell.snapix-light .capture-export-row .format-pill:checked,
+.snapix-shell.snapix-light .capture-export-row .bottom-action-btn.suggested-action {
+    background: alpha(#0f766e, 0.10);
+    border-color: alpha(#0f766e, 0.28);
+    color: #115e59;
+    box-shadow: inset 0 1px 0 alpha(#ffffff, 0.68);
+}
+
+.snapix-shell.snapix-light .capture-export-row {
+    background: #f8fafc;
+}
+
+.snapix-shell.snapix-light .bottom-bar {
+    background: #edf2f8;
+    border-top: 1px solid alpha(#111827, 0.08);
+    min-height: 20px;
+    padding: 0;
+}
+
+.snapix-shell.snapix-light paned > separator {
+    background: alpha(#111827, 0.10);
+}
+
+.snapix-shell.snapix-light paned > separator:hover {
+    background: alpha(#8d5bff, 0.45);
 }
 "#;
 

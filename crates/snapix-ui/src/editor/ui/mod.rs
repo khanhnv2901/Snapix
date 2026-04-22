@@ -1,6 +1,8 @@
 mod helpers;
 mod inspector;
+mod preferences;
 mod toolbar;
+mod unlock;
 mod window;
 
 use std::cell::Cell;
@@ -26,7 +28,7 @@ pub(crate) use window::refresh_export_actions;
 pub use window::EditorWindow;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub(super) enum SaveFormat {
+pub(crate) enum SaveFormat {
     Png,
     Jpeg,
 }
@@ -47,6 +49,8 @@ pub(super) struct BottomBar {
     pub(super) copy_button: gtk4::Button,
     pub(super) quick_save_button: gtk4::Button,
     pub(super) save_as_button: gtk4::Button,
+    pub(super) png_button: gtk4::ToggleButton,
+    pub(super) jpeg_button: gtk4::ToggleButton,
 }
 
 #[derive(Clone)]

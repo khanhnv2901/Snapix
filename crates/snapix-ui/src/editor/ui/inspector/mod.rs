@@ -28,7 +28,7 @@ pub(super) fn build_inspector(
 ) -> InspectorControls {
     let panel = gtk4::Box::builder()
         .orientation(gtk4::Orientation::Vertical)
-        .spacing(16)
+        .spacing(14)
         .width_request(260)
         .valign(gtk4::Align::Start)
         .build();
