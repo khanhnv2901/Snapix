@@ -6,6 +6,7 @@ Date format: `YYYY-MM-DD`.
 
 - Continued `M4 Packaging Prep` after `0.1.0`
 - In progress: Flathub submission/review, landing page/payment setup, and final Linux desktop QA matrix
+- Added a release workflow and local scripts to build distributable Flatpak bundles
 
 ## 0.1.0 - 2026-04-22
 

@@ -5,3 +5,6 @@ Cargo.lock
 dist/
 *.AppImage
 *.flatpak
+flatpak/cargo-sources.json
+.flatpak-builder/
+.flatpak-repo/

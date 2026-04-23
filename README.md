@@ -147,6 +147,31 @@ snapix/
 
 For Flatpak/Flathub packaging, see [flatpak/io.github.snapix.Snapix.yml](flatpak/io.github.snapix.Snapix.yml). The main repo stays lightweight for normal Cargo builds; Flathub should provide Cargo sources separately via `cargo-sources.json`.
 
+## Flatpak
+
+Build a local Flatpak bundle:
+
+```bash
+scripts/build-flatpak-bundle.sh
+```
+
+This expects:
+
+- `flatpak`
+- `flatpak-builder`
+- `flatpak-builder-tools` with `flatpak-cargo-generator` in `PATH`
+
+The script will generate `flatpak/cargo-sources.json`, build the Flatpak repository, and write `dist/io.github.snapix.Snapix.flatpak`.
+
+Install the generated bundle locally:
+
+```bash
+flatpak install --user dist/io.github.snapix.Snapix.flatpak
+flatpak run io.github.snapix.Snapix
+```
+
+GitHub Actions now also builds a release `.flatpak` bundle on tags via [.github/workflows/release-flatpak.yml](.github/workflows/release-flatpak.yml). That is useful for tester installs before the final Flathub submission.
+
 Release notes are tracked in [CHANGELOG.md](CHANGELOG.md).
 
 Tagged releases can ship a prebuilt AppImage through GitHub Releases for users who prefer download-and-run installs.

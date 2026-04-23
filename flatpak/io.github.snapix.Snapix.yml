@@ -58,7 +58,7 @@ modules:
     sources:
       - type: dir
         path: ..
-      # Required for Flathub submission: generate and add cargo-sources.json
-      # with flatpak-cargo-generator so cargo --offline can resolve crates.
-      # - type: file
-      #   path: cargo-sources.json
+      # Generate this file with scripts/generate-flatpak-sources.sh before
+      # building locally or in CI so Cargo can resolve dependencies offline.
+      - type: file
+        path: cargo-sources.json

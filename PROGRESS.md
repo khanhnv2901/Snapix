@@ -44,7 +44,8 @@ Use this checklist when updating status docs:
 - The app metadata, desktop file, icon, and Flatpak manifest live in `data/` and `flatpak/`
 - Quick Save now targets `~/Pictures/Screenshots` to match Flatpak sandbox permissions
 - The main repo is kept lightweight for normal Cargo builds
-- Flathub packaging should provide Cargo sources separately via `cargo-sources.json`
+- Flatpak bundle builds now generate `flatpak/cargo-sources.json` for offline Cargo resolution
+- GitHub Releases can ship a `.flatpak` bundle artifact for tester installs before Flathub lands
 
 ## Remaining M4 Work
 

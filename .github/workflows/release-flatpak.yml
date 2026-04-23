@@ -1,0 +1,83 @@
+name: Release Flatpak
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  APP_NAME: Snapix
+  APP_ID: io.github.snapix.Snapix
+  MANIFEST_PATH: flatpak/io.github.snapix.Snapix.yml
+
+jobs:
+  build-flatpak:
+    name: Build Flatpak Bundle
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            appstream \
+            desktop-file-utils \
+            flatpak \
+            flatpak-builder \
+            python3
+
+      - name: Generate Flatpak Cargo sources
+        run: |
+          curl -fsSL \
+            https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/master/cargo/flatpak-cargo-generator.py \
+            -o flatpak-cargo-generator.py
+          python3 flatpak-cargo-generator.py Cargo.lock -o flatpak/cargo-sources.json
+
+      - name: Validate desktop metadata
+        run: |
+          desktop-file-validate data/${APP_ID}.desktop
+          appstreamcli validate --no-net data/${APP_ID}.metainfo.xml
+
+      - name: Add Flathub remote
+        run: |
+          flatpak remote-add --if-not-exists flathub \
+            https://flathub.org/repo/flathub.flatpakrepo
+
+      - name: Build Flatpak repository
+        run: |
+          flatpak-builder \
+            --user \
+            --force-clean \
+            --install-deps-from=flathub \
+            --repo=flatpak-repo \
+            flatpak-build \
+            ${MANIFEST_PATH}
+
+      - name: Bundle Flatpak
+        run: |
+          VERSION="${GITHUB_REF_NAME:-dev}"
+          VERSION="${VERSION#v}"
+          mkdir -p dist
+          flatpak build-bundle \
+            flatpak-repo \
+            "dist/${APP_NAME}-${VERSION}-x86_64.flatpak" \
+            ${APP_ID}
+
+      - name: Upload Flatpak artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-Flatpak
+          path: dist/*.flatpak
+
+      - name: Attach Flatpak to GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.flatpak
+          generate_release_notes: false
