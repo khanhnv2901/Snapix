@@ -15,6 +15,13 @@ pub(crate) enum ToolKind {
     Blur,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ClearOutcome {
+    None,
+    DeletedSelectedAnnotation,
+    ClearedDocument,
+}
+
 // ─── Drag / selection state ───────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]
@@ -904,6 +911,21 @@ impl EditorState {
             self.selected_annotation = None;
         }
         changed
+    }
+
+    pub(crate) fn clear_action(&mut self) -> ClearOutcome {
+        if self.selected_annotation.is_some() {
+            if self.delete_selected_annotation() {
+                return ClearOutcome::DeletedSelectedAnnotation;
+            }
+            return ClearOutcome::None;
+        }
+
+        if self.clear_document_contents() {
+            return ClearOutcome::ClearedDocument;
+        }
+
+        ClearOutcome::None
     }
 
     fn apply_crop(&mut self, x: u32, y: u32, width: u32, height: u32) -> bool {

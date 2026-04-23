@@ -392,7 +392,8 @@ fn connect_clear_button(
     let inspector = inspector.clone();
     button.connect_clicked(move |_| {
         let mut state = state.borrow_mut();
-        if state.clear_document_contents() {
+        let outcome = state.clear_action();
+        if !matches!(outcome, super::state::ClearOutcome::None) {
             refresh_labels(&state, &title_label, &subtitle_label);
             refresh_scope_label(&state, &scope_label);
             refresh_history_buttons(&state, &undo_button, &redo_button);
@@ -400,7 +401,15 @@ fn connect_clear_button(
             refresh_tool_actions(&state, &delete_button);
             inspector.refresh_from_state(&state);
             canvas.refresh();
-            show_toast(&toast_overlay, i18n::image_cleared_toast());
+            match outcome {
+                super::state::ClearOutcome::DeletedSelectedAnnotation => {
+                    show_toast(&toast_overlay, "Annotation deleted");
+                }
+                super::state::ClearOutcome::ClearedDocument => {
+                    show_toast(&toast_overlay, i18n::image_cleared_toast());
+                }
+                super::state::ClearOutcome::None => {}
+            }
         }
     });
 }

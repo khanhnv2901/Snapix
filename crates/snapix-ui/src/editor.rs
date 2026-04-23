@@ -41,6 +41,7 @@ mod tests {
         region_result: Result<Image, String>,
         window_result: Result<Image, String>,
         region_calls: Arc<Mutex<Vec<Rect>>>,
+        window_calls: Arc<Mutex<u32>>,
     }
 
     impl MockBackend {
@@ -56,11 +57,16 @@ mod tests {
                 region_result,
                 window_result,
                 region_calls: Arc::new(Mutex::new(Vec::new())),
+                window_calls: Arc::new(Mutex::new(0)),
             }
         }
 
         fn region_calls(&self) -> Vec<Rect> {
             self.region_calls.lock().unwrap().clone()
+        }
+
+        fn window_call_count(&self) -> u32 {
+            *self.window_calls.lock().unwrap()
         }
     }
 
@@ -76,6 +82,7 @@ mod tests {
         }
 
         async fn capture_window(&self) -> Result<Image> {
+            *self.window_calls.lock().unwrap() += 1;
             self.window_result.clone().map_err(|err| anyhow!(err))
         }
 
@@ -260,6 +267,47 @@ mod tests {
         assert!(state.delete_selected_annotation());
         assert!(state.document().annotations.is_empty());
         assert_eq!(state.selected_annotation(), None);
+    }
+
+    #[test]
+    fn clear_action_prefers_deleting_selected_annotation() {
+        let mut state = EditorState::with_document(Document::new(sample_image()));
+        assert!(state.commit_rect_annotation(10, 10, 40, 30));
+        assert!(state.document().base_image.is_some());
+        assert_eq!(state.selected_annotation(), Some(0));
+
+        let outcome = state.clear_action();
+
+        assert_eq!(
+            outcome,
+            super::state::ClearOutcome::DeletedSelectedAnnotation
+        );
+        assert!(state.document().base_image.is_some());
+        assert!(state.document().annotations.is_empty());
+    }
+
+    #[test]
+    fn clear_action_clears_document_when_no_selection() {
+        let mut state = EditorState::with_document(Document::new(sample_image()));
+        assert!(state.commit_rect_annotation(10, 10, 40, 30));
+        state.set_selected_annotation(None);
+
+        let outcome = state.clear_action();
+
+        assert_eq!(outcome, super::state::ClearOutcome::ClearedDocument);
+        assert!(state.document().base_image.is_none());
+        assert!(state.document().annotations.is_empty());
+    }
+
+    #[test]
+    fn clear_action_is_noop_for_empty_document() {
+        let mut state = EditorState::default();
+
+        let outcome = state.clear_action();
+
+        assert_eq!(outcome, super::state::ClearOutcome::None);
+        assert!(state.document().base_image.is_none());
+        assert!(state.document().annotations.is_empty());
     }
 
     #[test]
@@ -551,6 +599,47 @@ mod tests {
         assert_eq!(calls.len(), 1);
         assert_eq!(calls[0].width, 0.0);
         assert_eq!(calls[0].height, 0.0);
+    }
+
+    #[test]
+    fn window_action_uses_window_backend_path() {
+        let backend = MockBackend::with_results(
+            "x11rb",
+            Err("unused".into()),
+            Err("unused".into()),
+            Ok(sample_image()),
+        );
+
+        let (image, message) = async_std::task::block_on(async {
+            perform_capture_action(&backend, SessionType::X11, CaptureAction::Window)
+                .await
+                .expect("expected window capture to succeed")
+        });
+
+        assert_eq!(image.width, 2);
+        assert!(message.is_none());
+        assert_eq!(backend.window_call_count(), 1);
+        assert!(backend.region_calls().is_empty());
+    }
+
+    #[test]
+    fn window_action_propagates_window_backend_error() {
+        let backend = MockBackend::with_results(
+            "x11rb",
+            Err("unused".into()),
+            Err("unused".into()),
+            Err("window capture failed".into()),
+        );
+
+        let error = async_std::task::block_on(async {
+            perform_capture_action(&backend, SessionType::X11, CaptureAction::Window)
+                .await
+                .expect_err("expected window capture to fail")
+        });
+
+        assert!(error.to_string().contains("window capture failed"));
+        assert_eq!(backend.window_call_count(), 1);
+        assert!(backend.region_calls().is_empty());
     }
 
     #[test]
