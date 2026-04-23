@@ -8,3 +8,4 @@ dist/
 flatpak/cargo-sources.json
 .flatpak-builder/
 .flatpak-repo/
+.flatpak-builder-tools/
