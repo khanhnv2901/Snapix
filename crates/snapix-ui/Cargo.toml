@@ -12,6 +12,7 @@ rust-version.workspace = true
 snapix-core.workspace    = true
 snapix-capture.workspace = true
 gtk4.workspace           = true
+gdk4.workspace           = true
 libadwaita.workspace     = true
 glib.workspace           = true
 gio.workspace            = true

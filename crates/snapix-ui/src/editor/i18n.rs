@@ -326,20 +326,16 @@ pub(crate) fn copy_failed_title() -> &'static str {
     "Copy failed"
 }
 
-pub(crate) fn clipboard_unavailable_detail(error: &str) -> String {
-    format!("Clipboard unavailable: {error}")
-}
-
-pub(crate) fn clipboard_write_failed_detail(error: &str) -> String {
-    format!("Clipboard write failed: {error}")
-}
-
 pub(crate) fn clipboard_read_failed_detail(error: &str) -> String {
     format!("Clipboard read failed: {error}")
 }
 
 pub(crate) fn clipboard_image_invalid_detail() -> &'static str {
     "Clipboard image data is invalid or incomplete."
+}
+
+pub(crate) fn clipboard_image_missing_detail() -> &'static str {
+    "Clipboard does not currently contain an image."
 }
 
 pub(crate) fn image_copied_to_clipboard_toast() -> &'static str {

@@ -1,9 +1,9 @@
-use std::borrow::Cow;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Result;
+use gdk4::{MemoryFormat, MemoryTexture, Texture, TextureDownloader};
 use gio::prelude::FileExt;
 use gtk4::prelude::*;
 use libadwaita::{ApplicationWindow, Toast, ToastOverlay};
@@ -444,30 +444,18 @@ pub(super) fn connect_copy_button(
         let document = state.borrow().document().clone();
         match render_document_rgba(&document) {
             Ok(rendered) => {
-                let mut clipboard = match arboard::Clipboard::new() {
-                    Ok(c) => c,
-                    Err(error) => {
-                        show_error(
-                            &window,
-                            i18n::copy_failed_title(),
-                            &i18n::clipboard_unavailable_detail(&error.to_string()),
-                        );
-                        return;
-                    }
-                };
-                if let Err(error) = clipboard.set_image(arboard::ImageData {
-                    width: rendered.width as usize,
-                    height: rendered.height as usize,
-                    bytes: Cow::Owned(rendered.rgba),
-                }) {
-                    show_error(
-                        &window,
-                        i18n::copy_failed_title(),
-                        &i18n::clipboard_write_failed_detail(&error.to_string()),
-                    );
-                } else {
-                    show_toast(&toast_overlay, i18n::image_copied_to_clipboard_toast());
-                }
+                let stride = rendered.width as usize * 4;
+                let bytes = glib::Bytes::from_owned(rendered.rgba);
+                let texture = MemoryTexture::new(
+                    rendered.width as i32,
+                    rendered.height as i32,
+                    MemoryFormat::R8g8b8a8,
+                    &bytes,
+                    stride,
+                );
+                let clipboard = gtk4::prelude::WidgetExt::display(&window).clipboard();
+                clipboard.set_texture(&texture);
+                show_toast(&toast_overlay, i18n::image_copied_to_clipboard_toast());
             }
             Err(error) => show_error(&window, i18n::copy_failed_title(), &error.to_string()),
         }
@@ -489,55 +477,97 @@ pub(crate) fn paste_image_from_clipboard(
     delete_button: &gtk4::Button,
     inspector: &InspectorControls,
 ) {
-    let mut clipboard = match arboard::Clipboard::new() {
-        Ok(clipboard) => clipboard,
-        Err(error) => {
-            show_error(
-                window,
-                i18n::paste_failed_title(),
-                &i18n::clipboard_unavailable_detail(&error.to_string()),
-            );
-            return;
-        }
-    };
+    let clipboard = gtk4::prelude::WidgetExt::display(window).clipboard();
+    let toast_overlay = toast_overlay.clone();
+    let canvas = canvas.clone();
+    let title_label = title_label.clone();
+    let subtitle_label = subtitle_label.clone();
+    let scope_label = scope_label.clone();
+    let undo_button = undo_button.clone();
+    let redo_button = redo_button.clone();
+    let bottom_bar = bottom_bar.clone();
+    let delete_button = delete_button.clone();
+    let inspector = inspector.clone();
+    let window = window.clone();
 
-    let image = match clipboard.get_image() {
-        Ok(image) => image,
-        Err(error) => {
-            show_error(
-                window,
-                i18n::paste_failed_title(),
-                &i18n::clipboard_read_failed_detail(&error.to_string()),
-            );
-            return;
-        }
-    };
+    clipboard.read_texture_async(
+        None::<&gio::Cancellable>,
+        move |result: Result<Option<Texture>, glib::Error>| {
+            let Some(texture) = (match result {
+            Ok(texture) => texture,
+            Err(error) => {
+                show_error(
+                    &window,
+                    i18n::paste_failed_title(),
+                    &i18n::clipboard_read_failed_detail(&error.to_string()),
+                );
+                return;
+            }
+            }) else {
+                show_error(
+                    &window,
+                    i18n::paste_failed_title(),
+                    i18n::clipboard_image_missing_detail(),
+                );
+                return;
+            };
 
-    let rgba = image.bytes.into_owned();
-    let width = image.width as u32;
-    let height = image.height as u32;
+            let mut downloader = TextureDownloader::new(&texture);
+            downloader.set_format(MemoryFormat::R8g8b8a8);
+            let (bytes, stride) = downloader.download_bytes();
+            let raw: &[u8] = bytes.as_ref();
+            let width = texture.width() as u32;
+            let height = texture.height() as u32;
+            if width == 0 || height == 0 {
+                show_error(
+                    &window,
+                    i18n::paste_failed_title(),
+                    i18n::clipboard_image_invalid_detail(),
+                );
+                return;
+            }
+            let expected_stride = width as usize * 4;
+            if stride < expected_stride {
+                show_error(
+                    &window,
+                    i18n::paste_failed_title(),
+                    i18n::clipboard_image_invalid_detail(),
+                );
+                return;
+            }
+            let rgba = if stride == expected_stride {
+                raw.to_vec()
+            } else {
+                let mut packed = Vec::with_capacity(width as usize * height as usize * 4);
+                for row in raw.chunks(stride).take(height as usize) {
+                    packed.extend_from_slice(&row[..expected_stride]);
+                }
+                packed
+            };
+            let image = Image::new(width, height, rgba);
+            if image.width == 0 || image.height == 0 {
+                    show_error(
+                        &window,
+                        i18n::paste_failed_title(),
+                        i18n::clipboard_image_invalid_detail(),
+                    );
+                    return;
+            }
 
-    if width == 0 || height == 0 || rgba.len() < (width as usize * height as usize * 4) {
-        show_error(
-            window,
-            i18n::paste_failed_title(),
-            i18n::clipboard_image_invalid_detail(),
-        );
-        return;
-    }
-
-    let mut state = state.borrow_mut();
-    if state.replace_base_image(Image::new(width, height, rgba)) {
-        refresh_labels(&state, title_label, subtitle_label);
-        refresh_scope_label(&state, scope_label);
-        refresh_history_buttons(&state, undo_button, redo_button);
-        refresh_export_actions(&state, bottom_bar);
-        refresh_tool_actions(&state, delete_button);
-        inspector.refresh_from_state(&state);
-        canvas.refresh();
-    }
-    drop(state);
-    show_toast(toast_overlay, i18n::image_pasted_from_clipboard_toast());
+            let mut state = state.borrow_mut();
+            if state.replace_base_image(image) {
+                refresh_labels(&state, &title_label, &subtitle_label);
+                refresh_scope_label(&state, &scope_label);
+                refresh_history_buttons(&state, &undo_button, &redo_button);
+                refresh_export_actions(&state, &bottom_bar);
+                refresh_tool_actions(&state, &delete_button);
+                inspector.refresh_from_state(&state);
+                canvas.refresh();
+            }
+            drop(state);
+            show_toast(&toast_overlay, i18n::image_pasted_from_clipboard_toast());
+        },
+    );
 }
 
 pub(super) fn connect_quick_save_button(
