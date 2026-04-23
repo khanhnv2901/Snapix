@@ -1,6 +1,14 @@
 # Snapix Progress
 
 This file tracks the current product and release status at a high level.
+Status source of truth for execution progress: use this file first.
+Last synced: 2026-04-23.
+
+## Release Snapshot
+
+- Latest tagged release: `0.1.0` (2026-04-22)
+- Current active milestone: `M4 Packaging Prep`
+- Release notes: [CHANGELOG.md](CHANGELOG.md)
 
 ## Current State
 

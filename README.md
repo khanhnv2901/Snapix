@@ -7,6 +7,13 @@
 
 ![Snapix polished export](images/Snapix-screenshot-result.png)
 
+## Current Status
+
+- Current release: `0.1.0` (2026-04-22)
+- Release focus now: `M4 Packaging Prep` (Flathub submission, distribution setup, final QA)
+- Execution status source: [PROGRESS.md](PROGRESS.md)
+- Release history: [CHANGELOG.md](CHANGELOG.md)
+
 ## Overview
 
 Snapix is a native Linux screenshot editor built with GTK4 and libadwaita. It is designed for the common workflow of taking a screenshot, marking it up quickly, and exporting something that already looks presentable without extra editing in another app.

@@ -31,13 +31,17 @@
 
 ## 2. Feature Scope
 
+Status note (2026-04-23):
+- This plan is strategy-oriented and may lag implementation details.
+- For current execution status and release readiness, refer to `PROGRESS.md`.
+
 ### MVP (v0.1)
 - [x] Chụp fullscreen / region / active window
 - [ ] Hotkey toàn cục
 - [x] Editor: crop, arrow, rectangle, ellipse, text, blur region, chọn/xóa annotation
 - [x] Beautify: gradient/solid BG, padding, corner radius, shadow direction/padding/blur/strength
 - [x] Export PNG/JPG, copy clipboard
-- [ ] Support X11 + Wayland (GNOME, KDE)
+- [x] Support X11 + Wayland (GNOME, KDE)
 
 ### v0.2
 - [ ] Auto-redact (OCR qua `tesseract-rs`) — **Pro**

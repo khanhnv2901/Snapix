@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Continued `M4 Packaging Prep` after `0.1.0`
+- In progress: Flathub submission/review, landing page/payment setup, and final Linux desktop QA matrix
+
 ## 0.1.0 - 2026-04-22
 
 - Shipped the first polished Snapix release for Linux
