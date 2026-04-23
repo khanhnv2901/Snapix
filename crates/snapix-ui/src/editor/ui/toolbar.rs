@@ -548,6 +548,35 @@ pub(super) fn build_canvas_panel(canvas_widget: gtk4::DrawingArea) -> gtk4::Widg
     Bin::builder().child(&wrap).build().upcast()
 }
 
+pub(super) fn build_reframe_overlay_actions() -> (gtk4::Box, gtk4::Button, gtk4::Button) {
+    let overlay_row = gtk4::Box::builder()
+        .orientation(gtk4::Orientation::Horizontal)
+        .spacing(8)
+        .halign(gtk4::Align::End)
+        .valign(gtk4::Align::Start)
+        .margin_top(18)
+        .margin_end(18)
+        .visible(false)
+        .build();
+    overlay_row.add_css_class("reframe-overlay-actions");
+
+    let reset_button = gtk4::Button::builder()
+        .label("Reset")
+        .tooltip_text("Reset image reframe")
+        .css_classes(["reframe-reset-btn"])
+        .build();
+    let done_button = gtk4::Button::builder()
+        .label("Done")
+        .tooltip_text("Finish image reframe (Enter)")
+        .css_classes(["reframe-done-btn", "suggested-action"])
+        .build();
+
+    overlay_row.append(&reset_button);
+    overlay_row.append(&done_button);
+
+    (overlay_row, reset_button, done_button)
+}
+
 pub(super) fn build_bottom_bar(
     subtitle_label: &gtk4::Label,
     save_format: Rc<RefCell<SaveFormat>>,

@@ -5,7 +5,9 @@ use gtk4::gdk;
 use gtk4::prelude::*;
 use snapix_core::canvas::{Background, Color};
 
-use super::super::helpers::{refresh_history_buttons, refresh_subtitle};
+use super::super::helpers::{
+    configure_inspector_slider, refresh_history_buttons, refresh_subtitle,
+};
 use super::labeled_row_with_value;
 use crate::editor::i18n;
 use crate::editor::state::{same_background, EditorState};
@@ -144,6 +146,7 @@ pub(super) fn build_background_section(
     let gradient_angle_scale =
         gtk4::Scale::with_range(gtk4::Orientation::Horizontal, 0.0, 360.0, 1.0);
     gradient_angle_scale.set_value(current_gradient_angle as f64);
+    configure_inspector_slider(&gradient_angle_scale);
     let gradient_angle_row = labeled_row_with_value(
         i18n::inspector_gradient_angle_label(),
         &gradient_angle_scale,
@@ -160,6 +163,7 @@ pub(super) fn build_background_section(
         .build();
     let blur_radius_scale = gtk4::Scale::with_range(gtk4::Orientation::Horizontal, 4.0, 64.0, 1.0);
     blur_radius_scale.set_value(current_blur_radius as f64);
+    configure_inspector_slider(&blur_radius_scale);
     let blur_row = labeled_row_with_value(
         i18n::inspector_blur_radius_label(),
         &blur_radius_scale,

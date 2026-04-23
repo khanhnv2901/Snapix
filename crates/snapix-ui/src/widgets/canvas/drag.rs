@@ -231,7 +231,10 @@ fn connect_drag_update(
     _reframe: ReframePresentation,
 ) {
     let drawing_area = drawing_area.clone();
-    drag.connect_drag_update(move |_gesture, offset_x, offset_y| {
+    drag.connect_drag_update(move |gesture, offset_x, offset_y| {
+        let shift_pressed = gesture
+            .current_event_state()
+            .contains(gtk4::gdk::ModifierType::SHIFT_MASK);
         let mut state = state.borrow_mut();
 
         if let Some(before_document) = image_reframe.borrow().clone() {
@@ -318,19 +321,49 @@ fn connect_drag_update(
                     arrow_drag.widget_start_x() + offset_x,
                     arrow_drag.widget_start_y() + offset_y,
                 ) {
-                    state.update_arrow_drag(image_x as f32, image_y as f32);
+                    let (next_x, next_y) = if shift_pressed {
+                        constrain_arrow_endpoint(
+                            arrow_drag.start_x(),
+                            arrow_drag.start_y(),
+                            image_x as f32,
+                            image_y as f32,
+                        )
+                    } else {
+                        (image_x as f32, image_y as f32)
+                    };
+                    state.update_arrow_drag(next_x, next_y);
                 }
             }
         } else if let Some(rect_drag) = state.rect_drag().cloned() {
-            state.update_rect_drag(
-                rect_drag.start_x() + offset_x,
-                rect_drag.start_y() + offset_y,
-            );
+            let (current_x, current_y) = if shift_pressed {
+                constrain_square_drag(
+                    rect_drag.start_x(),
+                    rect_drag.start_y(),
+                    rect_drag.start_x() + offset_x,
+                    rect_drag.start_y() + offset_y,
+                )
+            } else {
+                (
+                    rect_drag.start_x() + offset_x,
+                    rect_drag.start_y() + offset_y,
+                )
+            };
+            state.update_rect_drag(current_x, current_y);
         } else if let Some(ellipse_drag) = state.ellipse_drag().cloned() {
-            state.update_ellipse_drag(
-                ellipse_drag.start_x() + offset_x,
-                ellipse_drag.start_y() + offset_y,
-            );
+            let (current_x, current_y) = if shift_pressed {
+                constrain_square_drag(
+                    ellipse_drag.start_x(),
+                    ellipse_drag.start_y(),
+                    ellipse_drag.start_x() + offset_x,
+                    ellipse_drag.start_y() + offset_y,
+                )
+            } else {
+                (
+                    ellipse_drag.start_x() + offset_x,
+                    ellipse_drag.start_y() + offset_y,
+                )
+            };
+            state.update_ellipse_drag(current_x, current_y);
         } else if let Some(blur_drag) = state.blur_drag().cloned() {
             state.update_blur_drag(
                 blur_drag.start_x() + offset_x,
@@ -388,7 +421,10 @@ fn connect_drag_end(
     reframe: ReframePresentation,
 ) {
     let drawing_area = drawing_area.clone();
-    drag.connect_drag_end(move |_gesture, offset_x, offset_y| {
+    drag.connect_drag_end(move |gesture, offset_x, offset_y| {
+        let shift_pressed = gesture
+            .current_event_state()
+            .contains(gtk4::gdk::ModifierType::SHIFT_MASK);
         let width = drawing_area.allocated_width();
         let height = drawing_area.allocated_height();
         let mut state = state.borrow_mut();
@@ -485,7 +521,17 @@ fn connect_drag_end(
                     arrow_drag.widget_start_x() + offset_x,
                     arrow_drag.widget_start_y() + offset_y,
                 ) {
-                    state.update_arrow_drag(image_x as f32, image_y as f32);
+                    let (next_x, next_y) = if shift_pressed {
+                        constrain_arrow_endpoint(
+                            arrow_drag.start_x(),
+                            arrow_drag.start_y(),
+                            image_x as f32,
+                            image_y as f32,
+                        )
+                    } else {
+                        (image_x as f32, image_y as f32)
+                    };
+                    state.update_arrow_drag(next_x, next_y);
                 }
             }
             if !state.commit_arrow_drag() {
@@ -495,10 +541,20 @@ fn connect_drag_end(
             refresh_history_buttons(&state, &ui.undo_button, &ui.redo_button);
             refresh_tool_actions(&state, &ui.delete_button);
         } else if let Some(rect_drag) = state.rect_drag().cloned() {
-            state.update_rect_drag(
-                rect_drag.start_x() + offset_x,
-                rect_drag.start_y() + offset_y,
-            );
+            let (current_x, current_y) = if shift_pressed {
+                constrain_square_drag(
+                    rect_drag.start_x(),
+                    rect_drag.start_y(),
+                    rect_drag.start_x() + offset_x,
+                    rect_drag.start_y() + offset_y,
+                )
+            } else {
+                (
+                    rect_drag.start_x() + offset_x,
+                    rect_drag.start_y() + offset_y,
+                )
+            };
+            state.update_rect_drag(current_x, current_y);
             commit_shape_drag(
                 &mut state,
                 width,
@@ -511,10 +567,20 @@ fn connect_drag_end(
                 EditorState::clear_rect_drag,
             );
         } else if let Some(ellipse_drag) = state.ellipse_drag().cloned() {
-            state.update_ellipse_drag(
-                ellipse_drag.start_x() + offset_x,
-                ellipse_drag.start_y() + offset_y,
-            );
+            let (current_x, current_y) = if shift_pressed {
+                constrain_square_drag(
+                    ellipse_drag.start_x(),
+                    ellipse_drag.start_y(),
+                    ellipse_drag.start_x() + offset_x,
+                    ellipse_drag.start_y() + offset_y,
+                )
+            } else {
+                (
+                    ellipse_drag.start_x() + offset_x,
+                    ellipse_drag.start_y() + offset_y,
+                )
+            };
+            state.update_ellipse_drag(current_x, current_y);
             commit_shape_drag(
                 &mut state,
                 width,
@@ -581,6 +647,30 @@ fn connect_drag_end(
         drawing_area.grab_focus();
         drawing_area.queue_draw();
     });
+}
+
+fn constrain_square_drag(start_x: f64, start_y: f64, current_x: f64, current_y: f64) -> (f64, f64) {
+    let dx = current_x - start_x;
+    let dy = current_y - start_y;
+    let side = dx.abs().max(dy.abs());
+    let next_x = start_x + side.copysign(dx);
+    let next_y = start_y + side.copysign(dy);
+    (next_x, next_y)
+}
+
+fn constrain_arrow_endpoint(start_x: f32, start_y: f32, current_x: f32, current_y: f32) -> (f32, f32) {
+    let dx = current_x - start_x;
+    let dy = current_y - start_y;
+    let length = (dx * dx + dy * dy).sqrt();
+    if length <= f32::EPSILON {
+        return (current_x, current_y);
+    }
+
+    let angle = dy.atan2(dx);
+    let snapped_angle = (angle / std::f32::consts::FRAC_PI_4).round() * std::f32::consts::FRAC_PI_4;
+    let next_x = start_x + snapped_angle.cos() * length;
+    let next_y = start_y + snapped_angle.sin() * length;
+    (next_x, next_y)
 }
 
 fn begin_tool_drag(state: &mut EditorState, width: i32, height: i32, x: f64, y: f64) -> bool {

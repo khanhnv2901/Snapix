@@ -474,6 +474,72 @@ pub(super) fn connect_copy_button(
     });
 }
 
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn paste_image_from_clipboard(
+    window: &ApplicationWindow,
+    toast_overlay: &ToastOverlay,
+    state: Rc<RefCell<EditorState>>,
+    canvas: &DocumentCanvas,
+    title_label: &gtk4::Label,
+    subtitle_label: &gtk4::Label,
+    scope_label: &gtk4::Label,
+    undo_button: &gtk4::Button,
+    redo_button: &gtk4::Button,
+    bottom_bar: &BottomBar,
+    delete_button: &gtk4::Button,
+    inspector: &InspectorControls,
+) {
+    let mut clipboard = match arboard::Clipboard::new() {
+        Ok(clipboard) => clipboard,
+        Err(error) => {
+            show_error(
+                window,
+                i18n::paste_failed_title(),
+                &i18n::clipboard_unavailable_detail(&error.to_string()),
+            );
+            return;
+        }
+    };
+
+    let image = match clipboard.get_image() {
+        Ok(image) => image,
+        Err(error) => {
+            show_error(
+                window,
+                i18n::paste_failed_title(),
+                &i18n::clipboard_read_failed_detail(&error.to_string()),
+            );
+            return;
+        }
+    };
+
+    let rgba = image.bytes.into_owned();
+    let width = image.width as u32;
+    let height = image.height as u32;
+
+    if width == 0 || height == 0 || rgba.len() < (width as usize * height as usize * 4) {
+        show_error(
+            window,
+            i18n::paste_failed_title(),
+            i18n::clipboard_image_invalid_detail(),
+        );
+        return;
+    }
+
+    let mut state = state.borrow_mut();
+    if state.replace_base_image(Image::new(width, height, rgba)) {
+        refresh_labels(&state, title_label, subtitle_label);
+        refresh_scope_label(&state, scope_label);
+        refresh_history_buttons(&state, undo_button, redo_button);
+        refresh_export_actions(&state, bottom_bar);
+        refresh_tool_actions(&state, delete_button);
+        inspector.refresh_from_state(&state);
+        canvas.refresh();
+    }
+    drop(state);
+    show_toast(toast_overlay, i18n::image_pasted_from_clipboard_toast());
+}
+
 pub(super) fn connect_quick_save_button(
     button: &gtk4::Button,
     window: &ApplicationWindow,

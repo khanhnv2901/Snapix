@@ -1,13 +1,16 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use gtk4::glib;
 use gtk4::prelude::*;
 use libadwaita::prelude::*;
 use libadwaita::{Application, ApplicationWindow, HeaderBar, ToastOverlay, ToolbarView};
 
 use super::super::actions::{
     connect_capture_actions, connect_copy_button, connect_quick_save_button, connect_save_as_button,
+    paste_image_from_clipboard,
 };
+use super::super::i18n;
 use super::super::i18n::{
     app_window_title, delete_tooltip, preferences_button_tooltip, redo_tooltip, undo_tooltip,
 };
@@ -21,7 +24,10 @@ use super::helpers::{
 };
 use super::inspector::build_inspector;
 use super::preferences::present_preferences_window;
-use super::toolbar::{build_bottom_bar, build_canvas_panel, build_capture_row, build_tool_row};
+use super::toolbar::{
+    build_bottom_bar, build_canvas_panel, build_capture_row, build_reframe_overlay_actions,
+    build_tool_row,
+};
 use super::{BottomBar, HistoryAction, InspectorControls, SaveFormat};
 use crate::app::LaunchContext;
 use crate::editor::show_toast;
@@ -122,6 +128,12 @@ impl EditorWindow {
         let bottom_bar = build_bottom_bar(&subtitle_label, save_format.clone());
         let capture_row = build_capture_row(&bottom_bar);
         let canvas_panel = build_canvas_panel(canvas_widget);
+        let (reframe_overlay_actions, reframe_reset_button, reframe_done_button) =
+            build_reframe_overlay_actions();
+        let canvas_overlay = gtk4::Overlay::new();
+        canvas_overlay.set_child(Some(&canvas_panel));
+        canvas_overlay.add_overlay(&reframe_overlay_actions);
+        canvas_overlay.set_measure_overlay(&reframe_overlay_actions, true);
 
         let workspace = gtk4::Paned::builder()
             .orientation(gtk4::Orientation::Horizontal)
@@ -137,7 +149,7 @@ impl EditorWindow {
         workspace.set_resize_end_child(false);
         workspace.set_shrink_start_child(false);
         workspace.set_shrink_end_child(false);
-        workspace.set_start_child(Some(&canvas_panel));
+        workspace.set_start_child(Some(&canvas_overlay));
         workspace.set_end_child(Some(&inspector.widget()));
 
         let content = gtk4::Box::builder()
@@ -178,6 +190,73 @@ impl EditorWindow {
             .default_height(820)
             .content(&toolbar_view)
             .build();
+
+        {
+            let reframe_overlay_actions = reframe_overlay_actions.clone();
+            let state = state.clone();
+            glib::timeout_add_local(std::time::Duration::from_millis(33), move || {
+                reframe_overlay_actions.set_visible(state.borrow().is_reframing_image());
+                glib::ControlFlow::Continue
+            });
+        }
+
+        {
+            let toast_overlay = toast_overlay.clone();
+            let state = state.clone();
+            let canvas = canvas.clone();
+            let title_label = title_label.clone();
+            let subtitle_label = subtitle_label.clone();
+            let scope_label = scope_label.clone();
+            let undo_button = undo_button.clone();
+            let redo_button = redo_button.clone();
+            let bottom_bar = bottom_bar.clone();
+            let delete_button = delete_button.clone();
+            let inspector = inspector.clone();
+            reframe_reset_button.connect_clicked(move |_| {
+                reset_reframe_mode(
+                    &toast_overlay,
+                    state.clone(),
+                    &canvas,
+                    &title_label,
+                    &subtitle_label,
+                    &scope_label,
+                    &undo_button,
+                    &redo_button,
+                    &bottom_bar,
+                    &delete_button,
+                    &inspector,
+                );
+            });
+        }
+
+        {
+            let toast_overlay = toast_overlay.clone();
+            let state = state.clone();
+            let canvas = canvas.clone();
+            let title_label = title_label.clone();
+            let subtitle_label = subtitle_label.clone();
+            let scope_label = scope_label.clone();
+            let undo_button = undo_button.clone();
+            let redo_button = redo_button.clone();
+            let bottom_bar = bottom_bar.clone();
+            let delete_button = delete_button.clone();
+            let inspector = inspector.clone();
+            reframe_done_button.connect_clicked(move |_| {
+                finish_reframe_mode(
+                    &toast_overlay,
+                    state.clone(),
+                    &canvas,
+                    &title_label,
+                    &subtitle_label,
+                    &scope_label,
+                    &undo_button,
+                    &redo_button,
+                    &bottom_bar,
+                    &delete_button,
+                    &inspector,
+                );
+            });
+        }
 
         connect_crop_shortcuts(
             &window,
@@ -398,6 +477,8 @@ fn connect_crop_shortcuts(
                 key,
                 gtk4::gdk::Key::c
                     | gtk4::gdk::Key::C
+                    | gtk4::gdk::Key::v
+                    | gtk4::gdk::Key::V
                     | gtk4::gdk::Key::s
                     | gtk4::gdk::Key::S
                     | gtk4::gdk::Key::z
@@ -434,43 +515,86 @@ fn connect_crop_shortcuts(
             return glib::Propagation::Stop;
         }
 
-        let mut state = state.borrow_mut();
+        if mods.contains(gtk4::gdk::ModifierType::CONTROL_MASK)
+            && matches!(key, gtk4::gdk::Key::v | gtk4::gdk::Key::V)
+        {
+            paste_image_from_clipboard(
+                &window_for_shortcuts,
+                &toast_overlay,
+                state.clone(),
+                &canvas,
+                &title_label,
+                &subtitle_label,
+                &scope_label,
+                &undo_button,
+                &redo_button,
+                &bottom_bar,
+                &delete_button,
+                &inspector,
+            );
+            return glib::Propagation::Stop;
+        }
+
+        let mut editor_state = state.borrow_mut();
         match key {
-            gtk4::gdk::Key::Escape if state.is_reframing_image() => {
-                state.exit_image_reframe_mode();
-                canvas.widget().set_cursor_from_name(None);
-                refresh_labels(&state, &title_label, &subtitle_label);
-                refresh_scope_label(&state, &scope_label);
-                refresh_history_buttons(&state, &undo_button, &redo_button);
-                refresh_export_actions(&state, &bottom_bar);
-                refresh_tool_actions(&state, &delete_button);
-                inspector.refresh_from_state(&state);
-                canvas.refresh();
-                show_toast(&toast_overlay, "Image reframe ended");
+            gtk4::gdk::Key::Return | gtk4::gdk::Key::KP_Enter
+                if editor_state.is_reframing_image() =>
+            {
+                drop(editor_state);
+                finish_reframe_mode(
+                    &toast_overlay,
+                    state.clone(),
+                    &canvas,
+                    &title_label,
+                    &subtitle_label,
+                    &scope_label,
+                    &undo_button,
+                    &redo_button,
+                    &bottom_bar,
+                    &delete_button,
+                    &inspector,
+                );
                 glib::Propagation::Stop
             }
-            gtk4::gdk::Key::Escape if state.active_tool() == ToolKind::Crop => {
-                state.cancel_crop_mode();
-                refresh_labels(&state, &title_label, &subtitle_label);
-                refresh_scope_label(&state, &scope_label);
-                refresh_history_buttons(&state, &undo_button, &redo_button);
-                refresh_export_actions(&state, &bottom_bar);
-                refresh_tool_actions(&state, &delete_button);
-                inspector.refresh_from_state(&state);
+            gtk4::gdk::Key::Escape if editor_state.is_reframing_image() => {
+                drop(editor_state);
+                finish_reframe_mode(
+                    &toast_overlay,
+                    state.clone(),
+                    &canvas,
+                    &title_label,
+                    &subtitle_label,
+                    &scope_label,
+                    &undo_button,
+                    &redo_button,
+                    &bottom_bar,
+                    &delete_button,
+                    &inspector,
+                );
+                glib::Propagation::Stop
+            }
+            gtk4::gdk::Key::Escape if editor_state.active_tool() == ToolKind::Crop => {
+                editor_state.cancel_crop_mode();
+                refresh_labels(&editor_state, &title_label, &subtitle_label);
+                refresh_scope_label(&editor_state, &scope_label);
+                refresh_history_buttons(&editor_state, &undo_button, &redo_button);
+                refresh_export_actions(&editor_state, &bottom_bar);
+                refresh_tool_actions(&editor_state, &delete_button);
+                inspector.refresh_from_state(&editor_state);
                 canvas.refresh();
                 show_toast(&toast_overlay, "Crop canceled");
                 glib::Propagation::Stop
             }
             gtk4::gdk::Key::Return | gtk4::gdk::Key::KP_Enter
-                if state.active_tool() == ToolKind::Crop && state.has_pending_crop() =>
+                if editor_state.active_tool() == ToolKind::Crop && editor_state.has_pending_crop() =>
             {
-                if state.apply_crop_selection() {
-                    refresh_labels(&state, &title_label, &subtitle_label);
-                    refresh_scope_label(&state, &scope_label);
-                    refresh_history_buttons(&state, &undo_button, &redo_button);
-                    refresh_export_actions(&state, &bottom_bar);
-                    refresh_tool_actions(&state, &delete_button);
-                    inspector.refresh_from_state(&state);
+                if editor_state.apply_crop_selection() {
+                    refresh_labels(&editor_state, &title_label, &subtitle_label);
+                    refresh_scope_label(&editor_state, &scope_label);
+                    refresh_history_buttons(&editor_state, &undo_button, &redo_button);
+                    refresh_export_actions(&editor_state, &bottom_bar);
+                    refresh_tool_actions(&editor_state, &delete_button);
+                    inspector.refresh_from_state(&editor_state);
                     canvas.refresh();
                     show_toast(&toast_overlay, "Crop applied");
                 } else {
@@ -482,60 +606,60 @@ fn connect_crop_shortcuts(
                 glib::Propagation::Stop
             }
             gtk4::gdk::Key::BackSpace | gtk4::gdk::Key::Delete
-                if state.active_tool() != ToolKind::Crop
-                    && state.selected_annotation().is_some() =>
+                if editor_state.active_tool() != ToolKind::Crop
+                    && editor_state.selected_annotation().is_some() =>
             {
-                if state.delete_selected_annotation() {
-                    refresh_labels(&state, &title_label, &subtitle_label);
-                    refresh_scope_label(&state, &scope_label);
-                    refresh_history_buttons(&state, &undo_button, &redo_button);
-                    refresh_export_actions(&state, &bottom_bar);
-                    refresh_tool_actions(&state, &delete_button);
-                    inspector.refresh_from_state(&state);
+                if editor_state.delete_selected_annotation() {
+                    refresh_labels(&editor_state, &title_label, &subtitle_label);
+                    refresh_scope_label(&editor_state, &scope_label);
+                    refresh_history_buttons(&editor_state, &undo_button, &redo_button);
+                    refresh_export_actions(&editor_state, &bottom_bar);
+                    refresh_tool_actions(&editor_state, &delete_button);
+                    inspector.refresh_from_state(&editor_state);
                     canvas.refresh();
                     show_toast(&toast_overlay, "Annotation deleted");
                 }
                 glib::Propagation::Stop
             }
             gtk4::gdk::Key::z
-                if state.active_tool() != ToolKind::Crop
+                if editor_state.active_tool() != ToolKind::Crop
                     && mods.contains(gtk4::gdk::ModifierType::CONTROL_MASK)
                     && mods.contains(gtk4::gdk::ModifierType::SHIFT_MASK) =>
             {
-                if state.redo() {
-                    refresh_labels(&state, &title_label, &subtitle_label);
-                    refresh_scope_label(&state, &scope_label);
-                    refresh_history_buttons(&state, &undo_button, &redo_button);
-                    refresh_export_actions(&state, &bottom_bar);
-                    refresh_tool_actions(&state, &delete_button);
-                    inspector.refresh_from_state(&state);
+                if editor_state.redo() {
+                    refresh_labels(&editor_state, &title_label, &subtitle_label);
+                    refresh_scope_label(&editor_state, &scope_label);
+                    refresh_history_buttons(&editor_state, &undo_button, &redo_button);
+                    refresh_export_actions(&editor_state, &bottom_bar);
+                    refresh_tool_actions(&editor_state, &delete_button);
+                    inspector.refresh_from_state(&editor_state);
                     canvas.refresh();
                 }
                 glib::Propagation::Stop
             }
             gtk4::gdk::Key::y | gtk4::gdk::Key::Y
-                if state.active_tool() != ToolKind::Crop
+                if editor_state.active_tool() != ToolKind::Crop
                     && mods.contains(gtk4::gdk::ModifierType::CONTROL_MASK) =>
             {
-                if state.redo() {
-                    refresh_labels(&state, &title_label, &subtitle_label);
-                    refresh_scope_label(&state, &scope_label);
-                    refresh_history_buttons(&state, &undo_button, &redo_button);
-                    refresh_export_actions(&state, &bottom_bar);
-                    refresh_tool_actions(&state, &delete_button);
-                    inspector.refresh_from_state(&state);
+                if editor_state.redo() {
+                    refresh_labels(&editor_state, &title_label, &subtitle_label);
+                    refresh_scope_label(&editor_state, &scope_label);
+                    refresh_history_buttons(&editor_state, &undo_button, &redo_button);
+                    refresh_export_actions(&editor_state, &bottom_bar);
+                    refresh_tool_actions(&editor_state, &delete_button);
+                    inspector.refresh_from_state(&editor_state);
                     canvas.refresh();
                 }
                 glib::Propagation::Stop
             }
             gtk4::gdk::Key::z if mods.contains(gtk4::gdk::ModifierType::CONTROL_MASK) => {
-                if state.undo() {
-                    refresh_labels(&state, &title_label, &subtitle_label);
-                    refresh_scope_label(&state, &scope_label);
-                    refresh_history_buttons(&state, &undo_button, &redo_button);
-                    refresh_export_actions(&state, &bottom_bar);
-                    refresh_tool_actions(&state, &delete_button);
-                    inspector.refresh_from_state(&state);
+                if editor_state.undo() {
+                    refresh_labels(&editor_state, &title_label, &subtitle_label);
+                    refresh_scope_label(&editor_state, &scope_label);
+                    refresh_history_buttons(&editor_state, &undo_button, &redo_button);
+                    refresh_export_actions(&editor_state, &bottom_bar);
+                    refresh_tool_actions(&editor_state, &delete_button);
+                    inspector.refresh_from_state(&editor_state);
                     canvas.refresh();
                 }
                 glib::Propagation::Stop
@@ -544,6 +668,65 @@ fn connect_crop_shortcuts(
         }
     });
     window.add_controller(controller);
+}
+
+#[allow(clippy::too_many_arguments)]
+fn finish_reframe_mode(
+    toast_overlay: &ToastOverlay,
+    state: Rc<RefCell<EditorState>>,
+    canvas: &DocumentCanvas,
+    title_label: &gtk4::Label,
+    subtitle_label: &gtk4::Label,
+    scope_label: &gtk4::Label,
+    undo_button: &gtk4::Button,
+    redo_button: &gtk4::Button,
+    bottom_bar: &BottomBar,
+    delete_button: &gtk4::Button,
+    inspector: &InspectorControls,
+) {
+    let mut state = state.borrow_mut();
+    if !state.is_reframing_image() {
+        return;
+    }
+    state.exit_image_reframe_mode();
+    canvas.widget().set_cursor_from_name(None);
+    refresh_labels(&state, title_label, subtitle_label);
+    refresh_scope_label(&state, scope_label);
+    refresh_history_buttons(&state, undo_button, redo_button);
+    refresh_export_actions(&state, bottom_bar);
+    refresh_tool_actions(&state, delete_button);
+    inspector.refresh_from_state(&state);
+    canvas.refresh();
+    show_toast(toast_overlay, i18n::reframe_done_toast());
+}
+
+#[allow(clippy::too_many_arguments)]
+fn reset_reframe_mode(
+    toast_overlay: &ToastOverlay,
+    state: Rc<RefCell<EditorState>>,
+    canvas: &DocumentCanvas,
+    title_label: &gtk4::Label,
+    subtitle_label: &gtk4::Label,
+    scope_label: &gtk4::Label,
+    undo_button: &gtk4::Button,
+    redo_button: &gtk4::Button,
+    bottom_bar: &BottomBar,
+    delete_button: &gtk4::Button,
+    inspector: &InspectorControls,
+) {
+    let mut state = state.borrow_mut();
+    if !state.reset_image_reframe() {
+        return;
+    }
+    canvas.widget().set_cursor_from_name(None);
+    refresh_labels(&state, title_label, subtitle_label);
+    refresh_scope_label(&state, scope_label);
+    refresh_history_buttons(&state, undo_button, redo_button);
+    refresh_export_actions(&state, bottom_bar);
+    refresh_tool_actions(&state, delete_button);
+    inspector.refresh_from_state(&state);
+    canvas.refresh();
+    show_toast(toast_overlay, i18n::image_view_reset_toast());
 }
 
 fn is_text_input_focused(window: &ApplicationWindow) -> bool {

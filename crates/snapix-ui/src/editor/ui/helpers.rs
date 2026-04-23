@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use glib::prelude::Cast;
 use gtk4::prelude::*;
 use snapix_core::canvas::{
     Annotation, Document, FrameSettings, Image, ImageAnchor, ImageScaleMode,
@@ -236,6 +237,7 @@ pub(crate) fn connect_frame_slider<F>(
 ) where
     F: Fn(&mut FrameSettings, f32) + 'static,
 {
+    configure_inspector_slider(scale);
     let subtitle_label = subtitle_label.clone();
     let undo_button = undo_button.clone();
     let redo_button = redo_button.clone();
@@ -249,4 +251,55 @@ pub(crate) fn connect_frame_slider<F>(
             canvas.refresh();
         }
     });
+}
+
+pub(crate) fn configure_inspector_slider(scale: &gtk4::Scale) {
+    disable_slider_scroll_wheel(scale);
+    release_slider_focus_after_pointer_up(scale);
+}
+
+pub(crate) fn disable_slider_scroll_wheel(scale: &gtk4::Scale) {
+    let controller = gtk4::EventControllerScroll::new(
+        gtk4::EventControllerScrollFlags::VERTICAL
+            | gtk4::EventControllerScrollFlags::DISCRETE
+            | gtk4::EventControllerScrollFlags::KINETIC,
+    );
+    controller.set_propagation_phase(gtk4::PropagationPhase::Capture);
+    let scale_for_scroll = scale.clone();
+    controller.connect_scroll(move |_controller, _dx, dy| {
+        if let Some(scroller) = scale_for_scroll
+            .ancestor(gtk4::ScrolledWindow::static_type())
+            .and_then(|widget| widget.downcast::<gtk4::ScrolledWindow>().ok())
+        {
+            let adjustment = scroller.vadjustment();
+            let page = adjustment.page_increment().max(48.0);
+            let delta = if dy.abs() < f64::EPSILON {
+                0.0
+            } else {
+                dy.signum() * page * 0.35
+            };
+            let upper_bound = (adjustment.upper() - adjustment.page_size()).max(adjustment.lower());
+            let next = (adjustment.value() + delta).clamp(adjustment.lower(), upper_bound);
+            adjustment.set_value(next);
+        }
+        glib::Propagation::Stop
+    });
+    scale.add_controller(controller);
+}
+
+fn release_slider_focus_after_pointer_up(scale: &gtk4::Scale) {
+    let gesture = gtk4::GestureClick::new();
+    let scale_for_release = scale.clone();
+    gesture.connect_released(move |_gesture, _n_press, _x, _y| {
+        if !scale_for_release.has_focus() {
+            return;
+        }
+        if let Some(window) = scale_for_release
+            .root()
+            .and_then(|root| root.downcast::<gtk4::Window>().ok())
+        {
+            gtk4::prelude::GtkWindowExt::set_focus(&window, None::<&gtk4::Widget>);
+        }
+    });
+    scale.add_controller(gesture);
 }

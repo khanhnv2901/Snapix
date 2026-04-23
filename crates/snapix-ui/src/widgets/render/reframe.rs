@@ -75,5 +75,5 @@ pub(crate) fn draw_reframe_overlay(
     cr.select_font_face("Sans", cairo::FontSlant::Normal, cairo::FontWeight::Normal);
     cr.set_font_size(12.0);
     cr.move_to(x + 24.0, y + height - 18.0);
-    let _ = cr.show_text("Double-click reset  •  Esc to exit");
+    let _ = cr.show_text("Double-click reset  •  Enter finish  •  Esc exit");
 }

@@ -334,8 +334,24 @@ pub(crate) fn clipboard_write_failed_detail(error: &str) -> String {
     format!("Clipboard write failed: {error}")
 }
 
+pub(crate) fn clipboard_read_failed_detail(error: &str) -> String {
+    format!("Clipboard read failed: {error}")
+}
+
+pub(crate) fn clipboard_image_invalid_detail() -> &'static str {
+    "Clipboard image data is invalid or incomplete."
+}
+
 pub(crate) fn image_copied_to_clipboard_toast() -> &'static str {
     "Image copied to clipboard"
+}
+
+pub(crate) fn image_pasted_from_clipboard_toast() -> &'static str {
+    "Image pasted from clipboard"
+}
+
+pub(crate) fn paste_failed_title() -> &'static str {
+    "Paste Failed"
 }
 
 pub(crate) fn quick_save_failed_title() -> &'static str {
@@ -399,7 +415,11 @@ pub(crate) fn image_view_reset_toast() -> &'static str {
 }
 
 pub(crate) fn reframe_active_toast() -> &'static str {
-    "Image reframe active: drag to pan, scroll to zoom, Esc to exit"
+    "Image reframe active: drag to pan, scroll to zoom, Enter to finish"
+}
+
+pub(crate) fn reframe_done_toast() -> &'static str {
+    "Image reframe finished"
 }
 
 pub(crate) fn couldnt_add_text_label_toast() -> &'static str {
@@ -629,11 +649,11 @@ pub(crate) fn image_anchor_label(anchor: ImageAnchor) -> &'static str {
 }
 
 pub(crate) fn shortcut_hint_empty() -> &'static str {
-    "Fullscreen / Region / Import to begin"
+    "Fullscreen / Region / Import / Paste to begin"
 }
 
 pub(crate) fn shortcut_hint_reframe() -> &'static str {
-    "Drag pan • Scroll zoom • Esc exit reframe"
+    "Drag pan • Scroll zoom • Enter finish • Esc exit"
 }
 
 pub(crate) fn shortcut_hint_selected() -> &'static str {
@@ -641,7 +661,7 @@ pub(crate) fn shortcut_hint_selected() -> &'static str {
 }
 
 pub(crate) fn shortcut_hint_select_idle() -> &'static str {
-    "Click annotation to edit • Double-click image to reframe"
+    "Click annotation to edit • Double-click image to reframe • Ctrl+V paste image"
 }
 
 pub(crate) fn shortcut_hint_crop_active() -> &'static str {
@@ -661,7 +681,7 @@ pub(crate) fn shortcut_hint_text() -> &'static str {
 }
 
 pub(crate) fn scope_text_reframe() -> &'static str {
-    "Reframe: drag the image to reposition it, use the mouse wheel to zoom, and press Esc to exit."
+    "Reframe: drag the image to reposition it, use the mouse wheel to zoom, press Enter when done, or Esc to exit."
 }
 
 pub(crate) fn scope_text_selected(annotation_kind: &str) -> String {

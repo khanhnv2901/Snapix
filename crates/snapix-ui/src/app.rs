@@ -251,6 +251,30 @@ paned > separator:hover {
     padding: 2px;
 }
 
+.reframe-done-btn {
+    min-height: 34px;
+    padding: 0 16px;
+    border-radius: 999px;
+    box-shadow:
+        0 12px 30px alpha(#000000, 0.24),
+        inset 0 1px 0 alpha(#ffffff, 0.14);
+}
+
+.reframe-reset-btn {
+    min-height: 34px;
+    padding: 0 16px;
+    border-radius: 999px;
+    background: alpha(#111722, 0.92);
+    border: 1px solid alpha(#ffffff, 0.10);
+    box-shadow:
+        0 12px 30px alpha(#000000, 0.24),
+        inset 0 1px 0 alpha(#ffffff, 0.14);
+}
+
+.reframe-overlay-actions {
+    padding: 8px;
+}
+
 /* ── Inspector ───────────────────────────────────────────────────── */
 .inspector-card {
     background: #111722;
