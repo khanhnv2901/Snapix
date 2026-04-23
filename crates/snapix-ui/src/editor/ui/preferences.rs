@@ -8,15 +8,26 @@ use libadwaita::{
 };
 
 use crate::editor::i18n::{
-    preferences_about_description, preferences_about_title, preferences_appearance_description,
-    preferences_appearance_title, preferences_appearance_updated_toast,
+    app_window_title,
+    preferences_about_description, preferences_about_title,
+    preferences_app_author_title, preferences_app_license_title,
+    preferences_app_name_title, preferences_app_repository_title,
+    preferences_app_version_title, preferences_open_link_label,
+    preferences_auto_copy_after_export_subtitle, preferences_auto_copy_after_export_title,
+    preferences_auto_reframe_subtitle, preferences_auto_reframe_title,
+    preferences_appearance_description, preferences_appearance_title,
+    preferences_appearance_updated_toast, preferences_editing_description,
+    preferences_editing_title, preferences_editing_updated_toast,
     preferences_color_scheme_subtitle, preferences_color_scheme_title,
     preferences_default_format_updated_toast, preferences_dialog_title,
     preferences_export_description, preferences_export_preference_updated_toast,
-    preferences_export_title, preferences_pro_description, preferences_pro_row_title,
-    preferences_pro_title, preferences_remember_format_subtitle, preferences_remember_format_title,
-    preferences_save_format_subtitle, preferences_save_format_title, preferences_storage_subtitle,
-    preferences_storage_title,
+    preferences_export_title, preferences_jpeg_quality_subtitle,
+    preferences_jpeg_quality_title, preferences_jpeg_quality_updated_toast,
+    preferences_pro_description, preferences_pro_row_title, preferences_pro_title,
+    preferences_quick_save_location_subtitle, preferences_quick_save_location_title,
+    preferences_remember_format_subtitle, preferences_remember_format_title,
+    preferences_save_format_subtitle, preferences_save_format_title,
+    preferences_storage_subtitle, preferences_storage_title,
 };
 use crate::editor::preferences::{
     apply_style_preferences, save_preferences, AppPreferences, AppearancePreference,
@@ -38,7 +49,7 @@ pub(super) fn present_preferences_window(
         .title(preferences_dialog_title())
         .search_enabled(false)
         .follows_content_size(true)
-        .content_width(560)
+        .content_width(760)
         .build();
 
     let page = PreferencesPage::new();
@@ -49,6 +60,10 @@ pub(super) fn present_preferences_window(
     let appearance_group = PreferencesGroup::builder()
         .title(preferences_appearance_title())
         .description(preferences_appearance_description())
+        .build();
+    let editing_group = PreferencesGroup::builder()
+        .title(preferences_editing_title())
+        .description(preferences_editing_description())
         .build();
 
     let appearance_row = ActionRow::builder()
@@ -87,15 +102,88 @@ pub(super) fn present_preferences_window(
         .build();
     export_group.add(&remember_row);
 
+    let jpeg_quality_row = ActionRow::builder()
+        .title(preferences_jpeg_quality_title())
+        .subtitle(preferences_jpeg_quality_subtitle())
+        .build();
+    let jpeg_quality_value = gtk4::Label::builder()
+        .label(format!("{}", preferences.borrow().effective_jpeg_quality()))
+        .css_classes(["dim-copy"])
+        .build();
+    let jpeg_quality_scale =
+        gtk4::Scale::with_range(gtk4::Orientation::Horizontal, 60.0, 100.0, 1.0);
+    jpeg_quality_scale.set_draw_value(false);
+    jpeg_quality_scale.set_value(preferences.borrow().effective_jpeg_quality() as f64);
+    jpeg_quality_row.add_suffix(&jpeg_quality_value);
+    jpeg_quality_row.add_suffix(&jpeg_quality_scale);
+    jpeg_quality_row.set_activatable_widget(Some(&jpeg_quality_scale));
+    export_group.add(&jpeg_quality_row);
+
+    let auto_copy_row = SwitchRow::builder()
+        .title(preferences_auto_copy_after_export_title())
+        .subtitle(preferences_auto_copy_after_export_subtitle())
+        .active(preferences.borrow().auto_copy_after_export)
+        .build();
+    export_group.add(&auto_copy_row);
+
+    let auto_reframe_row = SwitchRow::builder()
+        .title(preferences_auto_reframe_title())
+        .subtitle(preferences_auto_reframe_subtitle())
+        .active(preferences.borrow().auto_reframe_after_load)
+        .build();
+    editing_group.add(&auto_reframe_row);
+
     let notes_group = PreferencesGroup::builder()
         .title(preferences_about_title())
         .description(preferences_about_description())
         .build();
+    let app_name_row = ActionRow::builder()
+        .title(preferences_app_name_title())
+        .subtitle(app_window_title())
+        .build();
+    notes_group.add(&app_name_row);
+    let version_row = ActionRow::builder()
+        .title(preferences_app_version_title())
+        .subtitle(env!("CARGO_PKG_VERSION"))
+        .build();
+    notes_group.add(&version_row);
+    let author_row = ActionRow::builder()
+        .title(preferences_app_author_title())
+        .subtitle(primary_author_name())
+        .build();
+    notes_group.add(&author_row);
+    let license_row_info = ActionRow::builder()
+        .title(preferences_app_license_title())
+        .subtitle(env!("CARGO_PKG_LICENSE"))
+        .build();
+    notes_group.add(&license_row_info);
+    let repository_row = ActionRow::builder()
+        .title(preferences_app_repository_title())
+        .subtitle(env!("CARGO_PKG_REPOSITORY"))
+        .build();
+    let repository_button = gtk4::LinkButton::builder()
+        .uri(env!("CARGO_PKG_REPOSITORY"))
+        .label(preferences_open_link_label())
+        .valign(gtk4::Align::Center)
+        .build();
+    repository_row.add_suffix(&repository_button);
+    repository_row.set_activatable_widget(Some(&repository_button));
+    notes_group.add(&repository_row);
     let notes_row = ActionRow::builder()
         .title(preferences_storage_title())
         .subtitle(preferences_storage_subtitle())
         .build();
     notes_group.add(&notes_row);
+    let quick_save_dir = gtk4::glib::user_special_dir(gtk4::glib::UserDirectory::Pictures)
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("Screenshots");
+    let quick_save_row = ActionRow::builder()
+        .title(preferences_quick_save_location_title())
+        .subtitle(preferences_quick_save_location_subtitle(
+            &quick_save_dir.display().to_string(),
+        ))
+        .build();
+    notes_group.add(&quick_save_row);
 
     let license_group = PreferencesGroup::builder()
         .title(preferences_pro_title())
@@ -112,6 +200,7 @@ pub(super) fn present_preferences_window(
 
     page.add(&appearance_group);
     page.add(&export_group);
+    page.add(&editing_group);
     page.add(&notes_group);
     page.add(&license_group);
     dialog.add(&page);
@@ -225,6 +314,51 @@ pub(super) fn present_preferences_window(
         });
     }
 
+    {
+        let preferences = preferences.clone();
+        let toast_overlay = toast_overlay.clone();
+        let jpeg_quality_value = jpeg_quality_value.clone();
+        jpeg_quality_scale.connect_value_changed(move |scale| {
+            let quality = scale.value().round() as u8;
+            jpeg_quality_value.set_label(&quality.to_string());
+            let mut preferences = preferences.borrow_mut();
+            preferences.jpeg_quality = quality;
+            if let Err(error) = save_preferences(&preferences) {
+                tracing::warn!("Failed to save preferences: {error:#}");
+            }
+            show_toast(&toast_overlay, preferences_jpeg_quality_updated_toast());
+        });
+    }
+
+    {
+        let preferences = preferences.clone();
+        let toast_overlay = toast_overlay.clone();
+        auto_copy_row.connect_active_notify(move |row| {
+            let mut preferences = preferences.borrow_mut();
+            preferences.auto_copy_after_export = row.is_active();
+            if let Err(error) = save_preferences(&preferences) {
+                tracing::warn!("Failed to save preferences: {error:#}");
+            }
+            show_toast(
+                &toast_overlay,
+                preferences_export_preference_updated_toast(),
+            );
+        });
+    }
+
+    {
+        let preferences = preferences.clone();
+        let toast_overlay = toast_overlay.clone();
+        auto_reframe_row.connect_active_notify(move |row| {
+            let mut preferences = preferences.borrow_mut();
+            preferences.auto_reframe_after_load = row.is_active();
+            if let Err(error) = save_preferences(&preferences) {
+                tracing::warn!("Failed to save preferences: {error:#}");
+            }
+            show_toast(&toast_overlay, preferences_editing_updated_toast());
+        });
+    }
+
     dialog.present(Some(parent));
 }
 
@@ -238,4 +372,16 @@ fn apply_save_format(
         SaveFormat::Png => bottom_bar.png_button.set_active(true),
         SaveFormat::Jpeg => bottom_bar.jpeg_button.set_active(true),
     }
+}
+
+fn primary_author_name() -> String {
+    env!("CARGO_PKG_AUTHORS")
+        .split(':')
+        .next()
+        .unwrap_or("Khanh Nguyen")
+        .split('<')
+        .next()
+        .unwrap_or("Khanh Nguyen")
+        .trim()
+        .to_string()
 }

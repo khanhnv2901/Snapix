@@ -116,6 +116,14 @@ pub(crate) fn preferences_export_description() -> &'static str {
     "Choose how Snapix should default export behavior in the editor."
 }
 
+pub(crate) fn preferences_editing_title() -> &'static str {
+    "Editing"
+}
+
+pub(crate) fn preferences_editing_description() -> &'static str {
+    "Tune how newly captured or imported images behave in the editor."
+}
+
 pub(crate) fn preferences_appearance_title() -> &'static str {
     "Appearance"
 }
@@ -153,7 +161,31 @@ pub(crate) fn preferences_about_title() -> &'static str {
 }
 
 pub(crate) fn preferences_about_description() -> &'static str {
-    "This is the first M4 preferences pass. More release settings can be added here without growing the editor window."
+    "Snapix stores local settings here and uses your Pictures folder for Quick Save by default."
+}
+
+pub(crate) fn preferences_app_name_title() -> &'static str {
+    "Application"
+}
+
+pub(crate) fn preferences_app_version_title() -> &'static str {
+    "Version"
+}
+
+pub(crate) fn preferences_app_author_title() -> &'static str {
+    "Author"
+}
+
+pub(crate) fn preferences_app_license_title() -> &'static str {
+    "License"
+}
+
+pub(crate) fn preferences_app_repository_title() -> &'static str {
+    "Repository"
+}
+
+pub(crate) fn preferences_open_link_label() -> &'static str {
+    "Open"
 }
 
 pub(crate) fn preferences_storage_title() -> &'static str {
@@ -162,6 +194,38 @@ pub(crate) fn preferences_storage_title() -> &'static str {
 
 pub(crate) fn preferences_storage_subtitle() -> &'static str {
     "Preferences are stored locally in your user config directory."
+}
+
+pub(crate) fn preferences_quick_save_location_title() -> &'static str {
+    "Quick Save Location"
+}
+
+pub(crate) fn preferences_quick_save_location_subtitle(path: &str) -> String {
+    format!("Quick Save writes to {path}")
+}
+
+pub(crate) fn preferences_jpeg_quality_title() -> &'static str {
+    "JPEG Quality"
+}
+
+pub(crate) fn preferences_jpeg_quality_subtitle() -> &'static str {
+    "Higher values keep more detail but create larger JPEG files."
+}
+
+pub(crate) fn preferences_auto_copy_after_export_title() -> &'static str {
+    "Copy After Save"
+}
+
+pub(crate) fn preferences_auto_copy_after_export_subtitle() -> &'static str {
+    "After Quick Save or Save As, also copy the exported image to the clipboard."
+}
+
+pub(crate) fn preferences_auto_reframe_title() -> &'static str {
+    "Enter Reframe After Load"
+}
+
+pub(crate) fn preferences_auto_reframe_subtitle() -> &'static str {
+    "After capture, import, or paste, jump straight into image reframe mode."
 }
 
 pub(crate) fn preferences_pro_title() -> &'static str {
@@ -186,6 +250,14 @@ pub(crate) fn preferences_default_format_updated_toast() -> &'static str {
 
 pub(crate) fn preferences_export_preference_updated_toast() -> &'static str {
     "Export preference updated"
+}
+
+pub(crate) fn preferences_jpeg_quality_updated_toast() -> &'static str {
+    "JPEG quality updated"
+}
+
+pub(crate) fn preferences_editing_updated_toast() -> &'static str {
+    "Editing preference updated"
 }
 
 pub(crate) fn unlock_manage_button() -> &'static str {

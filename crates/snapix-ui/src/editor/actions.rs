@@ -11,6 +11,7 @@ use snapix_capture::{CaptureBackend, SessionType};
 use snapix_core::canvas::{Document, Image, Rect};
 
 use super::i18n;
+use super::preferences::AppPreferences;
 use super::state::EditorState;
 use super::ui::{
     refresh_export_actions, refresh_history_buttons, refresh_labels, refresh_scope_label,
@@ -24,6 +25,7 @@ use crate::widgets::{render_document_rgba, DocumentCanvas};
 pub(super) fn connect_capture_actions(
     actions: &CaptureActionRow,
     window: &ApplicationWindow,
+    preferences: Rc<RefCell<AppPreferences>>,
     state: Rc<RefCell<EditorState>>,
     canvas: DocumentCanvas,
     title_label: &gtk4::Label,
@@ -58,6 +60,7 @@ pub(super) fn connect_capture_actions(
         connect_capture_button(
             button,
             window,
+            preferences.clone(),
             state.clone(),
             canvas.clone(),
             title_label,
@@ -75,6 +78,7 @@ pub(super) fn connect_capture_actions(
     connect_import_button(
         &actions.import_button,
         window,
+        preferences.clone(),
         state.clone(),
         canvas.clone(),
         title_label,
@@ -114,6 +118,7 @@ pub(crate) enum CaptureAction {
 fn connect_capture_button(
     button: &gtk4::Button,
     window: &ApplicationWindow,
+    preferences: Rc<RefCell<AppPreferences>>,
     state: Rc<RefCell<EditorState>>,
     canvas: DocumentCanvas,
     title_label: &gtk4::Label,
@@ -154,6 +159,7 @@ fn connect_capture_button(
 
         let window = window.clone();
         let state = state.clone();
+        let preferences = preferences.clone();
         let canvas = canvas.clone();
         let title_label = title_label.clone();
         let subtitle_label = subtitle_label.clone();
@@ -180,6 +186,7 @@ fn connect_capture_button(
                 Ok((image, message)) => {
                     let mut state = state.borrow_mut();
                     if state.replace_base_image(image) {
+                        maybe_enter_reframe_after_load(&mut state, &preferences.borrow());
                         refresh_labels(&state, &title_label, &subtitle_label);
                         refresh_scope_label(&state, &scope_label);
                         refresh_history_buttons(&state, &undo_button, &redo_button);
@@ -285,6 +292,7 @@ pub(crate) async fn perform_capture_action(
 fn connect_import_button(
     button: &gtk4::Button,
     window: &ApplicationWindow,
+    preferences: Rc<RefCell<AppPreferences>>,
     state: Rc<RefCell<EditorState>>,
     canvas: DocumentCanvas,
     title_label: &gtk4::Label,
@@ -327,6 +335,7 @@ fn connect_import_button(
         chooser.add_filter(&filter);
 
         let window = window.clone();
+        let preferences = preferences.clone();
         let state = state.clone();
         let canvas = canvas.clone();
         let title_label = title_label.clone();
@@ -346,6 +355,7 @@ fn connect_import_button(
                             Ok(dynamic) => {
                                 let mut state = state.borrow_mut();
                                 if state.replace_base_image(Image::from_dynamic(dynamic)) {
+                                    maybe_enter_reframe_after_load(&mut state, &preferences.borrow());
                                     refresh_labels(&state, &title_label, &subtitle_label);
                                     refresh_scope_label(&state, &scope_label);
                                     refresh_history_buttons(&state, &undo_button, &redo_button);
@@ -466,6 +476,7 @@ pub(super) fn connect_copy_button(
 pub(crate) fn paste_image_from_clipboard(
     window: &ApplicationWindow,
     toast_overlay: &ToastOverlay,
+    preferences: Rc<RefCell<AppPreferences>>,
     state: Rc<RefCell<EditorState>>,
     canvas: &DocumentCanvas,
     title_label: &gtk4::Label,
@@ -556,6 +567,7 @@ pub(crate) fn paste_image_from_clipboard(
 
             let mut state = state.borrow_mut();
             if state.replace_base_image(image) {
+                maybe_enter_reframe_after_load(&mut state, &preferences.borrow());
                 refresh_labels(&state, &title_label, &subtitle_label);
                 refresh_scope_label(&state, &scope_label);
                 refresh_history_buttons(&state, &undo_button, &redo_button);
@@ -574,6 +586,7 @@ pub(super) fn connect_quick_save_button(
     button: &gtk4::Button,
     window: &ApplicationWindow,
     toast_overlay: &ToastOverlay,
+    preferences: Rc<RefCell<AppPreferences>>,
     state: Rc<RefCell<EditorState>>,
     save_format: Rc<RefCell<SaveFormat>>,
 ) {
@@ -582,6 +595,7 @@ pub(super) fn connect_quick_save_button(
     button.connect_clicked(move |_| {
         let document = state.borrow().document().clone();
         let format = *save_format.borrow();
+        let preferences_snapshot = preferences.borrow().clone();
         let pictures_dir = gtk4::glib::user_special_dir(gtk4::glib::UserDirectory::Pictures)
             .unwrap_or_else(|| std::path::PathBuf::from("."));
         let screenshots_dir = pictures_dir.join("Screenshots");
@@ -597,10 +611,15 @@ pub(super) fn connect_quick_save_button(
         let path = screenshots_dir.join(format!("snapix-{ts}.{ext}"));
         let save_result = std::fs::create_dir_all(&screenshots_dir)
             .map_err(anyhow::Error::from)
-            .and_then(|_| save_image_to_path(&document, &path, format));
+            .and_then(|_| save_image_to_path(&document, &path, format, &preferences_snapshot));
         if let Err(error) = save_result {
             show_error(&window, i18n::quick_save_failed_title(), &error.to_string());
         } else {
+            if preferences_snapshot.auto_copy_after_export {
+                if let Err(error) = copy_document_to_clipboard(&window, &document) {
+                    tracing::warn!("Failed to auto-copy exported image: {error:#}");
+                }
+            }
             show_toast(
                 &toast_overlay,
                 &i18n::saved_image_toast(&path.display().to_string()),
@@ -613,6 +632,7 @@ pub(super) fn connect_save_as_button(
     button: &gtk4::Button,
     window: &ApplicationWindow,
     toast_overlay: &ToastOverlay,
+    preferences: Rc<RefCell<AppPreferences>>,
     state: Rc<RefCell<EditorState>>,
     save_format: Rc<RefCell<SaveFormat>>,
 ) {
@@ -655,6 +675,7 @@ pub(super) fn connect_save_as_button(
         let window = window.clone();
         let toast_overlay = toast_overlay.clone();
         let save_format = save_format.clone();
+        let preferences = preferences.clone();
         chooser.connect_response(move |chooser, response| {
             if response == gtk4::ResponseType::Accept {
                 if let Some(file) = chooser.file() {
@@ -662,13 +683,25 @@ pub(super) fn connect_save_as_button(
                         Some(path) => {
                             let document = state.borrow().document().clone();
                             let fmt = *save_format.borrow();
-                            if let Err(error) = save_image_to_path(&document, &path, fmt) {
+                            let preferences_snapshot = preferences.borrow().clone();
+                            if let Err(error) =
+                                save_image_to_path(&document, &path, fmt, &preferences_snapshot)
+                            {
                                 show_error(
                                     &window,
                                     i18n::export_failed_title(),
                                     &error.to_string(),
                                 );
                             } else {
+                                if preferences_snapshot.auto_copy_after_export {
+                                    if let Err(error) =
+                                        copy_document_to_clipboard(&window, &document)
+                                    {
+                                        tracing::warn!(
+                                            "Failed to auto-copy exported image: {error:#}"
+                                        );
+                                    }
+                                }
                                 show_toast(
                                     &toast_overlay,
                                     &i18n::exported_image_toast(&path.display().to_string()),
@@ -693,6 +726,7 @@ fn save_image_to_path(
     document: &Document,
     path: &std::path::Path,
     format: SaveFormat,
+    preferences: &AppPreferences,
 ) -> anyhow::Result<()> {
     let rendered = render_document_rgba(document)?;
     match format {
@@ -712,16 +746,48 @@ fn save_image_to_path(
                 .chunks_exact(4)
                 .flat_map(|p| [p[0], p[1], p[2]])
                 .collect();
-            image::save_buffer(
-                path,
-                &rgb,
-                rendered.width,
-                rendered.height,
-                image::ColorType::Rgb8,
-            )
-            .map_err(|e| anyhow::anyhow!("Failed to save JPEG: {e}"))?;
+            let file = std::fs::File::create(path)
+                .map_err(|e| anyhow::anyhow!("Failed to open JPEG file for writing: {e}"))?;
+            let writer = std::io::BufWriter::new(file);
+            let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(
+                writer,
+                preferences.effective_jpeg_quality(),
+            );
+            encoder
+                .encode(
+                    &rgb,
+                    rendered.width,
+                    rendered.height,
+                    image::ColorType::Rgb8.into(),
+                )
+                .map_err(|e| anyhow::anyhow!("Failed to save JPEG: {e}"))?;
         }
     }
+    Ok(())
+}
+
+fn maybe_enter_reframe_after_load(state: &mut EditorState, preferences: &AppPreferences) {
+    if preferences.auto_reframe_after_load {
+        state.enter_image_reframe_mode();
+    }
+}
+
+fn copy_document_to_clipboard(
+    window: &ApplicationWindow,
+    document: &Document,
+) -> anyhow::Result<()> {
+    let rendered = render_document_rgba(document)?;
+    let stride = rendered.width as usize * 4;
+    let bytes = glib::Bytes::from_owned(rendered.rgba);
+    let texture = MemoryTexture::new(
+        rendered.width as i32,
+        rendered.height as i32,
+        MemoryFormat::R8g8b8a8,
+        &bytes,
+        stride,
+    );
+    let clipboard = gtk4::prelude::WidgetExt::display(window).clipboard();
+    clipboard.set_texture(&texture);
     Ok(())
 }
 

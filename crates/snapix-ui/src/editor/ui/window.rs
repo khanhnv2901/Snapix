@@ -261,6 +261,7 @@ impl EditorWindow {
         connect_crop_shortcuts(
             &window,
             &toast_overlay,
+            preferences.clone(),
             state.clone(),
             canvas.clone(),
             &title_label,
@@ -303,6 +304,7 @@ impl EditorWindow {
         connect_capture_actions(
             &capture_row,
             &window,
+            preferences.clone(),
             state.clone(),
             canvas.clone(),
             &title_label,
@@ -325,6 +327,7 @@ impl EditorWindow {
             &bottom_bar.quick_save_button,
             &window,
             &toast_overlay,
+            preferences.clone(),
             state.clone(),
             save_format.clone(),
         );
@@ -332,6 +335,7 @@ impl EditorWindow {
             &bottom_bar.save_as_button,
             &window,
             &toast_overlay,
+            preferences.clone(),
             state.clone(),
             save_format.clone(),
         );
@@ -447,6 +451,7 @@ fn connect_export_format_preferences(
 fn connect_crop_shortcuts(
     window: &ApplicationWindow,
     toast_overlay: &ToastOverlay,
+    preferences: Rc<RefCell<AppPreferences>>,
     state: Rc<RefCell<EditorState>>,
     canvas: DocumentCanvas,
     title_label: &gtk4::Label,
@@ -521,6 +526,7 @@ fn connect_crop_shortcuts(
             paste_image_from_clipboard(
                 &window_for_shortcuts,
                 &toast_overlay,
+                preferences.clone(),
                 state.clone(),
                 &canvas,
                 &title_label,

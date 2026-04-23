@@ -26,6 +26,9 @@ pub(crate) struct AppPreferences {
     pub(crate) default_save_format: PreferredSaveFormat,
     pub(crate) remember_last_export_format: bool,
     pub(crate) last_export_format: Option<PreferredSaveFormat>,
+    pub(crate) jpeg_quality: u8,
+    pub(crate) auto_copy_after_export: bool,
+    pub(crate) auto_reframe_after_load: bool,
     pub(crate) license_key: Option<String>,
 }
 
@@ -36,6 +39,9 @@ impl Default for AppPreferences {
             default_save_format: PreferredSaveFormat::Png,
             remember_last_export_format: true,
             last_export_format: None,
+            jpeg_quality: 92,
+            auto_copy_after_export: false,
+            auto_reframe_after_load: false,
             license_key: None,
         }
     }
@@ -48,6 +54,10 @@ impl AppPreferences {
         } else {
             self.default_save_format
         }
+    }
+
+    pub(crate) fn effective_jpeg_quality(&self) -> u8 {
+        self.jpeg_quality.clamp(60, 100)
     }
 
     pub(crate) fn entitlements(&self) -> Entitlements {
@@ -175,6 +185,9 @@ mod tests {
             default_save_format: PreferredSaveFormat::Jpeg,
             remember_last_export_format: true,
             last_export_format: Some(PreferredSaveFormat::Png),
+            jpeg_quality: 88,
+            auto_copy_after_export: true,
+            auto_reframe_after_load: true,
             license_key: Some("SNAPIX-PRO-DEV".into()),
         };
 
@@ -185,6 +198,9 @@ mod tests {
         assert_eq!(loaded.default_save_format, PreferredSaveFormat::Jpeg);
         assert!(loaded.remember_last_export_format);
         assert_eq!(loaded.last_export_format, Some(PreferredSaveFormat::Png));
+        assert_eq!(loaded.jpeg_quality, 88);
+        assert!(loaded.auto_copy_after_export);
+        assert!(loaded.auto_reframe_after_load);
         assert_eq!(loaded.license_key.as_deref(), Some("SNAPIX-PRO-DEV"));
 
         let _ = fs::remove_file(path);
