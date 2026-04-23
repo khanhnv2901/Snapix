@@ -390,7 +390,50 @@ fn connect_crop_shortcuts(
     let bottom_bar = bottom_bar.clone();
     let delete_button = delete_button.clone();
     let inspector = inspector.clone();
+    let window_for_shortcuts = window.clone();
     controller.connect_key_pressed(move |_controller, key, _keycode, mods| {
+        if is_text_input_focused(&window_for_shortcuts)
+            && mods.contains(gtk4::gdk::ModifierType::CONTROL_MASK)
+            && matches!(
+                key,
+                gtk4::gdk::Key::c
+                    | gtk4::gdk::Key::C
+                    | gtk4::gdk::Key::s
+                    | gtk4::gdk::Key::S
+                    | gtk4::gdk::Key::z
+                    | gtk4::gdk::Key::Z
+                    | gtk4::gdk::Key::y
+                    | gtk4::gdk::Key::Y
+            )
+        {
+            return glib::Propagation::Proceed;
+        }
+
+        if mods.contains(gtk4::gdk::ModifierType::CONTROL_MASK)
+            && mods.contains(gtk4::gdk::ModifierType::SHIFT_MASK)
+            && matches!(key, gtk4::gdk::Key::s | gtk4::gdk::Key::S)
+            && bottom_bar.save_as_button.is_sensitive()
+        {
+            bottom_bar.save_as_button.emit_clicked();
+            return glib::Propagation::Stop;
+        }
+
+        if mods.contains(gtk4::gdk::ModifierType::CONTROL_MASK)
+            && matches!(key, gtk4::gdk::Key::s | gtk4::gdk::Key::S)
+            && bottom_bar.quick_save_button.is_sensitive()
+        {
+            bottom_bar.quick_save_button.emit_clicked();
+            return glib::Propagation::Stop;
+        }
+
+        if mods.contains(gtk4::gdk::ModifierType::CONTROL_MASK)
+            && matches!(key, gtk4::gdk::Key::c | gtk4::gdk::Key::C)
+            && bottom_bar.copy_button.is_sensitive()
+        {
+            bottom_bar.copy_button.emit_clicked();
+            return glib::Propagation::Stop;
+        }
+
         let mut state = state.borrow_mut();
         match key {
             gtk4::gdk::Key::Escape if state.is_reframing_image() => {
@@ -470,6 +513,21 @@ fn connect_crop_shortcuts(
                 }
                 glib::Propagation::Stop
             }
+            gtk4::gdk::Key::y | gtk4::gdk::Key::Y
+                if state.active_tool() != ToolKind::Crop
+                    && mods.contains(gtk4::gdk::ModifierType::CONTROL_MASK) =>
+            {
+                if state.redo() {
+                    refresh_labels(&state, &title_label, &subtitle_label);
+                    refresh_scope_label(&state, &scope_label);
+                    refresh_history_buttons(&state, &undo_button, &redo_button);
+                    refresh_export_actions(&state, &bottom_bar);
+                    refresh_tool_actions(&state, &delete_button);
+                    inspector.refresh_from_state(&state);
+                    canvas.refresh();
+                }
+                glib::Propagation::Stop
+            }
             gtk4::gdk::Key::z if mods.contains(gtk4::gdk::ModifierType::CONTROL_MASK) => {
                 if state.undo() {
                     refresh_labels(&state, &title_label, &subtitle_label);
@@ -486,6 +544,15 @@ fn connect_crop_shortcuts(
         }
     });
     window.add_controller(controller);
+}
+
+fn is_text_input_focused(window: &ApplicationWindow) -> bool {
+    gtk4::prelude::GtkWindowExt::focus(window).is_some_and(|widget| {
+        widget.is::<gtk4::Entry>()
+            || widget.is::<gtk4::TextView>()
+            || widget.is::<gtk4::SpinButton>()
+            || widget.is::<gtk4::EditableLabel>()
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
