@@ -3,12 +3,22 @@
 This file tracks the current product and release status at a high level.
 Status source of truth for execution progress: use this file first.
 Last synced: 2026-04-23.
+Date format: `YYYY-MM-DD`.
 
 ## Release Snapshot
 
 - Latest tagged release: `0.1.0` (2026-04-22)
-- Current active milestone: `M4 Packaging Prep`
+- Active milestone: `M4 Packaging Prep`
 - Release notes: [CHANGELOG.md](CHANGELOG.md)
+
+## Update Template
+
+Use this checklist when updating status docs:
+
+1. Update `Last synced` in this file.
+2. Keep `Latest tagged release` and `Active milestone` in sync with [README.md](README.md) `Current Status`.
+3. Add ongoing release work under `## Unreleased` in [CHANGELOG.md](CHANGELOG.md).
+4. Use date format `YYYY-MM-DD` across all status and release docs.
 
 ## Current State
 

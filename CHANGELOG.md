@@ -1,5 +1,7 @@
 # Changelog
 
+Date format: `YYYY-MM-DD`.
+
 ## Unreleased
 
 - Continued `M4 Packaging Prep` after `0.1.0`
