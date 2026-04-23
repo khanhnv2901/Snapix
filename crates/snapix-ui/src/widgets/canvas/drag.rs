@@ -658,7 +658,12 @@ fn constrain_square_drag(start_x: f64, start_y: f64, current_x: f64, current_y: 
     (next_x, next_y)
 }
 
-fn constrain_arrow_endpoint(start_x: f32, start_y: f32, current_x: f32, current_y: f32) -> (f32, f32) {
+fn constrain_arrow_endpoint(
+    start_x: f32,
+    start_y: f32,
+    current_x: f32,
+    current_y: f32,
+) -> (f32, f32) {
     let dx = current_x - start_x;
     let dy = current_y - start_y;
     let length = (dx * dx + dy * dy).sqrt();

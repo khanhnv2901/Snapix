@@ -355,7 +355,10 @@ fn connect_import_button(
                             Ok(dynamic) => {
                                 let mut state = state.borrow_mut();
                                 if state.replace_base_image(Image::from_dynamic(dynamic)) {
-                                    maybe_enter_reframe_after_load(&mut state, &preferences.borrow());
+                                    maybe_enter_reframe_after_load(
+                                        &mut state,
+                                        &preferences.borrow(),
+                                    );
                                     refresh_labels(&state, &title_label, &subtitle_label);
                                     refresh_scope_label(&state, &scope_label);
                                     refresh_history_buttons(&state, &undo_button, &redo_button);
@@ -505,15 +508,15 @@ pub(crate) fn paste_image_from_clipboard(
         None::<&gio::Cancellable>,
         move |result: Result<Option<Texture>, glib::Error>| {
             let Some(texture) = (match result {
-            Ok(texture) => texture,
-            Err(error) => {
-                show_error(
-                    &window,
-                    i18n::paste_failed_title(),
-                    &i18n::clipboard_read_failed_detail(&error.to_string()),
-                );
-                return;
-            }
+                Ok(texture) => texture,
+                Err(error) => {
+                    show_error(
+                        &window,
+                        i18n::paste_failed_title(),
+                        &i18n::clipboard_read_failed_detail(&error.to_string()),
+                    );
+                    return;
+                }
             }) else {
                 show_error(
                     &window,
@@ -557,12 +560,12 @@ pub(crate) fn paste_image_from_clipboard(
             };
             let image = Image::new(width, height, rgba);
             if image.width == 0 || image.height == 0 {
-                    show_error(
-                        &window,
-                        i18n::paste_failed_title(),
-                        i18n::clipboard_image_invalid_detail(),
-                    );
-                    return;
+                show_error(
+                    &window,
+                    i18n::paste_failed_title(),
+                    i18n::clipboard_image_invalid_detail(),
+                );
+                return;
             }
 
             let mut state = state.borrow_mut();

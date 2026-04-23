@@ -7,8 +7,8 @@ use libadwaita::prelude::*;
 use libadwaita::{Application, ApplicationWindow, HeaderBar, ToastOverlay, ToolbarView};
 
 use super::super::actions::{
-    connect_capture_actions, connect_copy_button, connect_quick_save_button, connect_save_as_button,
-    paste_image_from_clipboard,
+    connect_capture_actions, connect_copy_button, connect_quick_save_button,
+    connect_save_as_button, paste_image_from_clipboard,
 };
 use super::super::i18n;
 use super::super::i18n::{
@@ -592,7 +592,8 @@ fn connect_crop_shortcuts(
                 glib::Propagation::Stop
             }
             gtk4::gdk::Key::Return | gtk4::gdk::Key::KP_Enter
-                if editor_state.active_tool() == ToolKind::Crop && editor_state.has_pending_crop() =>
+                if editor_state.active_tool() == ToolKind::Crop
+                    && editor_state.has_pending_crop() =>
             {
                 if editor_state.apply_crop_selection() {
                     refresh_labels(&editor_state, &title_label, &subtitle_label);
