@@ -139,16 +139,18 @@ fn connect_capture_button(
     let inspector = inspector.clone();
     button.connect_clicked(move |_| {
         let session = snapix_capture::detect_session();
+        let hide_before_capture = matches!(
+            action,
+            CaptureAction::Fullscreen | CaptureAction::Region | CaptureAction::Window
+        );
+        let delay_ms = capture_window_hide_delay_ms(action, session);
 
-        // Hide the Snapix window before fullscreen capture so it doesn't
-        // appear in the screenshot. The delay gives the compositor time to
-        // actually remove the window from the screen before we call the portal.
-        let delay_ms: u64 = if matches!(action, CaptureAction::Fullscreen) {
+        // Hide the Snapix window before any capture flow so it doesn't end up
+        // in the captured image. Wayland portals and some compositors need a
+        // short delay before the window is actually gone from the screen.
+        if hide_before_capture {
             window.set_visible(false);
-            350
-        } else {
-            0
-        };
+        }
 
         let window = window.clone();
         let state = state.clone();
@@ -169,9 +171,10 @@ fn connect_capture_button(
                 perform_capture_action(backend.as_ref(), session, action).await
             });
 
-            // Always restore the window after capture completes or fails.
-            window.set_visible(true);
-            window.present();
+            if hide_before_capture {
+                window.set_visible(true);
+                window.present();
+            }
 
             match result {
                 Ok((image, message)) => {
@@ -214,6 +217,19 @@ fn connect_capture_button(
             }
         });
     });
+}
+
+fn capture_window_hide_delay_ms(action: CaptureAction, session: SessionType) -> u64 {
+    match (session, action) {
+        // Wayland/compositor-backed capture tends to need a more noticeable
+        // delay so the app window is not included in the screenshot.
+        (SessionType::Wayland, CaptureAction::Fullscreen) => 350,
+        (SessionType::Wayland, CaptureAction::Region | CaptureAction::Window) => 250,
+        // X11 generally reacts faster, but still benefits from a short delay
+        // before querying the root/active window.
+        (SessionType::X11, _) => 120,
+        (SessionType::Unknown, _) => 150,
+    }
 }
 
 pub(crate) async fn perform_capture_action(

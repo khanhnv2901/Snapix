@@ -240,7 +240,9 @@ pub(crate) fn connect_frame_slider<F>(
     let undo_button = undo_button.clone();
     let redo_button = redo_button.clone();
     scale.connect_value_changed(move |scale| {
-        let mut state = state.borrow_mut();
+        let Ok(mut state) = state.try_borrow_mut() else {
+            return;
+        };
         if state.update_document(|doc| update(&mut doc.frame, scale.value() as f32)) {
             refresh_subtitle(&state, &subtitle_label);
             refresh_history_buttons(&state, &undo_button, &redo_button);

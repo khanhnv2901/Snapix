@@ -42,7 +42,9 @@ pub(super) fn build_shadow_section(
         let undo_button = undo_button.clone();
         let redo_button = redo_button.clone();
         shadow_switch.connect_active_notify(move |sw| {
-            let mut state = state.borrow_mut();
+            let Ok(mut state) = state.try_borrow_mut() else {
+                return;
+            };
             if state.update_document(|doc| doc.frame.shadow = sw.is_active()) {
                 refresh_subtitle(&state, &subtitle_label);
                 refresh_history_buttons(&state, &undo_button, &redo_button);
