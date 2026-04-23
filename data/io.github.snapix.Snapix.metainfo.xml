@@ -87,6 +87,18 @@
   </content_rating>
 
   <releases>
+    <release version="0.1.4" date="2026-04-24">
+      <description>
+        <p>Packaging, polish, and workflow update:</p>
+        <ul>
+          <li>Added Flatpak bundle build and release automation</li>
+          <li>Fixed Flatpak metadata, vendored Cargo sources, and runtime compatibility</li>
+          <li>Improved clipboard support for Flatpak and Wayland sessions</li>
+          <li>Expanded preferences with export behavior, editing defaults, and About metadata</li>
+          <li>Added paste-from-clipboard, constrained shapes, and reframe completion actions</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.0" date="2026-04-22">
       <description>
         <p>Release polish and editor completion update:</p>

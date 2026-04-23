@@ -4,9 +4,18 @@ Date format: `YYYY-MM-DD`.
 
 ## Unreleased
 
-- Continued `M4 Packaging Prep` after `0.1.0`
+- Continued `M4 Packaging Prep` after `0.1.4`
 - In progress: Flathub submission/review, landing page/payment setup, and final Linux desktop QA matrix
+
+## 0.1.4 - 2026-04-24
+
 - Added a release workflow and local scripts to build distributable Flatpak bundles
+- Fixed Flatpak packaging so offline Cargo vendor sources, runtime version, and source filtering build correctly
+- Switched clipboard copy/paste to GTK/GDK clipboard for reliable Flatpak and Wayland behavior
+- Improved capture flow by hiding the app for fullscreen, region, and window capture
+- Expanded editor preferences with export, editing, and about metadata options
+- Improved reframe UX with Enter-to-finish plus on-canvas Reset and Done actions
+- Added clipboard paste import, Shift-constrained shapes, and safer inspector sliders
 
 ## 0.1.0 - 2026-04-22
 
