@@ -1,6 +1,6 @@
 app-id: io.github.snapix.Snapix
 runtime: org.gnome.Platform
-runtime-version: '46'
+runtime-version: '50'
 sdk: org.gnome.Sdk
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
@@ -58,7 +58,13 @@ modules:
     sources:
       - type: dir
         path: ..
+        skip:
+          - target
+          - dist
+          - .git
+          - .flatpak-builder
+          - .flatpak-repo
+          - .flatpak-builder-tools
       # Generate this file with scripts/generate-flatpak-sources.sh before
-      # building locally or in CI so Cargo can resolve dependencies offline.
-      - type: file
-        path: cargo-sources.json
+      # building locally or in CI so Flatpak can vendor Cargo dependencies.
+      - cargo-sources.json
