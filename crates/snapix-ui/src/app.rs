@@ -336,6 +336,125 @@ paned > separator:hover {
     border-radius: 8px;
 }
 
+.background-swatch-signature {
+    min-height: 52px;
+    border-radius: 12px;
+    border-color: alpha(#ffffff, 0.08);
+}
+
+.signature-preview-art {
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.signature-preview-base {
+    border-radius: 10px;
+}
+
+.signature-preview-blueprint {
+    background:
+        linear-gradient(0deg, alpha(#3ddcff, 0.08), alpha(#3ddcff, 0.08)),
+        linear-gradient(135deg, #0f1c34, #0a1325);
+    border: 1px solid alpha(#59d7ff, 0.16);
+}
+
+.signature-preview-midnightpanel {
+    background: linear-gradient(135deg, #1b2942, #0c1220);
+    border: 1px solid alpha(#8eaaff, 0.14);
+}
+
+.signature-preview-cutpaper {
+    background: linear-gradient(135deg, #efe3d1, #d9c7b3);
+    border: 1px solid alpha(#1d2430, 0.12);
+}
+
+.signature-preview-terminalglow {
+    background: linear-gradient(135deg, #061413, #0b2420);
+    border: 1px solid alpha(#32f5c1, 0.14);
+}
+
+.signature-preview-redacted {
+    background: linear-gradient(135deg, #20242d, #394253);
+    border: 1px solid alpha(#ffffff, 0.10);
+}
+
+.signature-layer-panel {
+    border-radius: 8px;
+    margin: 10px;
+}
+
+.signature-layer-midnight-panel {
+    border: 2px solid alpha(#d4dcff, 0.16);
+    background: alpha(#0b1120, 0.18);
+}
+
+.signature-layer-glow {
+    border-radius: 0;
+}
+
+.signature-layer-midnight-glow {
+    background: linear-gradient(90deg, alpha(#000000, 0.0), alpha(#6e8dff, 0.18));
+}
+
+.signature-layer-blueprint-block {
+    background: alpha(#3ddcff, 0.22);
+    border-radius: 6px;
+}
+
+.signature-layer-blueprint-bar {
+    background: alpha(#6ef2ff, 0.36);
+    border-radius: 999px;
+}
+
+.signature-layer-cutpaper-shape-a {
+    background: alpha(#253040, 0.14);
+    border-radius: 0 0 24px 0;
+}
+
+.signature-layer-cutpaper-shape-b {
+    background: alpha(#d35f55, 0.22);
+    border-radius: 6px;
+}
+
+.signature-layer-terminal-badge {
+    background: alpha(#31f3bf, 0.18);
+    border-radius: 999px;
+}
+
+.signature-layer-terminal-glow {
+    background: linear-gradient(90deg, alpha(#000000, 0.0), alpha(#1ef5aa, 0.12));
+}
+
+.signature-layer-terminal-bar {
+    background: alpha(#ffbf42, 0.30);
+    border-radius: 5px;
+}
+
+.signature-layer-redacted-bar-a {
+    background: alpha(#0c1017, 0.50);
+    border-radius: 4px;
+}
+
+.signature-layer-redacted-bar-b {
+    background: alpha(#0c1017, 0.40);
+    border-radius: 4px;
+}
+
+.signature-layer-redacted-badge {
+    background: alpha(#ef5757, 0.34);
+    border-radius: 4px;
+}
+
+.background-swatch-label {
+    color: #f5f7ff;
+    font-size: smaller;
+    font-weight: 700;
+}
+
+.background-swatch-label-dark {
+    color: #1d2430;
+}
+
 .background-swatch.selected {
     border-color: #d9ddff;
 }
@@ -351,7 +470,20 @@ paned > separator:hover {
 .swatch-mint       { background: linear-gradient(135deg, #6ee7b7, #0d9488); }
 .swatch-slate      { background: #1f242d; }
 .swatch-charcoal   { background: #2d3748; }
+.swatch-steel      { background: #475569; }
+.swatch-mist       { background: #e2e8f0; }
+.swatch-sky        { background: #38bdf8; }
+.swatch-emerald    { background: #10b981; }
+.swatch-coral      { background: #fb7185; }
+.swatch-amber      { background: #f59e0b; }
+.swatch-violet     { background: #8b5cf6; }
 .swatch-deepspace  { background: linear-gradient(135deg, #1a1a2e, #16213e); }
+.swatch-aurora     { background: linear-gradient(135deg, #22d3ee, #10b981); }
+.swatch-blueprint  { background: linear-gradient(135deg, #0f1c34, #0a1325); }
+.swatch-midnightpanel { background: linear-gradient(135deg, #1b2942, #0c1220); }
+.swatch-cutpaper   { background: linear-gradient(135deg, #efe3d1, #d9c7b3); }
+.swatch-terminalglow { background: linear-gradient(135deg, #061413, #0b2420); }
+.swatch-redacted   { background: linear-gradient(135deg, #20242d, #394253); }
 
 /* ── Bottom bar ──────────────────────────────────────────────────── */
 .bottom-bar {

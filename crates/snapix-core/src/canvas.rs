@@ -147,9 +147,27 @@ pub enum Background {
     Image {
         path: String,
     },
+    Style {
+        id: BackgroundStyleId,
+        #[serde(default = "default_signature_intensity")]
+        intensity: f32,
+    },
     BlurredScreenshot {
         radius: f32,
     },
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum BackgroundStyleId {
+    Blueprint,
+    MidnightPanel,
+    CutPaper,
+    TerminalGlow,
+    Redacted,
+}
+
+fn default_signature_intensity() -> f32 {
+    0.65
 }
 
 impl Default for Background {

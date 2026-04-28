@@ -18,9 +18,6 @@ finish-args:
   # File access for saving screenshots
   - --filesystem=xdg-pictures/Screenshots:create
   - --filesystem=xdg-download:create
-  # Clipboard access
-  - --socket=session-bus
-
 cleanup:
   - /include
   - /lib/pkgconfig

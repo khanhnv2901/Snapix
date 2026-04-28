@@ -136,8 +136,12 @@ pub(super) fn build_inspector(
         image_scale_mode_buttons,
         image_anchor_buttons,
         background_buttons: background_section.swatch_buttons,
+        background_presets_label: background_section.presets_label,
+        background_presets_grid: background_section.presets_grid,
+        background_signature_presets_grid: background_section.signature_presets_grid,
         background_gradient_button: background_section.gradient_button,
         background_solid_button: background_section.solid_button,
+        background_signature_button: background_section.signature_button,
         background_blur_button: background_section.blur_button,
         background_solid_color_button: background_section.solid_color_button,
         background_solid_row: background_section.solid_row,
@@ -151,6 +155,9 @@ pub(super) fn build_inspector(
         background_blur_scale: background_section.blur_radius_scale,
         background_blur_value: background_section.blur_radius_value,
         background_blur_row: background_section.blur_row,
+        background_signature_intensity_scale: background_section.signature_intensity_scale,
+        background_signature_intensity_value: background_section.signature_intensity_value,
+        background_signature_intensity_row: background_section.signature_intensity_row,
         background_suppress_sync_events: background_section.suppress_sync_events,
     };
 

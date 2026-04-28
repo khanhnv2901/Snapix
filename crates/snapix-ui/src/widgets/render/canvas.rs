@@ -7,7 +7,7 @@ use crate::widgets::geometry::{
     draw_arrow_resize_handles, draw_resize_handles, inset_frame, paint_background,
     paint_empty_state, paint_image_for_document, paint_surface, preview_canvas_layout,
     resizable_annotation_widget_bounds, rounded_rect, selection_annotation_widget_bounds,
-    workspace_palette,
+    signature_shadow_profile, workspace_palette,
 };
 use crate::widgets::CanvasLayout;
 
@@ -87,11 +87,17 @@ pub(super) fn draw_canvas(
     };
 
     if document.frame.shadow {
-        let blur = document.frame.shadow_blur.max(0.0) as f64 * composition_scale;
+        let (shadow_blur_scale_factor, shadow_strength_scale_factor) =
+            signature_shadow_profile(&document.background);
+        let blur = document.frame.shadow_blur.max(0.0) as f64
+            * composition_scale
+            * shadow_blur_scale_factor;
         let offset_x = document.frame.shadow_offset_x as f64 * composition_scale;
         let offset_y = document.frame.shadow_offset_y as f64 * composition_scale;
         let shadow_padding = document.frame.shadow_padding.max(0.0) as f64 * composition_scale;
-        let strength = document.frame.shadow_strength.clamp(0.0, 1.0) as f64;
+        let strength = (document.frame.shadow_strength.clamp(0.0, 1.0) as f64
+            * shadow_strength_scale_factor)
+            .clamp(0.0, 1.0);
         let shadow_steps = ((blur / 2.5).round() as i32).clamp(8, 24);
         let max_expand = blur.max(6.0);
         let left_pad = directional_shadow_padding(offset_x, false, shadow_padding);

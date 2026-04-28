@@ -530,6 +530,10 @@ pub(crate) fn inspector_background_mode_solid() -> &'static str {
     "Solid"
 }
 
+pub(crate) fn inspector_background_mode_signature() -> &'static str {
+    "Signature"
+}
+
 pub(crate) fn inspector_background_mode_blur() -> &'static str {
     "Screenshot Blur"
 }
@@ -568,6 +572,10 @@ pub(crate) fn inspector_gradient_angle_label() -> &'static str {
 
 pub(crate) fn inspector_blur_radius_label() -> &'static str {
     "Blur Radius"
+}
+
+pub(crate) fn inspector_signature_intensity_label() -> &'static str {
+    "Style Intensity"
 }
 
 pub(crate) fn inspector_saved_presets_title() -> &'static str {

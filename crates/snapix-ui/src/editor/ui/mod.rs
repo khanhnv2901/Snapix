@@ -13,7 +13,8 @@ use gtk4::prelude::*;
 use snapix_core::canvas::{Background, ImageAnchor, ImageScaleMode, OutputRatio};
 
 use self::inspector::background::{
-    refresh_background_mode_controls, sync_background_editor_values,
+    refresh_background_mode_controls, refresh_background_preset_controls,
+    sync_background_editor_values,
 };
 use super::state::{same_background, EditorState};
 
@@ -72,8 +73,12 @@ pub(super) struct InspectorControls {
     image_scale_mode_buttons: Rc<RefCell<Vec<(ImageScaleMode, gtk4::Button)>>>,
     image_anchor_buttons: Rc<RefCell<Vec<(ImageAnchor, gtk4::Button)>>>,
     background_buttons: Rc<RefCell<Vec<(Background, gtk4::Button)>>>,
+    background_presets_label: gtk4::Widget,
+    background_presets_grid: gtk4::Widget,
+    background_signature_presets_grid: gtk4::Widget,
     background_gradient_button: gtk4::Button,
     background_solid_button: gtk4::Button,
+    background_signature_button: gtk4::Button,
     background_blur_button: gtk4::Button,
     background_solid_color_button: gtk4::ColorButton,
     background_solid_row: gtk4::Widget,
@@ -87,6 +92,9 @@ pub(super) struct InspectorControls {
     background_blur_scale: gtk4::Scale,
     background_blur_value: gtk4::Label,
     background_blur_row: gtk4::Widget,
+    background_signature_intensity_scale: gtk4::Scale,
+    background_signature_intensity_value: gtk4::Label,
+    background_signature_intensity_row: gtk4::Widget,
     background_suppress_sync_events: Rc<Cell<bool>>,
 }
 
@@ -169,16 +177,25 @@ impl InspectorControls {
                 button.remove_css_class("selected");
             }
         }
+        refresh_background_preset_controls(
+            &state.document().background,
+            &self.background_presets_label,
+            &self.background_presets_grid,
+            &self.background_signature_presets_grid,
+            &self.background_buttons,
+        );
         refresh_background_mode_controls(
             &state.document().background,
             &self.background_gradient_button,
             &self.background_solid_button,
+            &self.background_signature_button,
             &self.background_blur_button,
             &self.background_solid_row,
             &self.background_gradient_from_row,
             &self.background_gradient_to_row,
             &self.background_gradient_angle_row,
             &self.background_blur_row,
+            &self.background_signature_intensity_row,
         );
         sync_background_editor_values(
             &state.document().background,
@@ -189,6 +206,8 @@ impl InspectorControls {
             &self.background_gradient_angle_value,
             &self.background_blur_scale,
             &self.background_blur_value,
+            &self.background_signature_intensity_scale,
+            &self.background_signature_intensity_value,
             &self.background_suppress_sync_events,
         );
     }

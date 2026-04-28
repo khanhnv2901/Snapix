@@ -1000,6 +1000,16 @@ pub(crate) fn same_background(current: &Background, previous: &Background) -> bo
         ) => same_color(lf, rf) && same_color(lt, rt) && la == ra,
         (Background::Image { path: l }, Background::Image { path: r }) => l == r,
         (
+            Background::Style {
+                id: lid,
+                intensity: li,
+            },
+            Background::Style {
+                id: rid,
+                intensity: ri,
+            },
+        ) => std::mem::discriminant(lid) == std::mem::discriminant(rid) && li == ri,
+        (
             Background::BlurredScreenshot { radius: l },
             Background::BlurredScreenshot { radius: r },
         ) => l == r,
