@@ -2,7 +2,7 @@
 
 This file tracks the current product and release status at a high level.
 Status source of truth for execution progress: use this file first.
-Last synced: 2026-04-28.
+Last synced: 2026-04-29.
 Date format: `YYYY-MM-DD`.
 
 ## Release Snapshot
@@ -24,13 +24,16 @@ Use this checklist when updating status docs:
 
 - Core screenshot capture is implemented for X11 and Wayland portal flows
 - The GTK4/libadwaita editor is functional and used as the default app experience
-- Annotation tools are available: crop, arrow, rectangle, ellipse, text, and blur
+- Annotation tools are available: crop, arrow, line, rectangle, ellipse, text, and blur
 - Beautify controls are available: gradient, solid color, screenshot blur, padding, radius, and shadow
 - Export flows are available: quick save, save as, copy to clipboard, PNG, and JPEG
 - Local preferences and Pro activation flow are implemented
 - Flatpak bundles build successfully against GNOME Platform `50`
 - Flathub submission files are prepared, including vendored Cargo sources for offline builds
-- Signature background system is implemented: 5 styled presets (Blueprint, Midnight Panel, Cut Paper, Terminal Glow, Redacted) with a dedicated UI tab, intensity slider, and per-style shadow profile tuning
+- Signature background system is implemented: 6 styled presets (Blueprint, Midnight Panel, Cut Paper, Terminal Glow, Redacted, Warning Tape) with a dedicated UI tab, intensity slider, grain polish, and per-style shadow profile tuning
+- Background inspector is organized by families: `Clean`, `Signature`, and `Image`
+- Custom image backgrounds are implemented with async loading and cache pruning
+- Screenshot composition can be repositioned inside the canvas, clipped to the composition frame, and reset back to center with `Reset View`
 
 ## Milestones
 
@@ -41,7 +44,7 @@ Use this checklist when updating status docs:
 | M2 Editor MVP | ✅ Complete | Main editor, annotation tools, export flows, undo/redo |
 | M3 Beautify | ✅ Complete | Background/frame styling, presets, image reframe |
 | M4 Packaging Prep | 🚧 In progress | Release `0.1.4` shipped, Flatpak bundle path working, Flathub submission pending |
-| M5 Signature Backgrounds | 🚧 In progress | Style model, 5 renderers, UI tab, intensity slider — pending export QA and commit |
+| M5 Signature Backgrounds | 🚧 In progress | Style model, 6 renderers, family-based UI, custom image backgrounds, movable screenshot composition — pending final UX/export QA |
 
 ## Current Packaging Notes
 
@@ -60,20 +63,18 @@ Use this checklist when updating status docs:
 - External distribution tasks such as landing page and payment setup
 - Final QA on target Linux desktop environments
 
-## Signature Background Work (M5) — Current Branch
+## Signature Background Work (M5)
 
-### What is done (uncommitted)
-
-All changes are staged in the working tree, not yet committed.
+### What is done
 
 - **Phase 1 — Internal style model** (`crates/snapix-core/src/canvas.rs`, `editor/state.rs`)
   - Added `Background::Style { id: BackgroundStyleId, intensity: f32 }` variant
-  - Added `BackgroundStyleId` enum: `Blueprint`, `MidnightPanel`, `CutPaper`, `TerminalGlow`, `Redacted`
+  - Added `BackgroundStyleId` enum: `Blueprint`, `MidnightPanel`, `CutPaper`, `TerminalGlow`, `Redacted`, `WarningTape`
   - Serialization via serde with default intensity `0.65`
   - Updated `same_background` in `state.rs` to handle `Style` equality by discriminant + intensity
 
 - **Phase 2 — Renderer** (`widgets/geometry/paint.rs`, `widgets/render/canvas.rs`)
-  - Added `paint_signature_background` dispatcher and five style renderers
+  - Added `paint_signature_background` dispatcher and six style renderers
   - Added `paint_signature_preview_thumbnail` for inspector preview cards
   - Added `signature_shadow_profile` returning per-style blur/strength scale factors
   - Canvas shadow path uses `signature_shadow_profile` to tune shadow per active style
@@ -84,24 +85,39 @@ All changes are staged in the working tree, not yet committed.
   - `Cut Paper`: warm off-white + geometric paper shapes + terracotta accent
   - `Terminal Glow`: dark green-black + scanlines + green/amber accent blocks
   - `Redacted`: charcoal gradient + horizontal bars + red accent + border
+  - `Warning Tape`: industrial yellow/black stripe composition with stronger graphic contrast
 
 - **Phase 4 — UI integration** (`editor/ui/inspector/background.rs`, `app.rs`, `i18n.rs`)
-  - Added `Signature` mode button to the background mode row
-  - Added signature presets grid with preview cards for all 5 styles
+  - Background inspector is grouped by families: `Clean`, `Signature`, and `Image`
+  - Added signature presets grid with preview cards for all 6 styles
   - Added `Style Intensity` slider (0.2 – 1.0 range)
-  - Inspector show/hide logic updated for Signature mode
-  - CSS added for signature preview tiles per style
-  - i18n strings added: `inspector_background_mode_signature`, `inspector_signature_intensity_label`
+  - Added image sub-modes for screenshot blur and custom image
+  - Inspector show/hide logic updated for family-based background controls
+  - i18n strings added for Signature and Image background controls
 
-- **Partial Phase 5 — Export polish**
+- **Phase 5 — Export and render polish**
   - Per-style shadow profiles tuned with distinct blur/strength scale factors
+  - Signature grain/texture added and cached for cheap redraws
+  - Technical motifs such as blueprint grid and terminal scanlines are pixel-snapped for cleaner exports
+  - Export path now uses square outer background corners to avoid white export corners
+
+- **Background image support**
+  - Added async custom-image background loading with cache pruning
+  - Custom-image backgrounds render in preview and export using `Fill` + `Center`
+  - Background image failures now fall back cleanly without blocking the draw path
+
+- **Composition movement**
+  - Added a `Line` annotation tool to the toolbar and renderer set
+  - In `Select` mode, dragging empty screenshot area now moves the screenshot composition card
+  - Screenshot composition is clipped to the composition frame so overflow is hidden
+  - `Reset View` and reframe recenter now reset both screenshot-card offset and internal image pan/zoom
 
 ### What remains
 
-- Export QA: verify preview/export parity for all 5 styles at common canvas sizes
-- Phase 5 full texture/anti-aliasing pass
-- Phase 6 (Atmosphere) can be deferred — TerminalGlow and Redacted are already in Signature family
-- Commit and tag when QA passes
+- Final UX QA for composition movement and clipping feel
+- Export QA: verify preview/export parity for all 6 signature styles at common canvas sizes
+- Decide whether screenshot-card movement should get soft bounds or remain fully freeform
+- Phase 6 (Atmosphere) can still be deferred; Warning Tape is now implemented directly in Signature
 
 ## Reference
 

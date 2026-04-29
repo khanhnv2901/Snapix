@@ -1,5 +1,18 @@
 # Snapix Signature Background Roadmap
 
+## Current Status Snapshot
+
+As of `2026-04-29`, the roadmap is largely implemented in code:
+
+- `Background::Style` is implemented with six shipped Signature presets:
+  `Blueprint`, `MidnightPanel`, `CutPaper`, `TerminalGlow`, `Redacted`, `WarningTape`
+- The background inspector is family-based: `Clean`, `Signature`, and `Image`
+- Custom image backgrounds are implemented with async loading and cache pruning
+- Signature render polish is implemented, including grain texture and per-style shadow tuning
+- Screenshot composition can be repositioned inside the canvas and clipped to the composition frame
+
+Remaining work is mostly QA and UX polish, not foundational implementation.
+
 ## Goal
 
 Define a distinctive background system for Snapix so exported screenshots feel recognizably "Snapix" instead of looking like generic solid or gradient presets.
@@ -95,6 +108,8 @@ Potential substyles:
 
 This family can arrive after Signature is stable.
 
+Note: `Warning Tape` has already been pulled forward into the current Signature set.
+
 ## Candidate Signature Presets
 
 These should be treated as art directions, not just palette entries.
@@ -133,6 +148,7 @@ These should be treated as art directions, not just palette entries.
 - Motif: black stripes or industrial bars
 - Accent: hard shadow, rigid spacing
 - Tone: brutalist, loud, memorable
+- Status: implemented in the current Signature family
 
 ### Redacted
 
@@ -256,6 +272,11 @@ Acceptance criteria:
 - switching styles works with undo/redo
 - saved presets can store and reload style backgrounds
 
+Implementation status:
+
+- Complete
+- Presets also persist screenshot-card composition offsets used by the repositionable canvas layout
+
 ### Phase 2. Renderer foundation
 
 Goal: support structured background drawing.
@@ -282,6 +303,11 @@ Acceptance criteria:
 - background style renders correctly in preview
 - export output matches preview closely
 - rendering cost remains acceptable during editor interaction
+
+Implementation status:
+
+- Complete
+- Renderer now also supports async custom-image backgrounds and export-safe outer background corners
 
 ### Phase 3. First Signature presets
 
@@ -311,6 +337,10 @@ Acceptance criteria:
 - each preset looks balanced at common export sizes
 - screenshot remains legible in all three styles
 
+Implementation status:
+
+- Complete, exceeded MVP scope with 6 shipped presets
+
 ### Phase 4. UI integration
 
 Goal: make style backgrounds discoverable and coherent in the inspector.
@@ -335,6 +365,11 @@ Acceptance criteria:
 - no conflicting controls appear for irrelevant modes
 - selection state remains correct after mode switches and preset apply
 
+Implementation status:
+
+- Complete
+- The shipping UI is family-based: `Clean`, `Signature`, `Image`
+
 ### Phase 5. Export polish and quality tuning
 
 Goal: make signature styles production-ready.
@@ -353,6 +388,12 @@ Acceptance criteria:
 - background texture does not band or distract
 - no visible mismatch between preview and export
 
+Implementation status:
+
+- Mostly complete
+- Grain caching, pixel-snapped motifs, and non-blocking custom-image loads are implemented
+- Final QA is still recommended for preview/export parity and drag/reframe UX feel
+
 ### Phase 6. Atmosphere expansion
 
 Goal: add more aggressive stylistic families after Signature is stable.
@@ -364,6 +405,10 @@ Possible additions:
 - `Redacted`
 
 This phase should only start after the Signature family feels solid.
+
+Implementation note:
+
+- `Warning Tape` is no longer deferred; it is already part of the current Signature implementation.
 
 ## Recommended MVP Scope
 
