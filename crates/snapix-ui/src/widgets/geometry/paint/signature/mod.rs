@@ -119,7 +119,58 @@ pub(crate) fn paint_signature_background(
         }
     }
 
+    // Add subtle grain/texture for "Editorial Tech" look
+    let grain_opacity = match id {
+        BackgroundStyleId::CutPaper => 0.04,
+        BackgroundStyleId::TerminalGlow => 0.03,
+        BackgroundStyleId::Blueprint => 0.02,
+        _ => 0.015,
+    };
+    paint_grain(cr, x, y, width, height, grain_opacity * (0.5 + 0.5 * intensity));
+
     cr.reset_clip();
+}
+
+fn paint_grain(cr: &cairo::Context, x: f64, y: f64, width: f64, height: f64, opacity: f64) {
+    if opacity <= 0.0 {
+        return;
+    }
+
+    thread_local! {
+        static GRAIN_PATTERN: cairo::SurfacePattern = {
+            let size = 64;
+            let mut surface = cairo::ImageSurface::create(cairo::Format::ARgb32, size, size)
+                .expect("failed to create noise surface");
+
+            if let Ok(mut data) = surface.data() {
+                let mut state = 42u32;
+                for i in 0..(size * size) as usize {
+                    state = state.wrapping_mul(1103515245).wrapping_add(12345);
+                    let val = ((state >> 16) & 0xFF) as u8;
+                    // Generate opaque grain; opacity will be applied during paint
+                    data[i * 4] = val; // B
+                    data[i * 4 + 1] = val; // G
+                    data[i * 4 + 2] = val; // R
+                    data[i * 4 + 3] = 255; // A
+                }
+            }
+            surface.mark_dirty();
+
+            let pattern = cairo::SurfacePattern::create(&surface);
+            pattern.set_extend(cairo::Extend::Repeat);
+            pattern.set_filter(cairo::Filter::Nearest);
+            pattern
+        };
+    }
+
+    GRAIN_PATTERN.with(|pattern| {
+        cr.save().ok();
+        cr.set_source(pattern).ok();
+        cr.rectangle(x, y, width, height);
+        cr.clip();
+        cr.paint_with_alpha(opacity).ok();
+        cr.restore().ok();
+    });
 }
 
 #[cfg(test)]

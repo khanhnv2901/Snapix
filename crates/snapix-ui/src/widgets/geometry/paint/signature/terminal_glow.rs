@@ -34,10 +34,11 @@ pub(crate) fn paint_terminal_glow_background(
 
     cr.set_source_rgba(0.27, 0.98, 0.75, 0.03 + 0.08 * intensity);
     let line_gap = (height / 24.0).clamp(8.0, 16.0);
-    let mut gy = y + line_gap * 0.5;
-    while gy <= y + height {
-        cr.move_to(x, gy);
-        cr.line_to(x + width, gy);
+    let mut gy = line_gap * 0.5;
+    while gy <= height {
+        let ly = y + gy.floor() + 0.5;
+        cr.move_to(x, ly);
+        cr.line_to(x + width, ly);
         gy += line_gap;
     }
     cr.set_line_width(1.0);

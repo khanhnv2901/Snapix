@@ -18,16 +18,18 @@ pub(crate) fn paint_blueprint_background(
 
     cr.set_source_rgba(0.35, 0.84, 0.98, 0.06 + 0.12 * intensity);
     let grid = (width.min(height) / 12.0).clamp(18.0, 42.0);
-    let mut gx = x;
-    while gx <= x + width {
-        cr.move_to(gx, y);
-        cr.line_to(gx, y + height);
+    let mut gx = 0.0;
+    while gx <= width {
+        let lx = x + gx.floor() + 0.5;
+        cr.move_to(lx, y);
+        cr.line_to(lx, y + height);
         gx += grid;
     }
-    let mut gy = y;
-    while gy <= y + height {
-        cr.move_to(x, gy);
-        cr.line_to(x + width, gy);
+    let mut gy = 0.0;
+    while gy <= height {
+        let ly = y + gy.floor() + 0.5;
+        cr.move_to(x, ly);
+        cr.line_to(x + width, ly);
         gy += grid;
     }
     cr.set_line_width(1.0);
