@@ -35,6 +35,29 @@ Use this checklist when updating status docs:
 - Custom image backgrounds are implemented with async loading and cache pruning
 - Screenshot composition can be repositioned inside the canvas, clipped to the composition frame, and reset back to center with `Reset View`
 
+## Product Boundary
+
+Snapix is a `screenshot-first` editor, not a general-purpose canvas or slide tool.
+
+The product should stay strong at:
+
+- capture, crop, and fast annotation for screenshots
+- screenshot beautification: background, padding, radius, shadow, and reframe
+- lightweight presentation polish that keeps the screenshot as the hero
+- fast export for docs, issues, changelogs, demos, and social sharing
+
+The product should explicitly avoid growing into:
+
+- a PowerPoint or Figma-lite replacement
+- a freeform whiteboard or poster builder
+- a layer-heavy composition tool with arbitrary scene-building workflows
+- a general canvas editor that treats the screenshot as optional
+
+Practical rule for roadmap decisions:
+
+- features are in-bounds if they improve screenshot presentation with low friction
+- features are out-of-bounds if they naturally require slide-editor primitives such as layers, guides, grouping, arbitrary objects, or full freeform layout systems
+
 ## Milestones
 
 | Milestone | Status | Notes |

@@ -19,6 +19,28 @@ Define a distinctive background system for Snapix so exported screenshots feel r
 
 This document turns the visual idea into an implementation roadmap with concrete phases, technical scope, risks, and acceptance criteria.
 
+## Product Boundary
+
+This roadmap assumes Snapix remains a `screenshot-first composition tool`.
+
+That means:
+
+- the screenshot is always the primary subject
+- background and framing systems exist to support the screenshot, not replace it
+- annotation and layout features should stay lightweight and presentation-oriented
+
+This roadmap does **not** imply that Snapix should evolve into:
+
+- a general canvas editor
+- a slide-design tool
+- a whiteboard app
+- a PowerPoint/Figma-style freeform composition surface
+
+Boundary test for future work:
+
+- `in scope`: faster screenshot storytelling, clearer emphasis, better framing, stronger export identity
+- `out of scope`: features that create pressure for layers, guides, grouping, arbitrary scene building, or non-screenshot-centric workflows
+
 ## Product Intent
 
 The current background options are functional, but they are not yet a brand signature. Snapix should offer at least one background family that:
