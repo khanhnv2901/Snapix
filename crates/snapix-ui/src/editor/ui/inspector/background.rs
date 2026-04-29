@@ -16,7 +16,7 @@ use crate::editor::state::{same_background, EditorState};
 use crate::widgets::DocumentCanvas;
 use controls::{
     color_from_rgba, extract_gradient_from, extract_gradient_to, extract_solid_color,
-    rgba_from_color,
+    is_mesh_background, is_mesh_style_id, rgba_from_color,
 };
 pub(crate) use controls::{
     refresh_background_mode_controls, refresh_background_preset_controls,
@@ -179,7 +179,11 @@ fn build_mode_controls(panel: &gtk4::Box) -> BackgroundModeControls {
         .label(i18n::inspector_background_mode_solid())
         .hexpand(true)
         .build();
-    for button in [&gradient_button, &solid_button] {
+    let mesh_button = gtk4::Button::builder()
+        .label(i18n::inspector_background_mode_mesh())
+        .hexpand(true)
+        .build();
+    for button in [&gradient_button, &solid_button, &mesh_button] {
         button.add_css_class("ratio-btn");
         clean_submode_row.append(button);
     }
@@ -213,6 +217,7 @@ fn build_mode_controls(panel: &gtk4::Box) -> BackgroundModeControls {
         clean_submode_row: clean_submode_row.upcast(),
         gradient_button,
         solid_button,
+        mesh_button,
         image_submode_row: image_submode_row.upcast(),
         screenshot_blur_button,
         custom_image_button,
@@ -407,6 +412,10 @@ fn build_preset_controls(panel: &gtk4::Box) -> BackgroundPresetControls {
         .row_spacing(6)
         .column_spacing(6)
         .build();
+    let mesh_swatch_grid = gtk4::Grid::builder()
+        .row_spacing(6)
+        .column_spacing(6)
+        .build();
     let signature_swatch_grid = gtk4::Grid::builder()
         .row_spacing(6)
         .column_spacing(6)
@@ -417,6 +426,7 @@ fn build_preset_controls(panel: &gtk4::Box) -> BackgroundPresetControls {
         .build();
     presets_stack.append(&gradient_swatch_grid);
     presets_stack.append(&solid_swatch_grid);
+    presets_stack.append(&mesh_swatch_grid);
     presets_stack.append(&signature_swatch_grid);
     panel.append(&presets_stack);
 
@@ -424,6 +434,7 @@ fn build_preset_controls(panel: &gtk4::Box) -> BackgroundPresetControls {
         presets_label: presets_label.upcast(),
         gradient_presets_grid: gradient_swatch_grid.upcast(),
         solid_presets_grid: solid_swatch_grid.upcast(),
+        mesh_presets_grid: mesh_swatch_grid.upcast(),
         signature_presets_grid: signature_swatch_grid.upcast(),
     }
 }
@@ -434,6 +445,7 @@ fn connect_mode_handlers(context: &BackgroundChangeContext) {
         context.clone(),
         |background| match background {
             Background::Solid { .. } | Background::Gradient { .. } => background.clone(),
+            Background::Style { .. } if is_mesh_background(background) => background.clone(),
             _ => Background::Gradient {
                 from: Color {
                     r: 110,
@@ -455,7 +467,7 @@ fn connect_mode_handlers(context: &BackgroundChangeContext) {
         &context.ui.mode_controls.signature_family_button,
         context.clone(),
         |background| match background {
-            Background::Style { id, intensity } => Background::Style {
+            Background::Style { id, intensity } if !is_mesh_style_id(*id) => Background::Style {
                 id: *id,
                 intensity: *intensity,
             },
@@ -531,6 +543,20 @@ fn connect_mode_handlers(context: &BackgroundChangeContext) {
                     b: 45,
                     a: 255,
                 },
+            },
+        },
+    );
+    connect_mode_button(
+        &context.ui.mode_controls.mesh_button,
+        context.clone(),
+        |background| match background {
+            Background::Style { id, intensity } if is_mesh_style_id(*id) => Background::Style {
+                id: *id,
+                intensity: *intensity,
+            },
+            _ => Background::Style {
+                id: BackgroundStyleId::VibrantMesh,
+                intensity: 0.65,
             },
         },
     );
@@ -769,9 +795,17 @@ fn populate_presets(current_background: &Background, context: &BackgroundChangeC
         .clone()
         .downcast::<gtk4::Grid>()
         .expect("signature presets grid should be a gtk4::Grid");
+    let mesh_grid = context
+        .ui
+        .preset_controls
+        .mesh_presets_grid
+        .clone()
+        .downcast::<gtk4::Grid>()
+        .expect("mesh presets grid should be a gtk4::Grid");
 
     let mut gradient_index = 0usize;
     let mut solid_index = 0usize;
+    let mut mesh_index = 0usize;
     let mut signature_index = 0usize;
 
     for preset in background_presets() {
@@ -812,6 +846,24 @@ fn populate_presets(current_background: &Background, context: &BackgroundChangeC
                     1,
                 );
                 solid_index += 1;
+            }
+            Background::Style { id, .. } if is_mesh_style_id(*id) => {
+                button.add_css_class("background-swatch-signature");
+                let preview = build_signature_preview_card(preset.label, &preset.background);
+                button.set_child(Some(&preview));
+                button.add_css_class(preset.css_class);
+                if same_background(current_background, &preset.background) {
+                    button.add_css_class("selected");
+                }
+                connect_preset_button(&button, context.clone(), preset.background.clone());
+                mesh_grid.attach(
+                    &button,
+                    (mesh_index % 2) as i32,
+                    (mesh_index / 2) as i32,
+                    1,
+                    1,
+                );
+                mesh_index += 1;
             }
             Background::Style { .. } => {
                 button.add_css_class("background-swatch-signature");

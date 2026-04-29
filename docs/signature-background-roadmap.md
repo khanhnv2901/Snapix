@@ -4,9 +4,9 @@
 
 As of `2026-04-29`, the roadmap is largely implemented in code:
 
-- `Background::Style` is implemented with six shipped Signature presets:
+- `Background::Style` is implemented with shipped Signature presets including:
   `Blueprint`, `MidnightPanel`, `CutPaper`, `TerminalGlow`, `Redacted`, `WarningTape`
-- The background inspector is family-based: `Clean`, `Signature`, and `Image`
+- The background inspector is family-based: `Clean`, `Signature`, and `Image`; `Clean` includes a `Mesh` sub-mode for Vibrant, Sunset, Candy, Aurora, Peach, and Lagoon mesh color effects
 - Custom image backgrounds are implemented with async loading and cache pruning
 - Signature render polish is implemented, including grain texture and per-style shadow tuning
 - Screenshot composition can be repositioned inside the canvas and clipped to the composition frame
@@ -249,6 +249,7 @@ Examples:
 
 - `Clean > Solid`: color picker + solid presets
 - `Clean > Gradient`: start/end/angle + gradient presets
+- `Clean > Mesh`: mesh color-effect presets such as Vibrant, Sunset, Candy, Aurora, Peach, and Lagoon
 - `Signature`: style cards + optional intensity/detail sliders
 - `Screenshot Blur`: blur radius only
 

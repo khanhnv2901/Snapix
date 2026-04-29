@@ -377,6 +377,54 @@ pub(super) fn background_presets() -> Vec<BackgroundPresetDefinition> {
             },
         },
         BackgroundPresetDefinition {
+            label: "Vibrant",
+            css_class: "swatch-vibrantmesh",
+            background: Background::Style {
+                id: BackgroundStyleId::VibrantMesh,
+                intensity: 0.65,
+            },
+        },
+        BackgroundPresetDefinition {
+            label: "Sunset",
+            css_class: "swatch-sunsetmesh",
+            background: Background::Style {
+                id: BackgroundStyleId::SunsetMesh,
+                intensity: 0.65,
+            },
+        },
+        BackgroundPresetDefinition {
+            label: "Candy",
+            css_class: "swatch-candymesh",
+            background: Background::Style {
+                id: BackgroundStyleId::CandyMesh,
+                intensity: 0.65,
+            },
+        },
+        BackgroundPresetDefinition {
+            label: "Aurora",
+            css_class: "swatch-auroramesh",
+            background: Background::Style {
+                id: BackgroundStyleId::AuroraMesh,
+                intensity: 0.65,
+            },
+        },
+        BackgroundPresetDefinition {
+            label: "Peach",
+            css_class: "swatch-peachmesh",
+            background: Background::Style {
+                id: BackgroundStyleId::PeachMesh,
+                intensity: 0.65,
+            },
+        },
+        BackgroundPresetDefinition {
+            label: "Lagoon",
+            css_class: "swatch-lagoonmesh",
+            background: Background::Style {
+                id: BackgroundStyleId::LagoonMesh,
+                intensity: 0.65,
+            },
+        },
+        BackgroundPresetDefinition {
             label: "Terminal Glow",
             css_class: "swatch-terminalglow",
             background: Background::Style {
@@ -430,6 +478,24 @@ pub(super) fn build_signature_preview_card(label: &str, background: &Background)
         background,
         Background::Style {
             id: BackgroundStyleId::CutPaper,
+            ..
+        } | Background::Style {
+            id: BackgroundStyleId::VibrantMesh,
+            ..
+        } | Background::Style {
+            id: BackgroundStyleId::SunsetMesh,
+            ..
+        } | Background::Style {
+            id: BackgroundStyleId::CandyMesh,
+            ..
+        } | Background::Style {
+            id: BackgroundStyleId::AuroraMesh,
+            ..
+        } | Background::Style {
+            id: BackgroundStyleId::PeachMesh,
+            ..
+        } | Background::Style {
+            id: BackgroundStyleId::LagoonMesh,
             ..
         }
     ) {

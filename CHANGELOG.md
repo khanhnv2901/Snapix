@@ -5,7 +5,8 @@ Date format: `YYYY-MM-DD`.
 ## Unreleased
 
 - Active milestone: `M5 Signature Backgrounds`
-- Added six Signature background presets: Blueprint, Midnight Panel, Cut Paper, Terminal Glow, Redacted, and Warning Tape
+- Added Signature background presets including Blueprint, Midnight Panel, Cut Paper, Terminal Glow, Redacted, and Warning Tape
+- Added `Clean > Mesh` color-effect presets including Vibrant, Sunset, Candy, Aurora, Peach, and Lagoon
 - Reworked the background inspector around `Clean`, `Signature`, and `Image` families
 - Added custom image backgrounds with async loading and cache pruning
 - Added Signature render polish including grain texture, pixel-snapped motifs, and per-style shadow tuning

@@ -540,6 +540,10 @@ pub(crate) fn inspector_background_mode_solid() -> &'static str {
     "Solid"
 }
 
+pub(crate) fn inspector_background_mode_mesh() -> &'static str {
+    "Mesh"
+}
+
 pub(crate) fn inspector_background_blur_tooltip() -> &'static str {
     "Use the captured image as a blurred background fill"
 }

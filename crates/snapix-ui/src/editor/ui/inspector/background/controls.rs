@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use gtk4::gdk;
 use gtk4::prelude::*;
-use snapix_core::canvas::{Background, Color};
+use snapix_core::canvas::{Background, BackgroundStyleId, Color};
 
 use super::BackgroundSwatchButtons;
 
@@ -18,10 +18,27 @@ impl BackgroundFamily {
     pub(crate) fn from_background(background: &Background) -> Self {
         match background {
             Background::Solid { .. } | Background::Gradient { .. } => Self::Clean,
+            Background::Style { id, .. } if is_mesh_style_id(*id) => Self::Clean,
             Background::Style { .. } => Self::Signature,
             Background::BlurredScreenshot { .. } | Background::Image { .. } => Self::Image,
         }
     }
+}
+
+pub(crate) fn is_mesh_style_id(id: BackgroundStyleId) -> bool {
+    matches!(
+        id,
+        BackgroundStyleId::VibrantMesh
+            | BackgroundStyleId::SunsetMesh
+            | BackgroundStyleId::CandyMesh
+            | BackgroundStyleId::AuroraMesh
+            | BackgroundStyleId::PeachMesh
+            | BackgroundStyleId::LagoonMesh
+    )
+}
+
+pub(crate) fn is_mesh_background(background: &Background) -> bool {
+    matches!(background, Background::Style { id, .. } if is_mesh_style_id(*id))
 }
 
 #[derive(Clone)]
@@ -33,6 +50,7 @@ pub(crate) struct BackgroundModeControls {
     pub(crate) clean_submode_row: gtk4::Widget,
     pub(crate) gradient_button: gtk4::Button,
     pub(crate) solid_button: gtk4::Button,
+    pub(crate) mesh_button: gtk4::Button,
 
     pub(crate) image_submode_row: gtk4::Widget,
     pub(crate) screenshot_blur_button: gtk4::Button,
@@ -67,6 +85,7 @@ pub(crate) struct BackgroundPresetControls {
     pub(crate) presets_label: gtk4::Widget,
     pub(crate) gradient_presets_grid: gtk4::Widget,
     pub(crate) solid_presets_grid: gtk4::Widget,
+    pub(crate) mesh_presets_grid: gtk4::Widget,
     pub(crate) signature_presets_grid: gtk4::Widget,
 }
 
@@ -91,7 +110,8 @@ pub(crate) fn refresh_background_mode_controls(
 
     let is_gradient = matches!(background, Background::Gradient { .. });
     let is_solid = matches!(background, Background::Solid { .. });
-    let is_signature = matches!(background, Background::Style { .. });
+    let is_mesh = is_mesh_background(background);
+    let is_signature = matches!(background, Background::Style { .. }) && !is_mesh;
     let is_blur = matches!(background, Background::BlurredScreenshot { .. });
     let is_custom_image = matches!(background, Background::Image { .. });
 
@@ -101,6 +121,7 @@ pub(crate) fn refresh_background_mode_controls(
     if family == BackgroundFamily::Clean {
         set_selected(&controls.gradient_button, is_gradient);
         set_selected(&controls.solid_button, is_solid);
+        set_selected(&controls.mesh_button, is_mesh);
     }
 
     controls
@@ -132,6 +153,7 @@ pub(crate) fn refresh_background_preset_controls(
 
     let is_gradient = matches!(background, Background::Gradient { .. });
     let is_solid = matches!(background, Background::Solid { .. });
+    let is_mesh = is_mesh_background(background);
 
     controls
         .gradient_presets_grid
@@ -139,6 +161,9 @@ pub(crate) fn refresh_background_preset_controls(
     controls
         .solid_presets_grid
         .set_visible(show_presets && is_solid);
+    controls
+        .mesh_presets_grid
+        .set_visible(show_presets && is_mesh);
     controls
         .signature_presets_grid
         .set_visible(show_presets && family == BackgroundFamily::Signature);

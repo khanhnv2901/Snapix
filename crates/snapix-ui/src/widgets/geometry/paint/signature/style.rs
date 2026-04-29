@@ -38,6 +38,23 @@ pub(super) fn shadow_profile(id: BackgroundStyleId, intensity: f64) -> Signature
             blur_scale: 0.72 + 0.08 * intensity,
             strength_scale: 0.82 + 0.10 * intensity,
         },
+        BackgroundStyleId::VibrantMesh
+        | BackgroundStyleId::SunsetMesh
+        | BackgroundStyleId::CandyMesh
+        | BackgroundStyleId::AuroraMesh
+        | BackgroundStyleId::PeachMesh
+        | BackgroundStyleId::LagoonMesh => SignatureShadowProfile {
+            blur_scale: 1.18 + 0.16 * intensity,
+            strength_scale: 1.05 + 0.14 * intensity,
+        },
+        BackgroundStyleId::InkWash => SignatureShadowProfile {
+            blur_scale: 1.18 + 0.18 * intensity,
+            strength_scale: 0.92 + 0.14 * intensity,
+        },
+        BackgroundStyleId::LiquidGlass => SignatureShadowProfile {
+            blur_scale: 1.28 + 0.20 * intensity,
+            strength_scale: 0.82 + 0.12 * intensity,
+        },
         BackgroundStyleId::TerminalGlow => SignatureShadowProfile {
             blur_scale: 1.2 + 0.20 * intensity,
             strength_scale: 1.0 + 0.25 * intensity,
@@ -74,6 +91,23 @@ pub(super) fn preview_palette(id: BackgroundStyleId) -> SignaturePreviewPalette 
         BackgroundStyleId::SwissPoster => SignaturePreviewPalette {
             fill_rgba: (0.96, 0.96, 0.93, 0.95),
             stroke_rgba: (0.16, 0.18, 0.20, 0.16),
+        },
+        BackgroundStyleId::VibrantMesh
+        | BackgroundStyleId::SunsetMesh
+        | BackgroundStyleId::CandyMesh
+        | BackgroundStyleId::AuroraMesh
+        | BackgroundStyleId::PeachMesh
+        | BackgroundStyleId::LagoonMesh => SignaturePreviewPalette {
+            fill_rgba: (0.08, 0.09, 0.11, 0.92),
+            stroke_rgba: (1.0, 1.0, 1.0, 0.12),
+        },
+        BackgroundStyleId::InkWash => SignaturePreviewPalette {
+            fill_rgba: (1.0, 0.99, 0.96, 0.92),
+            stroke_rgba: (0.20, 0.24, 0.30, 0.12),
+        },
+        BackgroundStyleId::LiquidGlass => SignaturePreviewPalette {
+            fill_rgba: (0.98, 1.0, 1.0, 0.78),
+            stroke_rgba: (1.0, 1.0, 1.0, 0.30),
         },
         BackgroundStyleId::Redacted => SignaturePreviewPalette {
             fill_rgba: (0.94, 0.96, 1.0, 0.95),

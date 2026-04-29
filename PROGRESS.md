@@ -30,8 +30,8 @@ Use this checklist when updating status docs:
 - Local preferences and Pro activation flow are implemented
 - Flatpak bundles build successfully against GNOME Platform `50`
 - Flathub submission files are prepared, including vendored Cargo sources for offline builds
-- Signature background system is implemented: 6 styled presets (Blueprint, Midnight Panel, Cut Paper, Terminal Glow, Redacted, Warning Tape) with a dedicated UI tab, intensity slider, grain polish, and per-style shadow profile tuning
-- Background inspector is organized by families: `Clean`, `Signature`, and `Image`
+- Signature background system is implemented with styled presets including Blueprint, Midnight Panel, Cut Paper, Terminal Glow, Redacted, and Warning Tape, with a dedicated UI tab, intensity slider, grain polish, and per-style shadow profile tuning
+- Background inspector is organized by families: `Clean`, `Signature`, and `Image`; `Clean` includes a `Mesh` sub-mode for Vibrant, Sunset, Candy, Aurora, Peach, and Lagoon mesh presets
 - Custom image backgrounds are implemented with async loading and cache pruning
 - Screenshot composition can be repositioned inside the canvas, clipped to the composition frame, and reset back to center with `Reset View`
 
@@ -67,7 +67,7 @@ Practical rule for roadmap decisions:
 | M2 Editor MVP | ✅ Complete | Main editor, annotation tools, export flows, undo/redo |
 | M3 Beautify | ✅ Complete | Background/frame styling, presets, image reframe |
 | M4 Packaging Prep | 🚧 In progress | Release `0.1.4` shipped, Flatpak bundle path working, Flathub submission pending |
-| M5 Signature Backgrounds | 🚧 In progress | Style model, 6 renderers, family-based UI, custom image backgrounds, movable screenshot composition — pending final UX/export QA |
+| M5 Signature Backgrounds | 🚧 In progress | Style model, signature renderers, family-based UI, custom image backgrounds, movable screenshot composition — pending final UX/export QA |
 
 ## Current Packaging Notes
 
@@ -97,7 +97,7 @@ Practical rule for roadmap decisions:
   - Updated `same_background` in `state.rs` to handle `Style` equality by discriminant + intensity
 
 - **Phase 2 — Renderer** (`widgets/geometry/paint.rs`, `widgets/render/canvas.rs`)
-  - Added `paint_signature_background` dispatcher and six style renderers
+  - Added `paint_signature_background` dispatcher and style renderers
   - Added `paint_signature_preview_thumbnail` for inspector preview cards
   - Added `signature_shadow_profile` returning per-style blur/strength scale factors
   - Canvas shadow path uses `signature_shadow_profile` to tune shadow per active style
@@ -112,6 +112,7 @@ Practical rule for roadmap decisions:
 
 - **Phase 4 — UI integration** (`editor/ui/inspector/background.rs`, `app.rs`, `i18n.rs`)
   - Background inspector is grouped by families: `Clean`, `Signature`, and `Image`
+  - Added `Clean > Mesh` for Vibrant, Sunset, Candy, Aurora, Peach, and Lagoon mesh presets
   - Added signature presets grid with preview cards for all 6 styles
   - Added `Style Intensity` slider (0.2 – 1.0 range)
   - Added image sub-modes for screenshot blur and custom image

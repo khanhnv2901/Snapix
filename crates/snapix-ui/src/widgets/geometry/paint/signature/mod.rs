@@ -1,5 +1,7 @@
 pub(crate) mod blueprint;
 pub(crate) mod cut_paper;
+pub(crate) mod ink_wash;
+pub(crate) mod liquid_glass;
 pub(crate) mod memphis_grid;
 pub(crate) mod midnight_panel;
 pub(crate) mod neo_brutalism;
@@ -7,6 +9,7 @@ pub(crate) mod redacted;
 pub(crate) mod style;
 pub(crate) mod swiss_poster;
 pub(crate) mod terminal_glow;
+pub(crate) mod vibrant_mesh;
 pub(crate) mod warning_tape;
 
 use gtk4::cairo;
@@ -14,6 +17,7 @@ use snapix_core::canvas::{Background, BackgroundStyleId};
 
 use super::{paint_background, rounded_rect};
 use style::{preview_palette, shadow_profile};
+use vibrant_mesh::MeshPalette;
 
 pub(crate) fn signature_shadow_profile(background: &Background) -> (f64, f64) {
     match background {
@@ -127,6 +131,66 @@ pub(crate) fn paint_signature_background(
         BackgroundStyleId::SwissPoster => {
             swiss_poster::paint_swiss_poster_background(cr, x, y, width, height, intensity)
         }
+        BackgroundStyleId::VibrantMesh => vibrant_mesh::paint_vibrant_mesh_background(
+            cr,
+            x,
+            y,
+            width,
+            height,
+            MeshPalette::Vibrant,
+            intensity,
+        ),
+        BackgroundStyleId::SunsetMesh => vibrant_mesh::paint_vibrant_mesh_background(
+            cr,
+            x,
+            y,
+            width,
+            height,
+            MeshPalette::Sunset,
+            intensity,
+        ),
+        BackgroundStyleId::CandyMesh => vibrant_mesh::paint_vibrant_mesh_background(
+            cr,
+            x,
+            y,
+            width,
+            height,
+            MeshPalette::Candy,
+            intensity,
+        ),
+        BackgroundStyleId::AuroraMesh => vibrant_mesh::paint_vibrant_mesh_background(
+            cr,
+            x,
+            y,
+            width,
+            height,
+            MeshPalette::Aurora,
+            intensity,
+        ),
+        BackgroundStyleId::PeachMesh => vibrant_mesh::paint_vibrant_mesh_background(
+            cr,
+            x,
+            y,
+            width,
+            height,
+            MeshPalette::Peach,
+            intensity,
+        ),
+        BackgroundStyleId::LagoonMesh => vibrant_mesh::paint_vibrant_mesh_background(
+            cr,
+            x,
+            y,
+            width,
+            height,
+            MeshPalette::Lagoon,
+            intensity,
+        ),
+        BackgroundStyleId::InkWash => {
+            ink_wash::paint_ink_wash_background(cr, x, y, width, height, intensity)
+        }
+        BackgroundStyleId::LiquidGlass => {
+            liquid_glass::paint_liquid_glass_background(cr, x, y, width, height, intensity)
+        }
         BackgroundStyleId::TerminalGlow => {
             terminal_glow::paint_terminal_glow_background(cr, x, y, width, height, intensity)
         }
@@ -144,6 +208,14 @@ pub(crate) fn paint_signature_background(
         BackgroundStyleId::NeoBrutalism => 0.012,
         BackgroundStyleId::MemphisGrid => 0.015,
         BackgroundStyleId::SwissPoster => 0.01,
+        BackgroundStyleId::VibrantMesh
+        | BackgroundStyleId::SunsetMesh
+        | BackgroundStyleId::CandyMesh
+        | BackgroundStyleId::AuroraMesh
+        | BackgroundStyleId::PeachMesh
+        | BackgroundStyleId::LagoonMesh => 0.012,
+        BackgroundStyleId::InkWash => 0.018,
+        BackgroundStyleId::LiquidGlass => 0.012,
         BackgroundStyleId::TerminalGlow => 0.03,
         BackgroundStyleId::Blueprint => 0.02,
         BackgroundStyleId::WarningTape => 0.025,
