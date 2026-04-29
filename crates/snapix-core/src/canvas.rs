@@ -334,6 +334,8 @@ pub struct Document {
     pub background: Background,
     pub frame: FrameSettings,
     pub output_ratio: OutputRatio,
+    pub image_frame_offset_x: f32,
+    pub image_frame_offset_y: f32,
     pub image_scale_mode: ImageScaleMode,
     pub image_anchor: ImageAnchor,
     pub image_zoom: f32,
@@ -349,6 +351,8 @@ impl Default for Document {
             background: Background::default(),
             frame: FrameSettings::default(),
             output_ratio: OutputRatio::Auto,
+            image_frame_offset_x: 0.0,
+            image_frame_offset_y: 0.0,
             image_scale_mode: ImageScaleMode::Fit,
             image_anchor: ImageAnchor::Center,
             image_zoom: 1.0,
@@ -366,6 +370,8 @@ impl Document {
             background: Background::default(),
             frame: FrameSettings::default(),
             output_ratio: OutputRatio::Auto,
+            image_frame_offset_x: 0.0,
+            image_frame_offset_y: 0.0,
             image_scale_mode: ImageScaleMode::Fit,
             image_anchor: ImageAnchor::Center,
             image_zoom: 1.0,
@@ -455,6 +461,8 @@ mod tests {
         assert!(doc.base_image.is_some());
         assert!(doc.annotations.is_empty());
         assert_eq!(doc.image_zoom, 1.0);
+        assert_eq!(doc.image_frame_offset_x, 0.0);
+        assert_eq!(doc.image_frame_offset_y, 0.0);
         assert_eq!(doc.image_offset_x, 0.0);
         assert_eq!(doc.image_offset_y, 0.0);
     }
@@ -467,6 +475,8 @@ mod tests {
         assert_eq!(doc.image_scale_mode, ImageScaleMode::Fit);
         assert_eq!(doc.image_anchor, ImageAnchor::Center);
         assert_eq!(doc.image_zoom, 1.0);
+        assert_eq!(doc.image_frame_offset_x, 0.0);
+        assert_eq!(doc.image_frame_offset_y, 0.0);
         assert_eq!(doc.image_offset_x, 0.0);
         assert_eq!(doc.image_offset_y, 0.0);
     }

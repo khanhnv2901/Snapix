@@ -14,8 +14,9 @@ pub(crate) use hit::{
 };
 pub(crate) use layout::{
     canvas_layout, composition_frame_bounds, composition_scale, composition_size,
-    directional_shadow_padding, inset_frame, layout_for_bounds_with_mode, layout_for_document,
-    natural_image_bounds, point_in_layout, preview_canvas_layout, widget_point_to_image_pixel,
+    directional_shadow_padding, image_bounds_for_document, layout_for_bounds_with_mode,
+    layout_for_document, natural_image_bounds, point_in_layout, preview_canvas_layout,
+    widget_point_to_image_pixel,
 };
 pub(crate) use paint::{
     blurred_region_image, draw_arrow_resize_handles, draw_resize_handles, make_surface,

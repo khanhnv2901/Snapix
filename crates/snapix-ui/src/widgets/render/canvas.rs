@@ -4,7 +4,7 @@ use snapix_core::canvas::{Annotation, Background, Document, ImageAnchor, ImageSc
 use crate::editor::{EditorState, ToolKind};
 use crate::widgets::geometry::{
     composition_frame_bounds, composition_scale, directional_shadow_padding,
-    draw_arrow_resize_handles, draw_resize_handles, inset_frame, paint_background,
+    draw_arrow_resize_handles, draw_resize_handles, image_bounds_for_document, paint_background,
     paint_empty_state, paint_image_for_document, paint_surface, preview_canvas_layout,
     resizable_annotation_widget_bounds, rounded_rect, selection_annotation_widget_bounds,
     signature_shadow_profile, workspace_palette,
@@ -98,12 +98,13 @@ pub(super) fn draw_canvas_with_background_radius(
         );
     }
 
-    let image_bounds = inset_frame(
-        frame_x,
-        frame_y,
-        frame_w,
-        frame_h,
-        document.frame.padding as f64 * composition_scale,
+    cr.save().ok();
+    clip_to_composition_frame(cr, document, width, height, background_radius);
+
+    let image_bounds = image_bounds_for_document(
+        document,
+        (frame_x, frame_y, frame_w, frame_h),
+        composition_scale,
     );
 
     let shadow_target = match document.base_image.as_ref() {
@@ -196,6 +197,8 @@ pub(super) fn draw_canvas_with_background_radius(
     } else {
         paint_empty_state(cr, image_bounds, document.frame.corner_radius as f64);
     }
+
+    cr.restore().ok();
 }
 
 pub(crate) fn draw_editor_canvas(
@@ -209,17 +212,25 @@ pub(crate) fn draw_editor_canvas(
     draw_canvas(cr, width, height, state.document(), blur_cache);
     if overlay_opacity > 0.01 {
         if let Some(layout) = preview_canvas_layout(state.document(), width, height) {
+            cr.save().ok();
+            clip_to_composition_frame(cr, state.document(), width, height, 28.0);
             draw_reframe_overlay(cr, layout, overlay_opacity, state.document().image_zoom);
+            cr.restore().ok();
         }
     }
     if let Some(layout) = preview_canvas_layout(state.document(), width, height) {
         if let Some(index) = state.selected_annotation() {
+            cr.save().ok();
+            clip_to_composition_frame(cr, state.document(), width, height, 28.0);
             draw_selected_annotation(cr, state.document(), layout, index);
+            cr.restore().ok();
         }
     }
     if state.active_tool() == ToolKind::Arrow {
         if let Some(layout) = preview_canvas_layout(state.document(), width, height) {
             if let Some(arrow_drag) = state.arrow_drag() {
+                cr.save().ok();
+                clip_to_composition_frame(cr, state.document(), width, height, 28.0);
                 draw_arrow(
                     cr,
                     layout,
@@ -230,11 +241,14 @@ pub(crate) fn draw_editor_canvas(
                     &state.active_color(),
                     state.active_width(),
                 );
+                cr.restore().ok();
             }
         }
     } else if state.active_tool() == ToolKind::Line {
         if let Some(layout) = preview_canvas_layout(state.document(), width, height) {
             if let Some(arrow_drag) = state.arrow_drag() {
+                cr.save().ok();
+                clip_to_composition_frame(cr, state.document(), width, height, 28.0);
                 draw_line(
                     cr,
                     layout,
@@ -245,11 +259,14 @@ pub(crate) fn draw_editor_canvas(
                     &state.active_color(),
                     state.active_width(),
                 );
+                cr.restore().ok();
             }
         }
     } else if state.active_tool() == ToolKind::Rectangle {
         if let Some(layout) = preview_canvas_layout(state.document(), width, height) {
             if let Some(rect_drag) = state.rect_drag() {
+                cr.save().ok();
+                clip_to_composition_frame(cr, state.document(), width, height, 28.0);
                 draw_rect_preview(
                     cr,
                     layout,
@@ -257,11 +274,14 @@ pub(crate) fn draw_editor_canvas(
                     &state.active_color(),
                     state.active_width(),
                 );
+                cr.restore().ok();
             }
         }
     } else if state.active_tool() == ToolKind::Ellipse {
         if let Some(layout) = preview_canvas_layout(state.document(), width, height) {
             if let Some(ellipse_drag) = state.ellipse_drag() {
+                cr.save().ok();
+                clip_to_composition_frame(cr, state.document(), width, height, 28.0);
                 draw_ellipse_preview(
                     cr,
                     layout,
@@ -269,15 +289,31 @@ pub(crate) fn draw_editor_canvas(
                     &state.active_color(),
                     state.active_width(),
                 );
+                cr.restore().ok();
             }
         }
     } else if state.active_tool() == ToolKind::Blur {
         if let Some(layout) = preview_canvas_layout(state.document(), width, height) {
             if let Some(blur_drag) = state.blur_drag() {
+                cr.save().ok();
+                clip_to_composition_frame(cr, state.document(), width, height, 28.0);
                 draw_blur_preview(cr, layout, blur_drag);
+                cr.restore().ok();
             }
         }
     }
+}
+
+fn clip_to_composition_frame(
+    cr: &cairo::Context,
+    document: &Document,
+    width: i32,
+    height: i32,
+    radius: f64,
+) {
+    let (frame_x, frame_y, frame_w, frame_h) = composition_frame_bounds(document, width, height);
+    rounded_rect(cr, frame_x, frame_y, frame_w, frame_h, radius);
+    cr.clip();
 }
 
 fn draw_selected_annotation(

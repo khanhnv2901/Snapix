@@ -13,6 +13,8 @@ pub(crate) struct StylePreset {
     pub(crate) background: Background,
     pub(crate) frame: FrameSettings,
     pub(crate) output_ratio: OutputRatio,
+    pub(crate) image_frame_offset_x: f32,
+    pub(crate) image_frame_offset_y: f32,
     pub(crate) image_scale_mode: ImageScaleMode,
     pub(crate) image_anchor: ImageAnchor,
 }
@@ -29,6 +31,8 @@ impl StylePreset {
             background: document.background.clone(),
             frame: document.frame.clone(),
             output_ratio: document.output_ratio,
+            image_frame_offset_x: document.image_frame_offset_x,
+            image_frame_offset_y: document.image_frame_offset_y,
             image_scale_mode: document.image_scale_mode,
             image_anchor: document.image_anchor,
         }
@@ -38,6 +42,8 @@ impl StylePreset {
         document.background = self.background.clone();
         document.frame = self.frame.clone();
         document.output_ratio = self.output_ratio;
+        document.image_frame_offset_x = self.image_frame_offset_x;
+        document.image_frame_offset_y = self.image_frame_offset_y;
         document.image_scale_mode = self.image_scale_mode;
         document.image_anchor = self.image_anchor;
     }

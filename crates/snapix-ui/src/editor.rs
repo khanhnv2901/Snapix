@@ -290,6 +290,99 @@ mod tests {
     }
 
     #[test]
+    fn preview_pan_image_switches_to_fill_and_offsets_image() {
+        let document = Document::new(large_sample_image());
+        let before = document.clone();
+        let mut state = EditorState::with_document(document);
+
+        state.preview_pan_image(&before, 24.0, 12.0);
+
+        assert_eq!(state.document().image_scale_mode, ImageScaleMode::Fill);
+        assert_ne!(state.document().image_offset_x, 0.0);
+        assert_ne!(state.document().image_offset_y, 0.0);
+    }
+
+    #[test]
+    fn preview_move_image_frame_offsets_composition_bounds() {
+        let document = Document::new(large_sample_image());
+        let before = document.clone();
+        let mut state = EditorState::with_document(document);
+
+        state.preview_move_image_frame(&before, 28.0, -16.0);
+
+        assert_eq!(state.document().image_frame_offset_x, 28.0);
+        assert_eq!(state.document().image_frame_offset_y, -16.0);
+    }
+
+    #[test]
+    fn reset_image_reframe_clears_frame_and_image_offsets() {
+        let mut document = Document::new(large_sample_image());
+        document.image_frame_offset_x = 24.0;
+        document.image_frame_offset_y = -12.0;
+        document.image_scale_mode = ImageScaleMode::Fill;
+        document.image_zoom = 1.8;
+        document.image_offset_x = 10.0;
+        document.image_offset_y = -8.0;
+        let mut state = EditorState::with_document(document);
+
+        assert!(state.reset_image_reframe());
+
+        assert_eq!(state.document().image_frame_offset_x, 0.0);
+        assert_eq!(state.document().image_frame_offset_y, 0.0);
+        assert_eq!(state.document().image_offset_x, 0.0);
+        assert_eq!(state.document().image_offset_y, 0.0);
+        assert_eq!(state.document().image_scale_mode, ImageScaleMode::Fit);
+    }
+
+    #[test]
+    fn recenter_image_reframe_clears_frame_and_image_offsets() {
+        let mut document = Document::new(large_sample_image());
+        document.image_frame_offset_x = -30.0;
+        document.image_frame_offset_y = 14.0;
+        document.image_scale_mode = ImageScaleMode::Fill;
+        document.image_zoom = 2.0;
+        document.image_offset_x = 6.0;
+        document.image_offset_y = 9.0;
+        let mut state = EditorState::with_document(document);
+
+        assert!(state.recenter_image_reframe());
+
+        assert_eq!(state.document().image_frame_offset_x, 0.0);
+        assert_eq!(state.document().image_frame_offset_y, 0.0);
+        assert_eq!(state.document().image_offset_x, 0.0);
+        assert_eq!(state.document().image_offset_y, 0.0);
+        assert_eq!(state.document().image_scale_mode, ImageScaleMode::Fill);
+    }
+
+    #[test]
+    fn fill_layout_allows_positive_offsets_without_recenter_clamp() {
+        let mut document = Document::new(large_sample_image());
+        document.image_scale_mode = ImageScaleMode::Fill;
+        document.image_offset_x = 32.0;
+        document.image_offset_y = 18.0;
+
+        let bounds = crate::widgets::natural_image_bounds(&document);
+        let layout = crate::widgets::layout_for_document(
+            document.base_image.as_ref().expect("image"),
+            bounds,
+            &document,
+        )
+        .expect("layout");
+
+        let centered_document = Document::new(large_sample_image());
+        let centered_bounds = crate::widgets::natural_image_bounds(&centered_document);
+        let centered_layout = crate::widgets::layout_for_document(
+            centered_document.base_image.as_ref().expect("image"),
+            centered_bounds,
+            &centered_document,
+        )
+        .expect("centered layout");
+
+        assert!(layout.image_x > centered_layout.image_x);
+        assert!(layout.image_y > centered_layout.image_y);
+    }
+
+    #[test]
     fn selected_annotation_can_be_deleted() {
         let mut state = EditorState::with_document(Document::new(sample_image()));
         state.commit_rect_annotation(10, 10, 40, 30);

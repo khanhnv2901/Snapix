@@ -5,14 +5,14 @@ use gtk4::prelude::*;
 
 use crate::editor::i18n;
 use crate::editor::{
-    refresh_history_buttons, refresh_scope_label, refresh_tool_actions, show_toast, EditorState,
-    ToolKind,
+    refresh_history_buttons, refresh_scope_label, refresh_subtitle, refresh_tool_actions,
+    refresh_width_label, show_toast, EditorState, ToolKind,
 };
 use crate::widgets::geometry::{
-    adjusted_crop_bounds, canvas_layout, crop_rect_to_image_pixels, crop_selection_widget_bounds,
-    hit_arrow_resize_handle, hit_crop_interaction, hit_resize_handle, hit_test_annotation,
-    point_in_layout, preview_canvas_layout, resizable_annotation_widget_bounds,
-    widget_point_to_image_pixel, widget_rect_to_image_pixels,
+    adjusted_crop_bounds, canvas_layout, composition_scale, crop_rect_to_image_pixels,
+    crop_selection_widget_bounds, hit_arrow_resize_handle, hit_crop_interaction, hit_resize_handle,
+    hit_test_annotation, point_in_layout, preview_canvas_layout,
+    resizable_annotation_widget_bounds, widget_point_to_image_pixel, widget_rect_to_image_pixels,
 };
 use crate::widgets::{
     AnnotationMoveSession, AnnotationResizeSession, ArrowResizeSession, CropInteractionSession,
@@ -147,32 +147,43 @@ fn connect_drag_begin(
                     }
                 }
             }
-            let Some(index) = hit_test_annotation(state.document(), layout, x, y) else {
-                return;
-            };
-            let Some((image_x, image_y)) =
-                widget_point_to_image_pixel(state.document(), layout, x, y)
-            else {
-                return;
-            };
-            let Some(original) = state.document().annotations.get(index).cloned() else {
-                return;
-            };
+            if let Some(index) = hit_test_annotation(state.document(), layout, x, y) {
+                let Some((image_x, image_y)) =
+                    widget_point_to_image_pixel(state.document(), layout, x, y)
+                else {
+                    return;
+                };
+                let Some(original) = state.document().annotations.get(index).cloned() else {
+                    return;
+                };
 
-            state.set_selected_annotation(Some(index));
-            *annotation_move.borrow_mut() = Some(AnnotationMoveSession {
-                index,
-                widget_start_x: x,
-                widget_start_y: y,
-                image_start_x: image_x,
-                image_start_y: image_y,
-                original,
-                before_document: state.document().clone(),
-            });
-            refresh_scope_label(&state, &ui.scope_label);
-            refresh_history_buttons(&state, &ui.undo_button, &ui.redo_button);
-            drawing_area.grab_focus();
-            drawing_area.queue_draw();
+                state.set_selected_annotation(Some(index));
+                *annotation_move.borrow_mut() = Some(AnnotationMoveSession {
+                    index,
+                    widget_start_x: x,
+                    widget_start_y: y,
+                    image_start_x: image_x,
+                    image_start_y: image_y,
+                    original,
+                    before_document: state.document().clone(),
+                });
+                refresh_scope_label(&state, &ui.scope_label);
+                refresh_history_buttons(&state, &ui.undo_button, &ui.redo_button);
+                drawing_area.grab_focus();
+                drawing_area.queue_draw();
+                return;
+            }
+
+            if point_in_layout(x, y, layout) {
+                state.set_selected_annotation(None);
+                *image_reframe.borrow_mut() = Some(state.document().clone());
+                reframe.begin_drag(&drawing_area);
+                refresh_scope_label(&state, &ui.scope_label);
+                refresh_width_label(&state, &ui.width_label);
+                refresh_tool_actions(&state, &ui.delete_button);
+                drawing_area.grab_focus();
+                drawing_area.queue_draw();
+            }
             return;
         }
 
@@ -238,7 +249,18 @@ fn connect_drag_update(
         let mut state = state.borrow_mut();
 
         if let Some(before_document) = image_reframe.borrow().clone() {
-            state.preview_pan_image(&before_document, offset_x, offset_y);
+            if state.is_reframing_image() {
+                state.preview_pan_image(&before_document, offset_x, offset_y);
+            } else {
+                let width = drawing_area.allocated_width();
+                let height = drawing_area.allocated_height();
+                let scale = composition_scale(&before_document, width, height).max(0.0001);
+                state.preview_move_image_frame(
+                    &before_document,
+                    (offset_x / scale) as f32,
+                    (offset_y / scale) as f32,
+                );
+            }
         } else if let Some(session) = arrow_resize.borrow().clone() {
             let width = drawing_area.allocated_width();
             let height = drawing_area.allocated_height();
@@ -430,10 +452,20 @@ fn connect_drag_end(
         let mut state = state.borrow_mut();
 
         if let Some(before_document) = image_reframe.borrow_mut().take() {
-            state.preview_pan_image(&before_document, offset_x, offset_y);
+            if state.is_reframing_image() {
+                state.preview_pan_image(&before_document, offset_x, offset_y);
+            } else {
+                let scale = composition_scale(&before_document, width, height).max(0.0001);
+                state.preview_move_image_frame(
+                    &before_document,
+                    (offset_x / scale) as f32,
+                    (offset_y / scale) as f32,
+                );
+            }
             state.finalize_image_reframe(before_document);
             reframe.end_drag(&drawing_area, &state);
             refresh_scope_label(&state, &ui.scope_label);
+            refresh_subtitle(&state, &ui.subtitle_label);
             refresh_history_buttons(&state, &ui.undo_button, &ui.redo_button);
             refresh_tool_actions(&state, &ui.delete_button);
         } else if let Some(session) = arrow_resize.borrow_mut().take() {

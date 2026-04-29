@@ -14,15 +14,33 @@ pub(crate) fn preview_canvas_layout(
     let image = document.base_image.as_ref()?;
     let (frame_x, frame_y, frame_w, frame_h) = composition_frame_bounds(document, width, height);
     let composition_scale = composition_scale(document, width, height);
-    let image_bounds = inset_frame(
-        frame_x,
-        frame_y,
-        frame_w,
-        frame_h,
-        document.frame.padding as f64 * composition_scale,
+    let image_bounds = image_bounds_for_document(
+        document,
+        (frame_x, frame_y, frame_w, frame_h),
+        composition_scale,
     );
 
     layout_for_document(image, image_bounds, document)
+}
+
+pub(crate) fn image_bounds_for_document(
+    document: &Document,
+    frame_bounds: (f64, f64, f64, f64),
+    composition_scale: f64,
+) -> (f64, f64, f64, f64) {
+    let bounds = inset_frame(
+        frame_bounds.0,
+        frame_bounds.1,
+        frame_bounds.2,
+        frame_bounds.3,
+        document.frame.padding as f64 * composition_scale,
+    );
+    (
+        bounds.0 + document.image_frame_offset_x as f64 * composition_scale,
+        bounds.1 + document.image_frame_offset_y as f64 * composition_scale,
+        bounds.2,
+        bounds.3,
+    )
 }
 
 pub(crate) fn composition_size(document: &Document) -> (f64, f64) {
@@ -132,13 +150,7 @@ pub(crate) fn layout_for_document(
 
 pub(crate) fn natural_image_bounds(document: &Document) -> (f64, f64, f64, f64) {
     let (frame_width, frame_height) = composition_size(document);
-    inset_frame(
-        0.0,
-        0.0,
-        frame_width,
-        frame_height,
-        document.frame.padding as f64,
-    )
+    image_bounds_for_document(document, (0.0, 0.0, frame_width, frame_height), 1.0)
 }
 
 pub(crate) fn layout_for_bounds_with_transform(
@@ -174,21 +186,8 @@ pub(crate) fn layout_for_bounds_with_transform(
     };
     let base_x = x + (max_width - draw_w) * align_x;
     let base_y = y + (max_height - draw_h) * align_y;
-    let mut draw_x = base_x + offset_x as f64 * scale;
-    let mut draw_y = base_y + offset_y as f64 * scale;
-
-    if mode == ImageScaleMode::Fill {
-        if draw_w > max_width {
-            draw_x = draw_x.clamp(x + max_width - draw_w, x);
-        } else {
-            draw_x = x + (max_width - draw_w) * 0.5;
-        }
-        if draw_h > max_height {
-            draw_y = draw_y.clamp(y + max_height - draw_h, y);
-        } else {
-            draw_y = y + (max_height - draw_h) * 0.5;
-        }
-    }
+    let draw_x = base_x + offset_x as f64 * scale;
+    let draw_y = base_y + offset_y as f64 * scale;
 
     Some(CanvasLayout {
         image_x: draw_x,

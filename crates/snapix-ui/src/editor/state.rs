@@ -560,6 +560,8 @@ impl EditorState {
         let changed = self.update_document(|document| {
             document.image_scale_mode = snapix_core::canvas::ImageScaleMode::Fit;
             document.image_anchor = snapix_core::canvas::ImageAnchor::Center;
+            document.image_frame_offset_x = 0.0;
+            document.image_frame_offset_y = 0.0;
             document.image_zoom = 1.0;
             document.image_offset_x = 0.0;
             document.image_offset_y = 0.0;
@@ -577,6 +579,8 @@ impl EditorState {
         let changed = self.update_document(|document| {
             document.image_scale_mode = snapix_core::canvas::ImageScaleMode::Fill;
             document.image_anchor = snapix_core::canvas::ImageAnchor::Center;
+            document.image_frame_offset_x = 0.0;
+            document.image_frame_offset_y = 0.0;
             document.image_zoom = 1.0;
             document.image_offset_x = 0.0;
             document.image_offset_y = 0.0;
@@ -599,6 +603,17 @@ impl EditorState {
         };
         self.document.image_offset_x += (offset_x / layout.image_scale) as f32;
         self.document.image_offset_y += (offset_y / layout.image_scale) as f32;
+    }
+
+    pub(crate) fn preview_move_image_frame(
+        &mut self,
+        before: &Document,
+        delta_x: f32,
+        delta_y: f32,
+    ) {
+        self.document = before.clone();
+        self.document.image_frame_offset_x += delta_x;
+        self.document.image_frame_offset_y += delta_y;
     }
 
     pub(crate) fn preview_zoom_image(&mut self, before: &Document, scale_delta: f64) {
@@ -995,6 +1010,8 @@ impl EditorState {
             || self.document.frame.shadow_offset_y != previous.frame.shadow_offset_y
             || self.document.frame.shadow_strength != previous.frame.shadow_strength
             || self.document.output_ratio != previous.output_ratio
+            || self.document.image_frame_offset_x != previous.image_frame_offset_x
+            || self.document.image_frame_offset_y != previous.image_frame_offset_y
             || self.document.image_scale_mode != previous.image_scale_mode
             || self.document.image_anchor != previous.image_anchor
             || self.document.image_zoom != previous.image_zoom
