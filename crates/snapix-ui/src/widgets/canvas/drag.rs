@@ -534,7 +534,12 @@ fn connect_drag_end(
                     state.update_arrow_drag(next_x, next_y);
                 }
             }
-            if !state.commit_arrow_drag() {
+            let committed = if state.active_tool() == ToolKind::Line {
+                state.commit_line_drag()
+            } else {
+                state.commit_arrow_drag()
+            };
+            if !committed {
                 show_toast(&ui.toast_overlay, i18n::arrow_too_small_toast());
             }
             refresh_scope_label(&state, &ui.scope_label);
@@ -684,7 +689,7 @@ fn begin_tool_drag(state: &mut EditorState, width: i32, height: i32, x: f64, y: 
     };
 
     match state.active_tool() {
-        ToolKind::Arrow => {
+        ToolKind::Arrow | ToolKind::Line => {
             if let Some((image_x, image_y)) =
                 widget_point_to_image_pixel(state.document(), layout, x, y)
             {

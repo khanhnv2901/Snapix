@@ -109,6 +109,12 @@ pub enum Annotation {
         color: Color,
         width: f32,
     },
+    Line {
+        from: Point,
+        to: Point,
+        color: Color,
+        width: f32,
+    },
     Rect {
         bounds: Rect,
         stroke: Stroke,
@@ -493,6 +499,28 @@ mod tests {
                 assert_eq!(width, 2.0);
             }
             _ => panic!("Expected Arrow annotation"),
+        }
+    }
+
+    #[test]
+    fn line_annotation_serialization_roundtrip() {
+        let line = Annotation::Line {
+            from: Point { x: 12.0, y: 16.0 },
+            to: Point { x: 80.0, y: 44.0 },
+            color: Color::BLACK,
+            width: 3.0,
+        };
+        let json = serde_json::to_string(&line).unwrap();
+        let parsed: Annotation = serde_json::from_str(&json).unwrap();
+        match parsed {
+            Annotation::Line {
+                from, to, width, ..
+            } => {
+                assert_eq!(from.x, 12.0);
+                assert_eq!(to.y, 44.0);
+                assert_eq!(width, 3.0);
+            }
+            _ => panic!("Expected Line annotation"),
         }
     }
 }

@@ -15,6 +15,7 @@ pub(crate) fn tool_label(tool: ToolKind) -> &'static str {
         ToolKind::Select => "Select",
         ToolKind::Crop => "Crop",
         ToolKind::Arrow => "Arrow",
+        ToolKind::Line => "Line",
         ToolKind::Rectangle => "Rect",
         ToolKind::Ellipse => "Ellipse",
         ToolKind::Text => "Text",
@@ -27,6 +28,7 @@ pub(crate) fn tool_tooltip(tool: ToolKind) -> &'static str {
         ToolKind::Select => "Select and edit annotations",
         ToolKind::Crop => "Crop the image",
         ToolKind::Arrow => "Draw an arrow annotation",
+        ToolKind::Line => "Draw a straight line annotation",
         ToolKind::Rectangle => "Draw a rectangle annotation",
         ToolKind::Ellipse => "Draw an ellipse annotation",
         ToolKind::Text => "Add a text label",
@@ -546,6 +548,10 @@ pub(crate) fn inspector_image_path_label() -> &'static str {
     "Image Path"
 }
 
+pub(crate) fn inspector_choose_image_button() -> &'static str {
+    "Choose..."
+}
+
 pub(crate) fn inspector_background_mode_gradient() -> &'static str {
     "Gradient"
 }
@@ -798,6 +804,10 @@ pub(crate) fn scope_text_crop_idle() -> &'static str {
 
 pub(crate) fn scope_text_arrow() -> &'static str {
     "Arrow: drag on the image to place an arrow."
+}
+
+pub(crate) fn scope_text_line() -> &'static str {
+    "Line: drag on the image to draw a straight line."
 }
 
 pub(crate) fn scope_text_rectangle() -> &'static str {

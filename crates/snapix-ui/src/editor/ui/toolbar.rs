@@ -231,6 +231,7 @@ pub(super) fn build_tool_row(
         ToolKind::Select,
         ToolKind::Crop,
         ToolKind::Arrow,
+        ToolKind::Line,
         ToolKind::Rectangle,
         ToolKind::Ellipse,
         ToolKind::Text,
@@ -480,6 +481,20 @@ fn build_tool_icon(tool: ToolKind) -> gtk4::Widget {
                 cr.line_to(9.5, 7.0);
                 cr.close_path();
                 cr.fill().ok();
+            }
+            ToolKind::Line => {
+                cr.set_source_rgba(r, g, b, alpha);
+                cr.set_line_width(2.0);
+                cr.move_to(4.0, 15.5);
+                cr.line_to(15.5, 4.5);
+                cr.stroke().ok();
+
+                for (hx, hy) in [(4.0, 15.5), (15.5, 4.5)] {
+                    cr.set_source_rgba(r, g, b, fill_alpha + 0.08);
+                    cr.new_sub_path();
+                    cr.arc(hx, hy, 1.8, 0.0, std::f64::consts::TAU);
+                    cr.fill().ok();
+                }
             }
             ToolKind::Rectangle => {
                 cr.set_source_rgba(r, g, b, alpha);

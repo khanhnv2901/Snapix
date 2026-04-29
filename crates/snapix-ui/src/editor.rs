@@ -248,6 +248,17 @@ mod tests {
     }
 
     #[test]
+    fn scope_text_describes_line_tool() {
+        let mut state = EditorState::with_document(Document::new(large_sample_image()));
+        state.set_active_tool(ToolKind::Line);
+
+        assert_eq!(
+            scope_text(&state),
+            "Line: drag on the image to draw a straight line."
+        );
+    }
+
+    #[test]
     fn shortcut_hint_text_for_selected_annotation_mentions_delete() {
         let mut state = EditorState::with_document(Document::new(large_sample_image()));
         assert!(state.commit_rect_annotation(4, 4, 12, 10));
@@ -256,6 +267,26 @@ mod tests {
             shortcut_hint_text(&state).as_deref(),
             Some("Delete remove • Ctrl+Z undo")
         );
+    }
+
+    #[test]
+    fn commit_line_drag_creates_line_annotation() {
+        let mut state = EditorState::with_document(Document::new(large_sample_image()));
+        state.set_active_tool(ToolKind::Line);
+        state.begin_arrow_drag(12.0, 18.0, 12.0, 18.0);
+        state.update_arrow_drag(42.0, 36.0);
+
+        assert!(state.commit_line_drag());
+
+        let Some(Annotation::Line {
+            from, to, width, ..
+        }) = state.document().annotations.first()
+        else {
+            panic!("expected line annotation");
+        };
+        assert_eq!((from.x, from.y), (12.0, 18.0));
+        assert_eq!((to.x, to.y), (42.0, 36.0));
+        assert_eq!(*width, state.active_width());
     }
 
     #[test]

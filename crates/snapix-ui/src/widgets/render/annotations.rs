@@ -5,7 +5,7 @@ use std::thread;
 use gtk4::cairo;
 use image::imageops::FilterType;
 use snapix_core::canvas::Image;
-use snapix_core::canvas::{Annotation, Color, Document, TextStyle};
+use snapix_core::canvas::{Annotation, Background, Color, Document, TextStyle};
 
 use crate::editor::CropDrag;
 use crate::widgets::geometry::{
@@ -58,9 +58,13 @@ pub(crate) struct BlurSurfaceCache {
     image_identity: Option<BlurImageIdentity>,
     annotation_surfaces: HashMap<BlurCacheKey, cairo::ImageSurface>,
     background_surfaces: HashMap<u32, cairo::ImageSurface>,
+    custom_background_surfaces: HashMap<String, cairo::ImageSurface>,
     pending_background_surfaces: HashSet<u32>,
+    pending_custom_background_surfaces: HashSet<String>,
     background_results_tx: Option<mpsc::Sender<BackgroundBlurResult>>,
     background_results_rx: Option<mpsc::Receiver<BackgroundBlurResult>>,
+    custom_background_results_tx: Option<mpsc::Sender<CustomBackgroundResult>>,
+    custom_background_results_rx: Option<mpsc::Receiver<CustomBackgroundResult>>,
 }
 
 #[derive(Debug)]
@@ -70,10 +74,16 @@ struct BackgroundBlurResult {
     image: Image,
 }
 
+#[derive(Debug)]
+struct CustomBackgroundResult {
+    path: String,
+    image: Option<Image>,
+}
+
 impl BlurSurfaceCache {
     pub(crate) fn prepare_for_document(&mut self, document: &Document) {
         let Some(image) = document.base_image.as_ref() else {
-            self.clear();
+            self.clear_blur_document_cache();
             return;
         };
 
@@ -85,16 +95,21 @@ impl BlurSurfaceCache {
             self.pending_background_surfaces.clear();
         }
 
-        if self.background_results_tx.is_none() || self.background_results_rx.is_none() {
-            let (tx, rx) = mpsc::channel();
-            self.background_results_tx = Some(tx);
-            self.background_results_rx = Some(rx);
-        }
+        self.ensure_blur_background_channel();
     }
 
     pub(crate) fn retain_for_document(&mut self, document: &Document) {
+        let active_custom_path = match &document.background {
+            Background::Image { path } if !path.is_empty() => Some(path.as_str()),
+            _ => None,
+        };
+        self.custom_background_surfaces
+            .retain(|path, _| active_custom_path.is_some_and(|active| active == path));
+        self.pending_custom_background_surfaces
+            .retain(|path| active_custom_path.is_some_and(|active| active == path));
+
         let Some(image) = document.base_image.as_ref() else {
-            self.clear();
+            self.clear_blur_document_cache();
             return;
         };
 
@@ -108,7 +123,6 @@ impl BlurSurfaceCache {
                 blur_cache_key(image, bounds, *radius)
             })
             .collect();
-
         self.annotation_surfaces.retain(|key, _| keys.contains(key));
     }
 
@@ -147,11 +161,28 @@ impl BlurSurfaceCache {
             .or_else(|| self.nearest_background_surface(radius_bits))
     }
 
-    pub(crate) fn poll_background_updates(&mut self) -> bool {
-        self.sync_background_results()
+    pub(crate) fn custom_image_surface_for(&mut self, path: &str) -> Option<&cairo::ImageSurface> {
+        self.sync_custom_background_results();
+        if path.is_empty() {
+            return None;
+        }
+
+        if !self.custom_background_surfaces.contains_key(path)
+            && !self.pending_custom_background_surfaces.contains(path)
+        {
+            self.request_custom_background_surface(path);
+        }
+
+        self.custom_background_surfaces.get(path)
     }
 
-    pub(crate) fn clear(&mut self) {
+    pub(crate) fn poll_background_updates(&mut self) -> bool {
+        let background_updated = self.sync_background_results();
+        let custom_updated = self.sync_custom_background_results();
+        background_updated || custom_updated
+    }
+
+    fn clear_blur_document_cache(&mut self) {
         self.image_identity = None;
         self.annotation_surfaces.clear();
         self.background_surfaces.clear();
@@ -160,12 +191,31 @@ impl BlurSurfaceCache {
         self.background_results_rx = None;
     }
 
+    fn ensure_blur_background_channel(&mut self) {
+        if self.background_results_tx.is_none() || self.background_results_rx.is_none() {
+            let (tx, rx) = mpsc::channel();
+            self.background_results_tx = Some(tx);
+            self.background_results_rx = Some(rx);
+        }
+    }
+
+    fn ensure_custom_background_channel(&mut self) {
+        if self.custom_background_results_tx.is_none()
+            || self.custom_background_results_rx.is_none()
+        {
+            let (tx, rx) = mpsc::channel();
+            self.custom_background_results_tx = Some(tx);
+            self.custom_background_results_rx = Some(rx);
+        }
+    }
+
     fn request_background_surface(&mut self, image: &Image, radius: f32) {
         let radius_bits = radius.to_bits();
         if self.pending_background_surfaces.contains(&radius_bits) {
             return;
         }
 
+        self.ensure_blur_background_channel();
         let Some(sender) = self.background_results_tx.clone() else {
             return;
         };
@@ -187,6 +237,24 @@ impl BlurSurfaceCache {
         });
     }
 
+    fn request_custom_background_surface(&mut self, path: &str) {
+        if path.is_empty() || self.pending_custom_background_surfaces.contains(path) {
+            return;
+        }
+
+        self.ensure_custom_background_channel();
+        let Some(sender) = self.custom_background_results_tx.clone() else {
+            return;
+        };
+
+        let path = path.to_string();
+        self.pending_custom_background_surfaces.insert(path.clone());
+        thread::spawn(move || {
+            let image = image::open(&path).ok().map(Image::from_dynamic);
+            let _ = sender.send(CustomBackgroundResult { path, image });
+        });
+    }
+
     fn sync_background_results(&mut self) -> bool {
         let mut updated = false;
         let Some(receiver) = self.background_results_rx.as_ref() else {
@@ -202,6 +270,29 @@ impl BlurSurfaceCache {
                 continue;
             };
             self.background_surfaces.insert(result.radius_bits, surface);
+            updated = true;
+        }
+
+        updated
+    }
+
+    fn sync_custom_background_results(&mut self) -> bool {
+        let mut updated = false;
+        let Some(receiver) = self.custom_background_results_rx.as_ref() else {
+            return false;
+        };
+
+        while let Ok(result) = receiver.try_recv() {
+            if !self.pending_custom_background_surfaces.remove(&result.path) {
+                continue;
+            }
+            let Some(image) = result.image else {
+                continue;
+            };
+            let Some(surface) = make_surface(&image) else {
+                continue;
+            };
+            self.custom_background_surfaces.insert(result.path, surface);
             updated = true;
         }
 
@@ -236,6 +327,12 @@ pub(super) fn draw_annotations(
                 color,
                 width,
             } => draw_arrow(cr, layout, from.x, from.y, to.x, to.y, color, *width),
+            Annotation::Line {
+                from,
+                to,
+                color,
+                width,
+            } => draw_line(cr, layout, from.x, from.y, to.x, to.y, color, *width),
             Annotation::Text {
                 pos,
                 content,
@@ -329,6 +426,31 @@ pub(super) fn draw_rect_preview(
         return;
     };
     draw_rect_shape(cr, x, y, rect_width, rect_height, color, width, None);
+}
+
+pub(super) fn draw_line(
+    cr: &cairo::Context,
+    layout: CanvasLayout,
+    from_x: f32,
+    from_y: f32,
+    to_x: f32,
+    to_y: f32,
+    color: &Color,
+    width: f32,
+) {
+    let start_x = layout.image_x + from_x as f64 * layout.image_scale;
+    let start_y = layout.image_y + from_y as f64 * layout.image_scale;
+    let end_x = layout.image_x + to_x as f64 * layout.image_scale;
+    let end_y = layout.image_y + to_y as f64 * layout.image_scale;
+
+    cr.save().ok();
+    set_color(cr, color);
+    cr.set_line_width((width as f64 * layout.image_scale).max(1.0));
+    cr.set_line_cap(cairo::LineCap::Round);
+    cr.move_to(start_x, start_y);
+    cr.line_to(end_x, end_y);
+    cr.stroke().ok();
+    cr.restore().ok();
 }
 
 fn draw_rect_annotation(
@@ -597,7 +719,7 @@ pub(super) fn draw_arrow(
 #[cfg(test)]
 mod tests {
     use gtk4::cairo::{Antialias, Context, Format, ImageSurface};
-    use snapix_core::canvas::{Annotation, Color, Document, Image, Rect};
+    use snapix_core::canvas::{Annotation, Background, Color, Document, Image, Rect};
 
     use super::{blur_cache_key, draw_ellipse_shape, make_background_blur_image, BlurSurfaceCache};
 
@@ -681,6 +803,57 @@ mod tests {
         assert!(cache.annotation_surfaces.is_empty());
         assert!(cache.background_surfaces.is_empty());
         assert!(cache.pending_background_surfaces.is_empty());
+    }
+
+    #[test]
+    fn retain_for_document_prunes_custom_backgrounds_without_base_image() {
+        let mut cache = BlurSurfaceCache::default();
+        cache.custom_background_surfaces.insert(
+            "keep.png".into(),
+            ImageSurface::create(Format::ARgb32, 4, 4).expect("surface"),
+        );
+        cache.custom_background_surfaces.insert(
+            "drop.png".into(),
+            ImageSurface::create(Format::ARgb32, 4, 4).expect("surface"),
+        );
+        cache
+            .pending_custom_background_surfaces
+            .insert("keep.png".into());
+        cache
+            .pending_custom_background_surfaces
+            .insert("drop.png".into());
+
+        let mut document = Document::default();
+        document.background = Background::Image {
+            path: "keep.png".into(),
+        };
+
+        cache.retain_for_document(&document);
+
+        assert_eq!(cache.custom_background_surfaces.len(), 1);
+        assert!(cache.custom_background_surfaces.contains_key("keep.png"));
+        assert_eq!(cache.pending_custom_background_surfaces.len(), 1);
+        assert!(cache
+            .pending_custom_background_surfaces
+            .contains("keep.png"));
+    }
+
+    #[test]
+    fn retain_for_document_clears_custom_backgrounds_for_non_image_background() {
+        let mut cache = BlurSurfaceCache::default();
+        cache.custom_background_surfaces.insert(
+            "drop.png".into(),
+            ImageSurface::create(Format::ARgb32, 4, 4).expect("surface"),
+        );
+        cache
+            .pending_custom_background_surfaces
+            .insert("drop.png".into());
+
+        let document = Document::default();
+        cache.retain_for_document(&document);
+
+        assert!(cache.custom_background_surfaces.is_empty());
+        assert!(cache.pending_custom_background_surfaces.is_empty());
     }
 
     #[test]

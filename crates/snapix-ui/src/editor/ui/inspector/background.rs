@@ -23,6 +23,7 @@ pub(crate) use controls::{
     sync_background_editor_values, BackgroundEditorControls, BackgroundModeControls,
     BackgroundPresetControls,
 };
+
 use presets::{background_presets, build_signature_preview_card};
 
 pub(crate) type BackgroundSwatchButtons = Rc<RefCell<Vec<(Background, gtk4::Button)>>>;
@@ -119,7 +120,7 @@ pub(super) fn build_background_section(
     );
 
     connect_mode_handlers(&context);
-    connect_editor_handlers(&context, &current_background);
+    connect_editor_handlers(&context);
     populate_presets(&current_background, &context);
     refresh_background_preset_controls(
         &current_background,
@@ -208,7 +209,7 @@ fn build_mode_controls(panel: &gtk4::Box) -> BackgroundModeControls {
     BackgroundModeControls {
         clean_family_button,
         signature_family_button,
-        image_family_button: image_family_button.clone(),
+        image_family_button,
         clean_submode_row: clean_submode_row.upcast(),
         gradient_button,
         solid_button,
@@ -327,10 +328,13 @@ fn build_editor_controls(
         .ellipsize(gtk4::pango::EllipsizeMode::End)
         .css_classes(["dim-copy"])
         .build();
+    let choose_image_button = gtk4::Button::builder()
+        .label(i18n::inspector_choose_image_button())
+        .build();
     let image_path_row = labeled_row_with_value(
         i18n::inspector_image_path_label(),
+        &choose_image_button,
         &image_path_label,
-        &gtk4::Label::builder().label("").build(),
     );
 
     let current_signature_intensity = match current_background {
@@ -372,6 +376,7 @@ fn build_editor_controls(
             blur_radius_scale,
             blur_radius_value,
             image_path_label,
+            choose_image_button,
             signature_intensity_scale,
             signature_intensity_value,
         },
@@ -540,17 +545,26 @@ fn connect_mode_handlers(context: &BackgroundChangeContext) {
             _ => Background::BlurredScreenshot { radius: 24.0 },
         },
     );
-    connect_mode_button(
-        &context.ui.mode_controls.custom_image_button,
-        context.clone(),
-        |background| match background {
-            Background::Image { path } => Background::Image { path: path.clone() },
-            _ => Background::Image { path: "".into() },
-        },
-    );
+
+    {
+        let context = context.clone();
+        context
+            .ui
+            .mode_controls
+            .custom_image_button
+            .clone()
+            .connect_clicked(move |button| {
+                let current_background = context.state.borrow().document().background.clone();
+                if let Background::Image { .. } = current_background {
+                    apply_background_change(&context, current_background);
+                } else {
+                    trigger_image_background_picker(&context, button.upcast_ref());
+                }
+            });
+    }
 }
 
-fn connect_editor_handlers(context: &BackgroundChangeContext, current_background: &Background) {
+fn connect_editor_handlers(context: &BackgroundChangeContext) {
     {
         let context = context.clone();
         let button = context.ui.editor_controls.solid_color_button.clone();
@@ -615,8 +629,9 @@ fn connect_editor_handlers(context: &BackgroundChangeContext, current_background
     {
         let context = context.clone();
         let value_label = context.ui.editor_controls.blur_radius_value.clone();
+        let current_background = context.state.borrow().document().background.clone();
         let pending_radius = Rc::new(Cell::new(match current_background {
-            Background::BlurredScreenshot { radius } => *radius,
+            Background::BlurredScreenshot { radius } => radius,
             _ => 24.0,
         }));
         let change_generation = Rc::new(Cell::new(0u64));
@@ -671,6 +686,60 @@ fn connect_editor_handlers(context: &BackgroundChangeContext, current_background
             });
         });
     }
+
+    {
+        let context = context.clone();
+        context
+            .ui
+            .editor_controls
+            .choose_image_button
+            .clone()
+            .connect_clicked(move |button| {
+                trigger_image_background_picker(&context, button.upcast_ref());
+            });
+    }
+}
+
+fn trigger_image_background_picker(
+    context: &BackgroundChangeContext,
+    parent_widget: &gtk4::Widget,
+) {
+    let window = parent_widget.root().and_downcast::<gtk4::Window>();
+    let chooser = gtk4::FileChooserNative::builder()
+        .title(i18n::import_dialog_title())
+        .transient_for(window.as_ref().unwrap())
+        .action(gtk4::FileChooserAction::Open)
+        .accept_label(i18n::import_accept_button())
+        .cancel_label(i18n::cancel_button_label())
+        .modal(true)
+        .build();
+    let filter = gtk4::FileFilter::new();
+    filter.set_name(Some(i18n::images_filter_name()));
+    for mime in ["image/png", "image/jpeg", "image/webp"] {
+        filter.add_mime_type(mime);
+    }
+    for pat in ["*.png", "*.jpg", "*.jpeg", "*.webp"] {
+        filter.add_pattern(pat);
+    }
+    chooser.add_filter(&filter);
+
+    let context = context.clone();
+    chooser.connect_response(move |chooser, response| {
+        if response == gtk4::ResponseType::Accept {
+            if let Some(file) = chooser.file() {
+                if let Some(path) = file.path() {
+                    apply_background_change(
+                        &context,
+                        Background::Image {
+                            path: path.display().to_string(),
+                        },
+                    );
+                }
+            }
+        }
+        chooser.destroy();
+    });
+    chooser.show();
 }
 
 fn populate_presets(current_background: &Background, context: &BackgroundChangeContext) {

@@ -86,9 +86,11 @@ pub(crate) fn shortcut_hint_text(state: &EditorState) -> Option<String> {
         } else {
             i18n::shortcut_hint_crop_idle().to_string()
         }),
-        ToolKind::Arrow | ToolKind::Rectangle | ToolKind::Ellipse | ToolKind::Blur => {
-            Some(i18n::shortcut_hint_draw_shape().to_string())
-        }
+        ToolKind::Arrow
+        | ToolKind::Line
+        | ToolKind::Rectangle
+        | ToolKind::Ellipse
+        | ToolKind::Blur => Some(i18n::shortcut_hint_draw_shape().to_string()),
         ToolKind::Text => Some(i18n::shortcut_hint_text().to_string()),
     }
 }
@@ -198,6 +200,7 @@ pub(crate) fn scope_text(state: &EditorState) -> String {
             }
         }
         ToolKind::Arrow => i18n::scope_text_arrow().to_string(),
+        ToolKind::Line => i18n::scope_text_line().to_string(),
         ToolKind::Rectangle => i18n::scope_text_rectangle().to_string(),
         ToolKind::Ellipse => i18n::scope_text_ellipse().to_string(),
         ToolKind::Text => i18n::scope_text_text().to_string(),
@@ -208,6 +211,7 @@ pub(crate) fn scope_text(state: &EditorState) -> String {
 fn annotation_kind_label(document: &Document, index: usize) -> String {
     let kind = match document.annotations.get(index) {
         Some(Annotation::Arrow { .. }) => "arrow",
+        Some(Annotation::Line { .. }) => "line",
         Some(Annotation::Rect { .. }) => "rectangle",
         Some(Annotation::Ellipse { .. }) => "ellipse",
         Some(Annotation::Text { .. }) => "text label",

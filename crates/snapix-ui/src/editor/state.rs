@@ -9,6 +9,7 @@ pub(crate) enum ToolKind {
     Select,
     Crop,
     Arrow,
+    Line,
     Rectangle,
     Ellipse,
     Text,
@@ -242,7 +243,8 @@ impl EditorState {
                 return;
             };
             match annotation {
-                Annotation::Arrow { color: current, .. } => *current = color,
+                Annotation::Arrow { color: current, .. }
+                | Annotation::Line { color: current, .. } => *current = color,
                 Annotation::Rect { stroke, .. } | Annotation::Ellipse { stroke, .. } => {
                     stroke.color = color
                 }
@@ -262,7 +264,8 @@ impl EditorState {
                 return;
             };
             match annotation {
-                Annotation::Arrow { width: current, .. } => *current = width,
+                Annotation::Arrow { width: current, .. }
+                | Annotation::Line { width: current, .. } => *current = width,
                 Annotation::Rect { stroke, .. } | Annotation::Ellipse { stroke, .. } => {
                     stroke.width = width
                 }
@@ -310,7 +313,7 @@ impl EditorState {
             return;
         };
         match annotation {
-            Annotation::Arrow { color, width, .. } => {
+            Annotation::Arrow { color, width, .. } | Annotation::Line { color, width, .. } => {
                 self.active_color = color.clone();
                 self.active_width = *width;
             }
@@ -725,6 +728,14 @@ impl EditorState {
     }
 
     pub(crate) fn commit_arrow_drag(&mut self) -> bool {
+        self.commit_line_like_drag(false)
+    }
+
+    pub(crate) fn commit_line_drag(&mut self) -> bool {
+        self.commit_line_like_drag(true)
+    }
+
+    fn commit_line_like_drag(&mut self, straight_line: bool) -> bool {
         let Some(arrow_drag) = self.arrow_drag else {
             return false;
         };
@@ -737,18 +748,29 @@ impl EditorState {
         let color = self.active_color.clone();
         let width = self.active_width;
         let changed = self.update_document(|document| {
-            document.annotations.push(Annotation::Arrow {
-                from: Point {
-                    x: arrow_drag.start_x,
-                    y: arrow_drag.start_y,
-                },
-                to: Point {
-                    x: arrow_drag.current_x,
-                    y: arrow_drag.current_y,
-                },
-                color,
-                width,
-            });
+            let from = Point {
+                x: arrow_drag.start_x,
+                y: arrow_drag.start_y,
+            };
+            let to = Point {
+                x: arrow_drag.current_x,
+                y: arrow_drag.current_y,
+            };
+            if straight_line {
+                document.annotations.push(Annotation::Line {
+                    from,
+                    to,
+                    color,
+                    width,
+                });
+            } else {
+                document.annotations.push(Annotation::Arrow {
+                    from,
+                    to,
+                    color,
+                    width,
+                });
+            }
         });
         self.arrow_drag = None;
         if changed {
@@ -1053,6 +1075,23 @@ fn move_annotation_within_image(
             color: color.clone(),
             width: *width,
         },
+        Annotation::Line {
+            from,
+            to,
+            color,
+            width,
+        } => Annotation::Line {
+            from: Point {
+                x: (from.x + delta_x).clamp(0.0, max_x),
+                y: (from.y + delta_y).clamp(0.0, max_y),
+            },
+            to: Point {
+                x: (to.x + delta_x).clamp(0.0, max_x),
+                y: (to.y + delta_y).clamp(0.0, max_y),
+            },
+            color: color.clone(),
+            width: *width,
+        },
         Annotation::Rect {
             bounds,
             stroke,
@@ -1135,6 +1174,25 @@ fn resize_arrow_endpoint(annotation: &Annotation, move_start: bool, x: f32, y: f
             color,
             width,
         } => Annotation::Arrow {
+            from: if move_start {
+                Point { x, y }
+            } else {
+                from.clone()
+            },
+            to: if move_start {
+                to.clone()
+            } else {
+                Point { x, y }
+            },
+            color: color.clone(),
+            width: *width,
+        },
+        Annotation::Line {
+            from,
+            to,
+            color,
+            width,
+        } => Annotation::Line {
             from: if move_start {
                 Point { x, y }
             } else {

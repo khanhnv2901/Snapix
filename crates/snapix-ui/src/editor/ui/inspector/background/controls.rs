@@ -57,6 +57,7 @@ pub(crate) struct BackgroundEditorControls {
     pub(crate) blur_radius_scale: gtk4::Scale,
     pub(crate) blur_radius_value: gtk4::Label,
     pub(crate) image_path_label: gtk4::Label,
+    pub(crate) choose_image_button: gtk4::Button,
     pub(crate) signature_intensity_scale: gtk4::Scale,
     pub(crate) signature_intensity_value: gtk4::Label,
 }
@@ -187,7 +188,7 @@ pub(crate) fn sync_background_editor_values(
             let filename = std::path::Path::new(path)
                 .file_name()
                 .and_then(|n| n.to_str())
-                .unwrap_or("image");
+                .unwrap_or("No image");
             controls.image_path_label.set_label(filename);
             controls.image_path_label.set_tooltip_text(Some(path));
         }

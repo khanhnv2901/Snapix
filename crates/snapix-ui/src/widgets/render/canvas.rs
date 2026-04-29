@@ -12,8 +12,8 @@ use crate::widgets::geometry::{
 use crate::widgets::CanvasLayout;
 
 use super::annotations::{
-    draw_annotations, draw_arrow, draw_blur_preview, draw_ellipse_preview, draw_rect_preview,
-    BlurSurfaceCache,
+    draw_annotations, draw_arrow, draw_blur_preview, draw_ellipse_preview, draw_line,
+    draw_rect_preview, BlurSurfaceCache,
 };
 use super::reframe::draw_reframe_overlay;
 
@@ -43,15 +43,36 @@ pub(super) fn draw_canvas_with_background_radius(
     let (frame_x, frame_y, frame_w, frame_h) = composition_frame_bounds(document, width, height);
     let composition_scale = composition_scale(document, width, height);
 
-    let painted_blurred_background = match (&document.background, document.base_image.as_ref()) {
-        (Background::BlurredScreenshot { radius }, Some(image)) => {
-            blur_cache.prepare_for_document(document);
-            if let Some(surface) = blur_cache.background_surface_for(image, *radius) {
+    let painted_special_background = match &document.background {
+        Background::BlurredScreenshot { radius } => {
+            if let Some(image) = document.base_image.as_ref() {
+                blur_cache.prepare_for_document(document);
+                if let Some(surface) = blur_cache.background_surface_for(image, *radius) {
+                    paint_surface(
+                        cr,
+                        (frame_x, frame_y, frame_w, frame_h),
+                        image.width,
+                        image.height,
+                        surface,
+                        background_radius,
+                        ImageScaleMode::Fill,
+                        ImageAnchor::Center,
+                    );
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        }
+        Background::Image { path } => {
+            if let Some(surface) = blur_cache.custom_image_surface_for(path) {
                 paint_surface(
                     cr,
                     (frame_x, frame_y, frame_w, frame_h),
-                    image.width,
-                    image.height,
+                    surface.width() as u32,
+                    surface.height() as u32,
                     surface,
                     background_radius,
                     ImageScaleMode::Fill,
@@ -64,7 +85,8 @@ pub(super) fn draw_canvas_with_background_radius(
         }
         _ => false,
     };
-    if !painted_blurred_background {
+
+    if !painted_special_background {
         paint_background(
             cr,
             frame_x,
@@ -210,6 +232,21 @@ pub(crate) fn draw_editor_canvas(
                 );
             }
         }
+    } else if state.active_tool() == ToolKind::Line {
+        if let Some(layout) = preview_canvas_layout(state.document(), width, height) {
+            if let Some(arrow_drag) = state.arrow_drag() {
+                draw_line(
+                    cr,
+                    layout,
+                    arrow_drag.start_x(),
+                    arrow_drag.start_y(),
+                    arrow_drag.current_x(),
+                    arrow_drag.current_y(),
+                    &state.active_color(),
+                    state.active_width(),
+                );
+            }
+        }
     } else if state.active_tool() == ToolKind::Rectangle {
         if let Some(layout) = preview_canvas_layout(state.document(), width, height) {
             if let Some(rect_drag) = state.rect_drag() {
@@ -261,7 +298,10 @@ fn draw_selected_annotation(
     cr.stroke().ok();
     cr.set_dash(&[], 0.0);
     if let Some(annotation) = document.annotations.get(index) {
-        if let Annotation::Arrow { .. } = annotation {
+        if matches!(
+            annotation,
+            Annotation::Arrow { .. } | Annotation::Line { .. }
+        ) {
             draw_arrow_resize_handles(cr, layout, annotation);
         }
     }

@@ -353,8 +353,9 @@ pub(crate) fn draw_arrow_resize_handles(
     layout: CanvasLayout,
     annotation: &Annotation,
 ) {
-    let Annotation::Arrow { from, to, .. } = annotation else {
-        return;
+    let (from, to) = match annotation {
+        Annotation::Arrow { from, to, .. } | Annotation::Line { from, to, .. } => (from, to),
+        _ => return,
     };
     let handles = [
         (

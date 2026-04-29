@@ -28,7 +28,10 @@ pub(crate) fn hit_test_annotation(
             point_in_bounds(pointer_x, pointer_y, expand_bounds(bounds, 10.0))
         }) {
             if let Some(annotation) = document.annotations.get(index) {
-                if matches!(annotation, Annotation::Arrow { .. }) {
+                if matches!(
+                    annotation,
+                    Annotation::Arrow { .. } | Annotation::Line { .. }
+                ) {
                     if arrow_hit_test(layout, annotation, pointer_x, pointer_y) {
                         return Some(index);
                     }
@@ -49,6 +52,9 @@ fn annotation_widget_bounds(
     let annotation = document.annotations.get(index)?;
     match annotation {
         Annotation::Arrow {
+            from, to, width, ..
+        }
+        | Annotation::Line {
             from, to, width, ..
         } => {
             let start_x = layout.image_x + from.x as f64 * layout.image_scale;
@@ -141,8 +147,9 @@ pub(crate) fn hit_arrow_resize_handle(
     pointer_x: f64,
     pointer_y: f64,
 ) -> Option<bool> {
-    let Annotation::Arrow { from, to, .. } = annotation else {
-        return None;
+    let (from, to) = match annotation {
+        Annotation::Arrow { from, to, .. } | Annotation::Line { from, to, .. } => (from, to),
+        _ => return None,
     };
     let start_x = layout.image_x + from.x as f64 * layout.image_scale;
     let start_y = layout.image_y + from.y as f64 * layout.image_scale;
@@ -163,11 +170,14 @@ fn arrow_hit_test(
     pointer_x: f64,
     pointer_y: f64,
 ) -> bool {
-    let Annotation::Arrow {
-        from, to, width, ..
-    } = annotation
-    else {
-        return false;
+    let (from, to, width) = match annotation {
+        Annotation::Arrow {
+            from, to, width, ..
+        }
+        | Annotation::Line {
+            from, to, width, ..
+        } => (from, to, width),
+        _ => return false,
     };
     let start_x = layout.image_x + from.x as f64 * layout.image_scale;
     let start_y = layout.image_y + from.y as f64 * layout.image_scale;
@@ -232,6 +242,31 @@ mod tests {
         assert_eq!(
             hit_arrow_resize_handle(layout, &annotation, 55.0, 50.0),
             None
+        );
+    }
+
+    #[test]
+    fn line_resize_handle_detects_start_and_end_points() {
+        let layout = sample_layout();
+        let annotation = Annotation::Line {
+            from: Point { x: 5.0, y: 8.0 },
+            to: Point { x: 40.0, y: 24.0 },
+            color: Color {
+                r: 255,
+                g: 98,
+                b: 54,
+                a: 255,
+            },
+            width: 6.0,
+        };
+
+        assert_eq!(
+            hit_arrow_resize_handle(layout, &annotation, 20.0, 36.0),
+            Some(true)
+        );
+        assert_eq!(
+            hit_arrow_resize_handle(layout, &annotation, 90.0, 68.0),
+            Some(false)
         );
     }
 
