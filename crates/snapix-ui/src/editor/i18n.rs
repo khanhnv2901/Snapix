@@ -522,20 +522,36 @@ pub(crate) fn inspector_background_title() -> &'static str {
     "Background"
 }
 
+pub(crate) fn inspector_background_family_clean() -> &'static str {
+    "Clean"
+}
+
+pub(crate) fn inspector_background_family_signature() -> &'static str {
+    "Signature"
+}
+
+pub(crate) fn inspector_background_family_image() -> &'static str {
+    "Image"
+}
+
+pub(crate) fn inspector_background_mode_blur() -> &'static str {
+    "Screenshot Blur"
+}
+
+pub(crate) fn inspector_background_mode_image() -> &'static str {
+    "Custom Image"
+}
+
+pub(crate) fn inspector_image_path_label() -> &'static str {
+    "Image Path"
+}
+
 pub(crate) fn inspector_background_mode_gradient() -> &'static str {
     "Gradient"
 }
 
 pub(crate) fn inspector_background_mode_solid() -> &'static str {
     "Solid"
-}
-
-pub(crate) fn inspector_background_mode_signature() -> &'static str {
-    "Signature"
-}
-
-pub(crate) fn inspector_background_mode_blur() -> &'static str {
-    "Screenshot Blur"
 }
 
 pub(crate) fn inspector_background_blur_tooltip() -> &'static str {

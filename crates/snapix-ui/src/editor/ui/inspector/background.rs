@@ -83,6 +83,7 @@ pub(super) fn build_background_section(
         gradient_to_row,
         gradient_angle_row,
         blur_row,
+        image_path_row,
         signature_intensity_row,
     ) = build_editor_controls(panel, &current_background, suppress_sync_events.clone());
     mode_controls.solid_row = solid_row;
@@ -90,6 +91,7 @@ pub(super) fn build_background_section(
     mode_controls.gradient_to_row = gradient_to_row;
     mode_controls.gradient_angle_row = gradient_angle_row;
     mode_controls.blur_row = blur_row;
+    mode_controls.image_path_row = image_path_row;
     mode_controls.signature_intensity_row = signature_intensity_row;
     let preset_controls = build_preset_controls(panel);
 
@@ -135,9 +137,38 @@ pub(super) fn build_background_section(
 }
 
 fn build_mode_controls(panel: &gtk4::Box) -> BackgroundModeControls {
-    let mode_row = gtk4::Box::builder()
+    // Family tabs
+    let family_row = gtk4::Box::builder()
         .orientation(gtk4::Orientation::Horizontal)
         .spacing(6)
+        .build();
+    let clean_family_button = gtk4::Button::builder()
+        .label(i18n::inspector_background_family_clean())
+        .hexpand(true)
+        .build();
+    let signature_family_button = gtk4::Button::builder()
+        .label(i18n::inspector_background_family_signature())
+        .hexpand(true)
+        .build();
+    let image_family_button = gtk4::Button::builder()
+        .label(i18n::inspector_background_family_image())
+        .hexpand(true)
+        .build();
+    for button in [
+        &clean_family_button,
+        &signature_family_button,
+        &image_family_button,
+    ] {
+        button.add_css_class("ratio-btn");
+        family_row.append(button);
+    }
+    panel.append(&family_row);
+
+    // Clean sub-modes
+    let clean_submode_row = gtk4::Box::builder()
+        .orientation(gtk4::Orientation::Horizontal)
+        .spacing(6)
+        .margin_top(6)
         .build();
     let gradient_button = gtk4::Button::builder()
         .label(i18n::inspector_background_mode_gradient())
@@ -147,36 +178,49 @@ fn build_mode_controls(panel: &gtk4::Box) -> BackgroundModeControls {
         .label(i18n::inspector_background_mode_solid())
         .hexpand(true)
         .build();
-    let signature_button = gtk4::Button::builder()
-        .label(i18n::inspector_background_mode_signature())
-        .hexpand(true)
+    for button in [&gradient_button, &solid_button] {
+        button.add_css_class("ratio-btn");
+        clean_submode_row.append(button);
+    }
+    panel.append(&clean_submode_row);
+
+    // Image sub-modes
+    let image_submode_row = gtk4::Box::builder()
+        .orientation(gtk4::Orientation::Horizontal)
+        .spacing(6)
+        .margin_top(6)
         .build();
-    let blur_button = gtk4::Button::builder()
+    let screenshot_blur_button = gtk4::Button::builder()
         .label(i18n::inspector_background_mode_blur())
         .tooltip_text(i18n::inspector_background_blur_tooltip())
         .hexpand(true)
         .build();
-    for button in [
-        &gradient_button,
-        &solid_button,
-        &signature_button,
-        &blur_button,
-    ] {
+    let custom_image_button = gtk4::Button::builder()
+        .label(i18n::inspector_background_mode_image())
+        .hexpand(true)
+        .build();
+    for button in [&screenshot_blur_button, &custom_image_button] {
         button.add_css_class("ratio-btn");
-        mode_row.append(button);
+        image_submode_row.append(button);
     }
-    panel.append(&mode_row);
+    panel.append(&image_submode_row);
 
     BackgroundModeControls {
+        clean_family_button,
+        signature_family_button,
+        image_family_button: image_family_button.clone(),
+        clean_submode_row: clean_submode_row.upcast(),
         gradient_button,
         solid_button,
-        signature_button,
-        blur_button,
+        image_submode_row: image_submode_row.upcast(),
+        screenshot_blur_button,
+        custom_image_button,
         solid_row: gtk4::Box::new(gtk4::Orientation::Vertical, 0).upcast(),
         gradient_from_row: gtk4::Box::new(gtk4::Orientation::Vertical, 0).upcast(),
         gradient_to_row: gtk4::Box::new(gtk4::Orientation::Vertical, 0).upcast(),
         gradient_angle_row: gtk4::Box::new(gtk4::Orientation::Vertical, 0).upcast(),
         blur_row: gtk4::Box::new(gtk4::Orientation::Vertical, 0).upcast(),
+        image_path_row: gtk4::Box::new(gtk4::Orientation::Vertical, 0).upcast(),
         signature_intensity_row: gtk4::Box::new(gtk4::Orientation::Vertical, 0).upcast(),
     }
 }
@@ -187,6 +231,7 @@ fn build_editor_controls(
     _suppress_sync_events: Rc<Cell<bool>>,
 ) -> (
     BackgroundEditorControls,
+    gtk4::Widget,
     gtk4::Widget,
     gtk4::Widget,
     gtk4::Widget,
@@ -267,6 +312,27 @@ fn build_editor_controls(
         &blur_radius_value,
     );
 
+    let current_path = match current_background {
+        Background::Image { path } => path.clone(),
+        _ => "".into(),
+    };
+    let image_path_label = gtk4::Label::builder()
+        .label(if current_path.is_empty() {
+            "No image"
+        } else {
+            "Image loaded"
+        })
+        .xalign(0.0)
+        .hexpand(true)
+        .ellipsize(gtk4::pango::EllipsizeMode::End)
+        .css_classes(["dim-copy"])
+        .build();
+    let image_path_row = labeled_row_with_value(
+        i18n::inspector_image_path_label(),
+        &image_path_label,
+        &gtk4::Label::builder().label("").build(),
+    );
+
     let current_signature_intensity = match current_background {
         Background::Style { intensity, .. } => *intensity,
         _ => 0.65,
@@ -293,6 +359,7 @@ fn build_editor_controls(
     panel.append(&gradient_to_row);
     panel.append(&gradient_angle_row);
     panel.append(&blur_row);
+    panel.append(&image_path_row);
     panel.append(&signature_intensity_row);
 
     (
@@ -304,6 +371,7 @@ fn build_editor_controls(
             gradient_angle_value,
             blur_radius_scale,
             blur_radius_value,
+            image_path_label,
             signature_intensity_scale,
             signature_intensity_value,
         },
@@ -312,6 +380,7 @@ fn build_editor_controls(
         gradient_to_row,
         gradient_angle_row,
         blur_row,
+        image_path_row,
         signature_intensity_row,
     )
 }
@@ -325,7 +394,11 @@ fn build_preset_controls(panel: &gtk4::Box) -> BackgroundPresetControls {
         .build();
     panel.append(&presets_label);
 
-    let swatch_grid = gtk4::Grid::builder()
+    let gradient_swatch_grid = gtk4::Grid::builder()
+        .row_spacing(6)
+        .column_spacing(6)
+        .build();
+    let solid_swatch_grid = gtk4::Grid::builder()
         .row_spacing(6)
         .column_spacing(6)
         .build();
@@ -337,18 +410,65 @@ fn build_preset_controls(panel: &gtk4::Box) -> BackgroundPresetControls {
         .orientation(gtk4::Orientation::Vertical)
         .spacing(6)
         .build();
-    presets_stack.append(&swatch_grid);
+    presets_stack.append(&gradient_swatch_grid);
+    presets_stack.append(&solid_swatch_grid);
     presets_stack.append(&signature_swatch_grid);
     panel.append(&presets_stack);
 
     BackgroundPresetControls {
         presets_label: presets_label.upcast(),
-        presets_grid: swatch_grid.upcast(),
+        gradient_presets_grid: gradient_swatch_grid.upcast(),
+        solid_presets_grid: solid_swatch_grid.upcast(),
         signature_presets_grid: signature_swatch_grid.upcast(),
     }
 }
 
 fn connect_mode_handlers(context: &BackgroundChangeContext) {
+    connect_mode_button(
+        &context.ui.mode_controls.clean_family_button,
+        context.clone(),
+        |background| match background {
+            Background::Solid { .. } | Background::Gradient { .. } => background.clone(),
+            _ => Background::Gradient {
+                from: Color {
+                    r: 110,
+                    g: 162,
+                    b: 255,
+                    a: 255,
+                },
+                to: Color {
+                    r: 130,
+                    g: 99,
+                    b: 245,
+                    a: 255,
+                },
+                angle_deg: 135.0,
+            },
+        },
+    );
+    connect_mode_button(
+        &context.ui.mode_controls.signature_family_button,
+        context.clone(),
+        |background| match background {
+            Background::Style { id, intensity } => Background::Style {
+                id: *id,
+                intensity: *intensity,
+            },
+            _ => Background::Style {
+                id: BackgroundStyleId::Blueprint,
+                intensity: 0.65,
+            },
+        },
+    );
+    connect_mode_button(
+        &context.ui.mode_controls.image_family_button,
+        context.clone(),
+        |background| match background {
+            Background::BlurredScreenshot { .. } | Background::Image { .. } => background.clone(),
+            _ => Background::BlurredScreenshot { radius: 24.0 },
+        },
+    );
+
     connect_mode_button(
         &context.ui.mode_controls.gradient_button,
         context.clone(),
@@ -409,29 +529,23 @@ fn connect_mode_handlers(context: &BackgroundChangeContext) {
             },
         },
     );
+
     connect_mode_button(
-        &context.ui.mode_controls.signature_button,
+        &context.ui.mode_controls.screenshot_blur_button,
         context.clone(),
         |background| match background {
-            Background::Style { id, intensity } => Background::Style {
-                id: *id,
-                intensity: *intensity,
-            },
-            _ => Background::Style {
-                id: BackgroundStyleId::Blueprint,
-                intensity: 0.65,
-            },
+            Background::BlurredScreenshot { radius } => {
+                Background::BlurredScreenshot { radius: *radius }
+            }
+            _ => Background::BlurredScreenshot { radius: 24.0 },
         },
     );
     connect_mode_button(
-        &context.ui.mode_controls.blur_button,
+        &context.ui.mode_controls.custom_image_button,
         context.clone(),
-        |background| {
-            let radius = match background {
-                Background::BlurredScreenshot { radius } => *radius,
-                _ => 24.0,
-            };
-            Background::BlurredScreenshot { radius }
+        |background| match background {
+            Background::Image { path } => Background::Image { path: path.clone() },
+            _ => Background::Image { path: "".into() },
         },
     );
 }
@@ -560,13 +674,20 @@ fn connect_editor_handlers(context: &BackgroundChangeContext, current_background
 }
 
 fn populate_presets(current_background: &Background, context: &BackgroundChangeContext) {
-    let presets_grid = context
+    let gradient_grid = context
         .ui
         .preset_controls
-        .presets_grid
+        .gradient_presets_grid
         .clone()
         .downcast::<gtk4::Grid>()
-        .expect("background presets grid should be a gtk4::Grid");
+        .expect("gradient presets grid should be a gtk4::Grid");
+    let solid_grid = context
+        .ui
+        .preset_controls
+        .solid_presets_grid
+        .clone()
+        .downcast::<gtk4::Grid>()
+        .expect("solid presets grid should be a gtk4::Grid");
     let signature_grid = context
         .ui
         .preset_controls
@@ -575,52 +696,75 @@ fn populate_presets(current_background: &Background, context: &BackgroundChangeC
         .downcast::<gtk4::Grid>()
         .expect("signature presets grid should be a gtk4::Grid");
 
-    let mut clean_index = 0usize;
+    let mut gradient_index = 0usize;
+    let mut solid_index = 0usize;
     let mut signature_index = 0usize;
+
     for preset in background_presets() {
-        let is_signature_preset = matches!(preset.background, Background::Style { .. });
         let button = gtk4::Button::builder()
             .tooltip_text(preset.label)
             .hexpand(true)
             .vexpand(false)
             .build();
         button.add_css_class("background-swatch");
-        if is_signature_preset {
-            button.add_css_class("background-swatch-signature");
-            let preview = build_signature_preview_card(preset.label, &preset.background);
-            button.set_child(Some(&preview));
-        }
-        button.add_css_class(preset.css_class);
-        if same_background(current_background, &preset.background) {
-            button.add_css_class("selected");
+
+        match &preset.background {
+            Background::Gradient { .. } => {
+                button.add_css_class(preset.css_class);
+                if same_background(current_background, &preset.background) {
+                    button.add_css_class("selected");
+                }
+                connect_preset_button(&button, context.clone(), preset.background.clone());
+                gradient_grid.attach(
+                    &button,
+                    (gradient_index % 4) as i32,
+                    (gradient_index / 4) as i32,
+                    1,
+                    1,
+                );
+                gradient_index += 1;
+            }
+            Background::Solid { .. } => {
+                button.add_css_class(preset.css_class);
+                if same_background(current_background, &preset.background) {
+                    button.add_css_class("selected");
+                }
+                connect_preset_button(&button, context.clone(), preset.background.clone());
+                solid_grid.attach(
+                    &button,
+                    (solid_index % 4) as i32,
+                    (solid_index / 4) as i32,
+                    1,
+                    1,
+                );
+                solid_index += 1;
+            }
+            Background::Style { .. } => {
+                button.add_css_class("background-swatch-signature");
+                let preview = build_signature_preview_card(preset.label, &preset.background);
+                button.set_child(Some(&preview));
+                button.add_css_class(preset.css_class);
+                if same_background(current_background, &preset.background) {
+                    button.add_css_class("selected");
+                }
+                connect_preset_button(&button, context.clone(), preset.background.clone());
+                signature_grid.attach(
+                    &button,
+                    (signature_index % 2) as i32,
+                    (signature_index / 2) as i32,
+                    1,
+                    1,
+                );
+                signature_index += 1;
+            }
+            _ => {}
         }
 
         context
             .ui
             .swatch_buttons
             .borrow_mut()
-            .push((preset.background.clone(), button.clone()));
-        connect_preset_button(&button, context.clone(), preset.background.clone());
-
-        if is_signature_preset {
-            signature_grid.attach(
-                &button,
-                (signature_index % 2) as i32,
-                (signature_index / 2) as i32,
-                1,
-                1,
-            );
-            signature_index += 1;
-        } else {
-            presets_grid.attach(
-                &button,
-                (clean_index % 4) as i32,
-                (clean_index / 4) as i32,
-                1,
-                1,
-            );
-            clean_index += 1;
-        }
+            .push((preset.background.clone(), button));
     }
 }
 

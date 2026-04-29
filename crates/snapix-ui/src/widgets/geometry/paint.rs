@@ -42,6 +42,7 @@ pub(crate) fn paint_background(
     width: f64,
     height: f64,
     background: &Background,
+    radius: f64,
 ) {
     let palette = workspace_palette();
     match background {
@@ -74,13 +75,18 @@ pub(crate) fn paint_background(
             cr.set_source_rgb(r, g, b);
         }
         Background::Style { id, intensity } => {
-            paint_signature_background(cr, x, y, width, height, *id, *intensity as f64);
+            paint_signature_background(cr, x, y, width, height, radius, *id, *intensity as f64);
             return;
         }
     }
 
-    rounded_rect(cr, x, y, width, height, 28.0);
-    cr.fill().ok();
+    if radius > 0.0 {
+        rounded_rect(cr, x, y, width, height, radius);
+        cr.fill().ok();
+    } else {
+        cr.rectangle(x, y, width, height);
+        cr.fill().ok();
+    }
 }
 
 pub(crate) fn paint_empty_state(cr: &cairo::Context, bounds: (f64, f64, f64, f64), radius: f64) {

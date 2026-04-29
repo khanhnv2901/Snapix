@@ -5,7 +5,7 @@ use snapix_core::canvas::Document;
 use crate::widgets::geometry::composition_size;
 use crate::widgets::RenderedDocument;
 
-use super::{canvas::draw_canvas, BlurSurfaceCache};
+use super::{canvas::draw_canvas_with_background_radius, BlurSurfaceCache};
 
 pub(crate) fn render_document_rgba(document: &Document) -> Result<RenderedDocument> {
     let (width, height) = export_size(document);
@@ -14,7 +14,7 @@ pub(crate) fn render_document_rgba(document: &Document) -> Result<RenderedDocume
     {
         let cr = cairo::Context::new(&surface).context("Failed to create cairo context")?;
         let mut blur_cache = BlurSurfaceCache::default();
-        draw_canvas(&cr, width, height, document, &mut blur_cache);
+        draw_canvas_with_background_radius(&cr, width, height, document, &mut blur_cache, 0.0);
     }
     surface.flush();
     let stride = surface.stride() as usize;

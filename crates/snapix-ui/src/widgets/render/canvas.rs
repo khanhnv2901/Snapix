@@ -24,6 +24,17 @@ pub(super) fn draw_canvas(
     document: &Document,
     blur_cache: &mut BlurSurfaceCache,
 ) {
+    draw_canvas_with_background_radius(cr, width, height, document, blur_cache, 28.0);
+}
+
+pub(super) fn draw_canvas_with_background_radius(
+    cr: &cairo::Context,
+    width: i32,
+    height: i32,
+    document: &Document,
+    blur_cache: &mut BlurSurfaceCache,
+    background_radius: f64,
+) {
     let palette = workspace_palette();
     let (canvas_r, canvas_g, canvas_b) = palette.canvas_rgb;
     cr.set_source_rgb(canvas_r, canvas_g, canvas_b);
@@ -32,7 +43,6 @@ pub(super) fn draw_canvas(
     let (frame_x, frame_y, frame_w, frame_h) = composition_frame_bounds(document, width, height);
     let composition_scale = composition_scale(document, width, height);
 
-    let background_radius = 28.0;
     let painted_blurred_background = match (&document.background, document.base_image.as_ref()) {
         (Background::BlurredScreenshot { radius }, Some(image)) => {
             blur_cache.prepare_for_document(document);
@@ -55,7 +65,15 @@ pub(super) fn draw_canvas(
         _ => false,
     };
     if !painted_blurred_background {
-        paint_background(cr, frame_x, frame_y, frame_w, frame_h, &document.background);
+        paint_background(
+            cr,
+            frame_x,
+            frame_y,
+            frame_w,
+            frame_h,
+            &document.background,
+            background_radius,
+        );
     }
 
     let image_bounds = inset_frame(

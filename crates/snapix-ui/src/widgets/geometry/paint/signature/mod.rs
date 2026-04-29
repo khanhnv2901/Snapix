@@ -27,7 +27,7 @@ pub(crate) fn paint_signature_preview_thumbnail(
     height: f64,
     background: &Background,
 ) {
-    paint_background(cr, 0.0, 0.0, width, height, background);
+    paint_background(cr, 0.0, 0.0, width, height, background, 28.0);
 
     let inset_x = width * 0.17;
     let inset_y = height * 0.19;
@@ -95,11 +95,14 @@ pub(crate) fn paint_signature_background(
     y: f64,
     width: f64,
     height: f64,
+    radius: f64,
     id: BackgroundStyleId,
     intensity: f64,
 ) {
-    rounded_rect(cr, x, y, width, height, 28.0);
-    cr.clip();
+    if radius > 0.0 {
+        rounded_rect(cr, x, y, width, height, radius);
+        cr.clip();
+    }
 
     match id {
         BackgroundStyleId::Blueprint => {
@@ -126,9 +129,18 @@ pub(crate) fn paint_signature_background(
         BackgroundStyleId::Blueprint => 0.02,
         _ => 0.015,
     };
-    paint_grain(cr, x, y, width, height, grain_opacity * (0.5 + 0.5 * intensity));
+    paint_grain(
+        cr,
+        x,
+        y,
+        width,
+        height,
+        grain_opacity * (0.5 + 0.5 * intensity),
+    );
 
-    cr.reset_clip();
+    if radius > 0.0 {
+        cr.reset_clip();
+    }
 }
 
 fn paint_grain(cr: &cairo::Context, x: f64, y: f64, width: f64, height: f64, opacity: f64) {
