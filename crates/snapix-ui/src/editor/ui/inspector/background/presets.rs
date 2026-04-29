@@ -368,6 +368,14 @@ pub(super) fn background_presets() -> Vec<BackgroundPresetDefinition> {
                 intensity: 0.65,
             },
         },
+        BackgroundPresetDefinition {
+            label: "Warning Tape",
+            css_class: "swatch-warningtape",
+            background: Background::Style {
+                id: BackgroundStyleId::WarningTape,
+                intensity: 0.65,
+            },
+        },
     ]
 }
 

@@ -13,27 +13,30 @@ pub(super) struct SignaturePreviewPalette {
 }
 
 pub(super) fn shadow_profile(id: BackgroundStyleId, intensity: f64) -> SignatureShadowProfile {
-    let intensity = intensity.clamp(0.2, 1.0);
     match id {
         BackgroundStyleId::Blueprint => SignatureShadowProfile {
-            blur_scale: 1.0 + intensity * 0.08,
-            strength_scale: 1.0 + intensity * 0.16,
+            blur_scale: 1.1 + 0.15 * intensity,
+            strength_scale: 1.15 + 0.20 * intensity,
         },
         BackgroundStyleId::MidnightPanel => SignatureShadowProfile {
-            blur_scale: 1.02 + intensity * 0.20,
-            strength_scale: 1.0 + intensity * 0.22,
+            blur_scale: 1.3 + 0.25 * intensity,
+            strength_scale: 1.25 + 0.35 * intensity,
         },
         BackgroundStyleId::CutPaper => SignatureShadowProfile {
-            blur_scale: 0.92 - intensity * 0.10,
-            strength_scale: 0.98 - intensity * 0.10,
+            blur_scale: 0.65 + 0.10 * intensity,
+            strength_scale: 0.75 + 0.15 * intensity,
         },
         BackgroundStyleId::TerminalGlow => SignatureShadowProfile {
-            blur_scale: 1.04 + intensity * 0.28,
-            strength_scale: 1.0 + intensity * 0.12,
+            blur_scale: 1.2 + 0.20 * intensity,
+            strength_scale: 1.0 + 0.25 * intensity,
         },
         BackgroundStyleId::Redacted => SignatureShadowProfile {
-            blur_scale: 0.92 + intensity * 0.08,
-            strength_scale: 1.0 + intensity * 0.08,
+            blur_scale: 0.95 + 0.10 * intensity,
+            strength_scale: 1.1 + 0.15 * intensity,
+        },
+        BackgroundStyleId::WarningTape => SignatureShadowProfile {
+            blur_scale: 1.1 + 0.10 * intensity,
+            strength_scale: 1.4 + 0.30 * intensity,
         },
     }
 }
@@ -41,16 +44,20 @@ pub(super) fn shadow_profile(id: BackgroundStyleId, intensity: f64) -> Signature
 pub(super) fn preview_palette(id: BackgroundStyleId) -> SignaturePreviewPalette {
     match id {
         BackgroundStyleId::CutPaper => SignaturePreviewPalette {
-            fill_rgba: (0.99, 0.98, 0.95, 0.92),
-            stroke_rgba: (0.20, 0.18, 0.16, 0.16),
+            fill_rgba: (1.0, 1.0, 1.0, 0.95),
+            stroke_rgba: (0.12, 0.14, 0.18, 0.15),
         },
         BackgroundStyleId::TerminalGlow => SignaturePreviewPalette {
-            fill_rgba: (0.08, 0.14, 0.14, 0.90),
-            stroke_rgba: (0.28, 0.96, 0.76, 0.16),
+            fill_rgba: (0.05, 0.10, 0.08, 0.95),
+            stroke_rgba: (0.20, 0.95, 0.72, 0.18),
         },
         BackgroundStyleId::Redacted => SignaturePreviewPalette {
-            fill_rgba: (0.12, 0.13, 0.16, 0.90),
-            stroke_rgba: (0.92, 0.94, 0.98, 0.10),
+            fill_rgba: (0.94, 0.96, 1.0, 0.95),
+            stroke_rgba: (0.12, 0.15, 0.20, 0.16),
+        },
+        BackgroundStyleId::WarningTape => SignaturePreviewPalette {
+            fill_rgba: (0.12, 0.14, 0.18, 0.96),
+            stroke_rgba: (0.98, 0.82, 0.12, 0.25),
         },
         BackgroundStyleId::Blueprint | BackgroundStyleId::MidnightPanel => {
             SignaturePreviewPalette {

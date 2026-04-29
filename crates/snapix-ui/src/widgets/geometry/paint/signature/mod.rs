@@ -4,6 +4,7 @@ pub(crate) mod midnight_panel;
 pub(crate) mod redacted;
 pub(crate) mod style;
 pub(crate) mod terminal_glow;
+pub(crate) mod warning_tape;
 
 use gtk4::cairo;
 use snapix_core::canvas::{Background, BackgroundStyleId};
@@ -120,6 +121,9 @@ pub(crate) fn paint_signature_background(
         BackgroundStyleId::Redacted => {
             redacted::paint_redacted_background(cr, x, y, width, height, intensity)
         }
+        BackgroundStyleId::WarningTape => {
+            warning_tape::paint_warning_tape_background(cr, x, y, width, height, intensity)
+        }
     }
 
     // Add subtle grain/texture for "Editorial Tech" look
@@ -127,6 +131,7 @@ pub(crate) fn paint_signature_background(
         BackgroundStyleId::CutPaper => 0.04,
         BackgroundStyleId::TerminalGlow => 0.03,
         BackgroundStyleId::Blueprint => 0.02,
+        BackgroundStyleId::WarningTape => 0.025,
         _ => 0.015,
     };
     paint_grain(

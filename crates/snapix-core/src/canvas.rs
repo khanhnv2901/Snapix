@@ -170,6 +170,7 @@ pub enum BackgroundStyleId {
     CutPaper,
     TerminalGlow,
     Redacted,
+    WarningTape,
 }
 
 fn default_signature_intensity() -> f32 {
