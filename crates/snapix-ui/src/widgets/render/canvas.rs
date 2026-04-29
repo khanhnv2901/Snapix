@@ -47,12 +47,17 @@ pub(super) fn draw_canvas_with_background_radius(
         Background::BlurredScreenshot { radius } => {
             if let Some(image) = document.base_image.as_ref() {
                 blur_cache.prepare_for_document(document);
-                if let Some(surface) = blur_cache.background_surface_for(image, *radius) {
+                let surface = if background_radius == 0.0 {
+                    blur_cache.background_surface_for_export(image, *radius)
+                } else {
+                    blur_cache.background_surface_for(image, *radius)
+                };
+                if let Some(surface) = surface {
                     paint_surface(
                         cr,
                         (frame_x, frame_y, frame_w, frame_h),
-                        image.width,
-                        image.height,
+                        surface.width() as u32,
+                        surface.height() as u32,
                         surface,
                         background_radius,
                         ImageScaleMode::Fill,
@@ -67,7 +72,12 @@ pub(super) fn draw_canvas_with_background_radius(
             }
         }
         Background::Image { path } => {
-            if let Some(surface) = blur_cache.custom_image_surface_for(path) {
+            let surface = if background_radius == 0.0 {
+                blur_cache.custom_image_surface_for_export(path)
+            } else {
+                blur_cache.custom_image_surface_for(path)
+            };
+            if let Some(surface) = surface {
                 paint_surface(
                     cr,
                     (frame_x, frame_y, frame_w, frame_h),

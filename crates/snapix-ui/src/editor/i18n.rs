@@ -118,14 +118,6 @@ pub(crate) fn preferences_export_description() -> &'static str {
     "Choose how Snapix should default export behavior in the editor."
 }
 
-pub(crate) fn preferences_editing_title() -> &'static str {
-    "Editing"
-}
-
-pub(crate) fn preferences_editing_description() -> &'static str {
-    "Tune how newly captured or imported images behave in the editor."
-}
-
 pub(crate) fn preferences_appearance_title() -> &'static str {
     "Appearance"
 }
@@ -222,14 +214,6 @@ pub(crate) fn preferences_auto_copy_after_export_subtitle() -> &'static str {
     "After Quick Save or Save As, also copy the exported image to the clipboard."
 }
 
-pub(crate) fn preferences_auto_reframe_title() -> &'static str {
-    "Enter Reframe After Load"
-}
-
-pub(crate) fn preferences_auto_reframe_subtitle() -> &'static str {
-    "After capture, import, or paste, jump straight into image reframe mode."
-}
-
 pub(crate) fn preferences_pro_title() -> &'static str {
     "Pro"
 }
@@ -256,10 +240,6 @@ pub(crate) fn preferences_export_preference_updated_toast() -> &'static str {
 
 pub(crate) fn preferences_jpeg_quality_updated_toast() -> &'static str {
     "JPEG quality updated"
-}
-
-pub(crate) fn preferences_editing_updated_toast() -> &'static str {
-    "Editing preference updated"
 }
 
 pub(crate) fn unlock_manage_button() -> &'static str {

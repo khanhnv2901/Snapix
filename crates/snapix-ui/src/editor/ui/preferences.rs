@@ -13,11 +13,9 @@ use crate::editor::i18n::{
     preferences_app_repository_title, preferences_app_version_title,
     preferences_appearance_description, preferences_appearance_title,
     preferences_appearance_updated_toast, preferences_auto_copy_after_export_subtitle,
-    preferences_auto_copy_after_export_title, preferences_auto_reframe_subtitle,
-    preferences_auto_reframe_title, preferences_color_scheme_subtitle,
+    preferences_auto_copy_after_export_title, preferences_color_scheme_subtitle,
     preferences_color_scheme_title, preferences_default_format_updated_toast,
-    preferences_dialog_title, preferences_editing_description, preferences_editing_title,
-    preferences_editing_updated_toast, preferences_export_description,
+    preferences_dialog_title, preferences_export_description,
     preferences_export_preference_updated_toast, preferences_export_title,
     preferences_jpeg_quality_subtitle, preferences_jpeg_quality_title,
     preferences_jpeg_quality_updated_toast, preferences_open_link_label,
@@ -59,11 +57,6 @@ pub(super) fn present_preferences_window(
         .title(preferences_appearance_title())
         .description(preferences_appearance_description())
         .build();
-    let editing_group = PreferencesGroup::builder()
-        .title(preferences_editing_title())
-        .description(preferences_editing_description())
-        .build();
-
     let appearance_row = ActionRow::builder()
         .title(preferences_color_scheme_title())
         .subtitle(preferences_color_scheme_subtitle())
@@ -123,13 +116,6 @@ pub(super) fn present_preferences_window(
         .active(preferences.borrow().auto_copy_after_export)
         .build();
     export_group.add(&auto_copy_row);
-
-    let auto_reframe_row = SwitchRow::builder()
-        .title(preferences_auto_reframe_title())
-        .subtitle(preferences_auto_reframe_subtitle())
-        .active(preferences.borrow().auto_reframe_after_load)
-        .build();
-    editing_group.add(&auto_reframe_row);
 
     let notes_group = PreferencesGroup::builder()
         .title(preferences_about_title())
@@ -198,7 +184,6 @@ pub(super) fn present_preferences_window(
 
     page.add(&appearance_group);
     page.add(&export_group);
-    page.add(&editing_group);
     page.add(&notes_group);
     page.add(&license_group);
     dialog.add(&page);
@@ -341,19 +326,6 @@ pub(super) fn present_preferences_window(
                 &toast_overlay,
                 preferences_export_preference_updated_toast(),
             );
-        });
-    }
-
-    {
-        let preferences = preferences.clone();
-        let toast_overlay = toast_overlay.clone();
-        auto_reframe_row.connect_active_notify(move |row| {
-            let mut preferences = preferences.borrow_mut();
-            preferences.auto_reframe_after_load = row.is_active();
-            if let Err(error) = save_preferences(&preferences) {
-                tracing::warn!("Failed to save preferences: {error:#}");
-            }
-            show_toast(&toast_overlay, preferences_editing_updated_toast());
         });
     }
 

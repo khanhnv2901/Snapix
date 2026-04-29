@@ -553,12 +553,17 @@ fn connect_mode_handlers(context: &BackgroundChangeContext) {
             .mode_controls
             .custom_image_button
             .clone()
-            .connect_clicked(move |button| {
+            .connect_clicked(move |_| {
                 let current_background = context.state.borrow().document().background.clone();
                 if let Background::Image { .. } = current_background {
                     apply_background_change(&context, current_background);
                 } else {
-                    trigger_image_background_picker(&context, button.upcast_ref());
+                    apply_background_change(
+                        &context,
+                        Background::Image {
+                            path: String::new(),
+                        },
+                    );
                 }
             });
     }

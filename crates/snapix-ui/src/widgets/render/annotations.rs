@@ -18,7 +18,7 @@ struct BlurImageIdentity {
     width: u32,
     height: u32,
     len: usize,
-    data_ptr: usize,
+    fingerprint: u64,
 }
 
 impl BlurImageIdentity {
@@ -27,9 +27,33 @@ impl BlurImageIdentity {
             width: image.width,
             height: image.height,
             len: image.data.len(),
-            data_ptr: image.data.as_ptr() as usize,
+            fingerprint: image_fingerprint(image),
         }
     }
+}
+
+fn image_fingerprint(image: &Image) -> u64 {
+    let mut hash = 0xcbf29ce484222325u64;
+    for value in [
+        image.width as u64,
+        image.height as u64,
+        image.data.len() as u64,
+    ] {
+        hash ^= value;
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+
+    if image.data.is_empty() {
+        return hash;
+    }
+
+    let sample_count = image.data.len().min(4096);
+    let step = (image.data.len() / sample_count).max(1);
+    for byte in image.data.iter().step_by(step).take(sample_count) {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    hash
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -149,16 +173,32 @@ impl BlurSurfaceCache {
         image: &Image,
         radius: f32,
     ) -> Option<&cairo::ImageSurface> {
+        self.background_surface_for_sync(image, radius)
+    }
+
+    pub(crate) fn background_surface_for_export(
+        &mut self,
+        image: &Image,
+        radius: f32,
+    ) -> Option<&cairo::ImageSurface> {
+        self.background_surface_for_sync(image, radius)
+    }
+
+    fn background_surface_for_sync(
+        &mut self,
+        image: &Image,
+        radius: f32,
+    ) -> Option<&cairo::ImageSurface> {
         self.sync_background_results();
 
         let radius_bits = radius.to_bits();
         if !self.background_surfaces.contains_key(&radius_bits) {
-            self.request_background_surface(image, radius);
+            let blurred_image = make_background_blur_image(image, radius)?;
+            let surface = make_surface(&blurred_image)?;
+            self.background_surfaces.insert(radius_bits, surface);
         }
 
-        self.background_surfaces
-            .get(&radius_bits)
-            .or_else(|| self.nearest_background_surface(radius_bits))
+        self.background_surfaces.get(&radius_bits)
     }
 
     pub(crate) fn custom_image_surface_for(&mut self, path: &str) -> Option<&cairo::ImageSurface> {
@@ -171,6 +211,25 @@ impl BlurSurfaceCache {
             && !self.pending_custom_background_surfaces.contains(path)
         {
             self.request_custom_background_surface(path);
+        }
+
+        self.custom_background_surfaces.get(path)
+    }
+
+    pub(crate) fn custom_image_surface_for_export(
+        &mut self,
+        path: &str,
+    ) -> Option<&cairo::ImageSurface> {
+        self.sync_custom_background_results();
+        if path.is_empty() {
+            return None;
+        }
+
+        if !self.custom_background_surfaces.contains_key(path) {
+            let image = image::open(path).ok().map(Image::from_dynamic)?;
+            let surface = make_surface(&image)?;
+            self.custom_background_surfaces
+                .insert(path.to_string(), surface);
         }
 
         self.custom_background_surfaces.get(path)
@@ -209,6 +268,7 @@ impl BlurSurfaceCache {
         }
     }
 
+    #[cfg(test)]
     fn request_background_surface(&mut self, image: &Image, radius: f32) {
         let radius_bits = radius.to_bits();
         if self.pending_background_surfaces.contains(&radius_bits) {
@@ -297,17 +357,6 @@ impl BlurSurfaceCache {
         }
 
         updated
-    }
-
-    fn nearest_background_surface(&self, radius_bits: u32) -> Option<&cairo::ImageSurface> {
-        self.background_surfaces
-            .iter()
-            .min_by_key(|(candidate_bits, _)| {
-                let candidate = f32::from_bits(**candidate_bits);
-                let target = f32::from_bits(radius_bits);
-                ((candidate - target).abs() * 100.0).round() as i32
-            })
-            .map(|(_, surface)| surface)
     }
 }
 
@@ -803,6 +852,27 @@ mod tests {
         assert!(cache.annotation_surfaces.is_empty());
         assert!(cache.background_surfaces.is_empty());
         assert!(cache.pending_background_surfaces.is_empty());
+    }
+
+    #[test]
+    fn blur_surface_cache_survives_document_clone_with_same_image_content() {
+        let image = Image::new(24, 24, vec![120; 24 * 24 * 4]);
+        let mut cache = BlurSurfaceCache::default();
+        let document = Document::new(image);
+
+        cache.prepare_for_document(&document);
+        let image = document.base_image.as_ref().expect("image");
+        cache.request_background_surface(image, 18.0);
+        assert!(cache
+            .pending_background_surfaces
+            .contains(&18.0f32.to_bits()));
+
+        let cloned_document = document.clone();
+        cache.prepare_for_document(&cloned_document);
+
+        assert!(cache
+            .pending_background_surfaces
+            .contains(&18.0f32.to_bits()));
     }
 
     #[test]

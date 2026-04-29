@@ -10,7 +10,8 @@
 ## Current Status
 
 - Latest tagged release: `0.1.4` (2026-04-24)
-- Active milestone: `M4 Packaging Prep` (Flathub submission, distribution setup, final QA)
+- Active milestone: `M5 Signature Backgrounds` (final UX/export QA)
+- Packaging status: `M4 Packaging Prep` remains in progress for Flathub submission, distribution setup, and final Linux QA
 - Execution status source: [PROGRESS.md](PROGRESS.md)
 - Release history: [CHANGELOG.md](CHANGELOG.md)
 
