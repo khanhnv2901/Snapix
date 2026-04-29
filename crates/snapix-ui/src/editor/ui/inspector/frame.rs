@@ -4,7 +4,12 @@ use std::rc::Rc;
 use gtk4::prelude::*;
 use snapix_core::canvas::{ImageAnchor, ImageScaleMode, OutputRatio};
 
-use super::{super::helpers::connect_frame_slider, labeled_row_with_value};
+use super::{
+    super::helpers::{
+        configure_inspector_slider, connect_frame_slider, refresh_history_buttons, refresh_subtitle,
+    },
+    labeled_row_with_value,
+};
 use crate::editor::i18n;
 use crate::editor::state::EditorState;
 use crate::widgets::DocumentCanvas;
@@ -174,7 +179,11 @@ pub(super) fn build_image_fit_section(
     subtitle_label: &gtk4::Label,
     undo_button: &gtk4::Button,
     redo_button: &gtk4::Button,
-) -> Rc<RefCell<Vec<(ImageScaleMode, gtk4::Button)>>> {
+) -> (
+    Rc<RefCell<Vec<(ImageScaleMode, gtk4::Button)>>>,
+    gtk4::Scale,
+    gtk4::Label,
+) {
     panel.append(
         &gtk4::Label::builder()
             .label(i18n::inspector_image_reframe_title())
@@ -192,6 +201,42 @@ pub(super) fn build_image_fit_section(
             .css_classes(["dim-copy"])
             .build(),
     );
+
+    let zoom_value = gtk4::Label::builder()
+        .label(format!(
+            "{}%",
+            (state.borrow().document().image_zoom * 100.0).round() as u32
+        ))
+        .css_classes(["dim-copy"])
+        .build();
+    let zoom_scale = gtk4::Scale::with_range(gtk4::Orientation::Horizontal, 25.0, 600.0, 1.0);
+    zoom_scale.set_value((state.borrow().document().image_zoom * 100.0) as f64);
+    configure_inspector_slider(&zoom_scale);
+    {
+        let state = state.clone();
+        let canvas = canvas.clone();
+        let subtitle_label = subtitle_label.clone();
+        let undo_button = undo_button.clone();
+        let redo_button = redo_button.clone();
+        let zoom_value = zoom_value.clone();
+        zoom_scale.connect_value_changed(move |scale| {
+            let Ok(mut state) = state.try_borrow_mut() else {
+                return;
+            };
+            let zoom = (scale.value() as f32 / 100.0).clamp(0.25, 6.0);
+            zoom_value.set_label(&format!("{}%", (zoom * 100.0).round() as u32));
+            if state.update_document(|doc| doc.image_zoom = zoom) {
+                refresh_subtitle(&state, &subtitle_label);
+                refresh_history_buttons(&state, &undo_button, &redo_button);
+                canvas.refresh();
+            }
+        });
+    }
+    panel.append(&labeled_row_with_value(
+        i18n::inspector_image_zoom_label(),
+        &zoom_scale,
+        &zoom_value,
+    ));
 
     let reset_button = gtk4::Button::builder()
         .label(i18n::reset_view_button_label())
@@ -214,7 +259,7 @@ pub(super) fn build_image_fit_section(
     }
     panel.append(&reset_button);
 
-    Rc::new(RefCell::new(Vec::new()))
+    (Rc::new(RefCell::new(Vec::new())), zoom_scale, zoom_value)
 }
 
 pub(super) fn build_image_position_section(

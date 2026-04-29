@@ -1278,8 +1278,8 @@ fn apply_zoom_with_focus(
     let image_y = ((focus_y - before_layout.image_y) / before_layout.image_scale)
         .clamp(0.0, image.height.saturating_sub(1) as f64);
 
-    let current = before.image_zoom.max(1.0);
-    document.image_zoom = (current * scale_delta as f32).clamp(1.0, 6.0);
+    let current = before.image_zoom.max(0.25);
+    document.image_zoom = (current * scale_delta as f32).clamp(0.25, 6.0);
 
     let Some(after_layout) = layout_for_document(image, bounds, document) else {
         return;

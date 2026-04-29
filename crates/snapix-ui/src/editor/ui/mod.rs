@@ -73,6 +73,8 @@ pub(super) struct InspectorControls {
     ratio_buttons: Rc<RefCell<Vec<(OutputRatio, gtk4::Button)>>>,
     image_scale_mode_buttons: Rc<RefCell<Vec<(ImageScaleMode, gtk4::Button)>>>,
     image_anchor_buttons: Rc<RefCell<Vec<(ImageAnchor, gtk4::Button)>>>,
+    image_zoom_scale: gtk4::Scale,
+    image_zoom_value: gtk4::Label,
     background_buttons: Rc<RefCell<Vec<(Background, gtk4::Button)>>>,
     background_preset_controls: BackgroundPresetControls,
     background_mode_controls: BackgroundModeControls,
@@ -151,6 +153,15 @@ impl InspectorControls {
                 button.remove_css_class("selected");
             }
         }
+
+        self.image_zoom_scale
+            .set_sensitive(state.document().base_image.is_some());
+        self.image_zoom_scale
+            .set_value((state.document().image_zoom * 100.0) as f64);
+        self.image_zoom_value.set_label(&format!(
+            "{}%",
+            (state.document().image_zoom * 100.0).round() as u32
+        ));
 
         for (background, button) in self.background_buttons.borrow().iter() {
             if same_background(background, &state.document().background) {

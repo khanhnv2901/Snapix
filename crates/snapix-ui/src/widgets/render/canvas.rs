@@ -108,22 +108,16 @@ pub(super) fn draw_canvas_with_background_radius(
     );
 
     let shadow_target = match document.base_image.as_ref() {
-        Some(img) => {
-            if document.image_scale_mode == ImageScaleMode::Fill {
-                image_bounds
-            } else {
-                crate::widgets::geometry::layout_for_document(img, image_bounds, document)
-                    .map(|layout| {
-                        (
-                            layout.image_x,
-                            layout.image_y,
-                            layout.image_width,
-                            layout.image_height,
-                        )
-                    })
-                    .unwrap_or(image_bounds)
-            }
-        }
+        Some(img) => crate::widgets::geometry::layout_for_document(img, image_bounds, document)
+            .map(|layout| {
+                (
+                    layout.image_x,
+                    layout.image_y,
+                    layout.image_width,
+                    layout.image_height,
+                )
+            })
+            .unwrap_or(image_bounds),
         None => image_bounds,
     };
 

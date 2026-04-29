@@ -647,11 +647,15 @@ pub(crate) fn ratio_tooltip(ratio: OutputRatio) -> &'static str {
 }
 
 pub(crate) fn inspector_image_reframe_title() -> &'static str {
-    "Image Reframe"
+    "Image Transform"
 }
 
 pub(crate) fn inspector_image_reframe_help() -> &'static str {
-    "Double-click the image in Select mode, then drag to reposition and use the mouse wheel to zoom."
+    "Drag the screenshot to reposition it, use Image Zoom to resize it, or use the mouse wheel while reframing for finer control."
+}
+
+pub(crate) fn inspector_image_zoom_label() -> &'static str {
+    "Image Zoom"
 }
 
 pub(crate) fn reset_view_button_label() -> &'static str {
@@ -659,7 +663,7 @@ pub(crate) fn reset_view_button_label() -> &'static str {
 }
 
 pub(crate) fn inspector_reset_view_help() -> &'static str {
-    "Reset View returns the image to Fit and clears any manual pan or zoom."
+    "Reset View returns the screenshot to centered Fit and clears any manual move or zoom."
 }
 
 pub(crate) fn inspector_shadow_label() -> &'static str {

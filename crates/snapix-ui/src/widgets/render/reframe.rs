@@ -55,7 +55,7 @@ pub(crate) fn draw_reframe_overlay(
     cr.move_to(x + 24.0, y + 34.0);
     let _ = cr.show_text("Reframe: drag/pinch to adjust");
 
-    let zoom_text = format!("{}%", (zoom.max(1.0) * 100.0).round() as u32);
+    let zoom_text = format!("{}%", (zoom.max(0.25) * 100.0).round() as u32);
     let zoom_width = cr
         .text_extents(&zoom_text)
         .map(|extents| extents.width() + 30.0)

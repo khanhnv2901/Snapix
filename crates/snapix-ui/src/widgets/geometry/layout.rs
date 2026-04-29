@@ -174,10 +174,7 @@ pub(crate) fn layout_for_bounds_with_transform(
         ImageScaleMode::Fit => fit_scale,
         ImageScaleMode::Fill => fill_scale,
     };
-    let scale = match mode {
-        ImageScaleMode::Fit => base_scale,
-        ImageScaleMode::Fill => base_scale * zoom.max(1.0) as f64,
-    };
+    let scale = base_scale * zoom.max(0.25) as f64;
     let draw_w = image_w * scale;
     let draw_h = image_h * scale;
     let (align_x, align_y) = match mode {
@@ -274,8 +271,8 @@ mod tests {
     use snapix_core::canvas::{ImageAnchor, ImageScaleMode, OutputRatio};
 
     use super::{
-        composition_size, layout_for_bounds_with_mode, preview_canvas_layout,
-        widget_point_to_image_pixel,
+        composition_size, layout_for_bounds_with_mode, layout_for_bounds_with_transform,
+        preview_canvas_layout, widget_point_to_image_pixel,
     };
     use crate::widgets::test_support::sample_document;
 
@@ -350,5 +347,25 @@ mod tests {
 
         assert_eq!(layout.image_x, 0.0);
         assert_eq!(layout.image_y, 0.0);
+    }
+
+    #[test]
+    fn fit_mode_zoom_below_one_shrinks_image() {
+        let image = sample_document(100, 50).base_image.expect("image");
+        let layout = layout_for_bounds_with_transform(
+            &image,
+            (0.0, 0.0, 120.0, 120.0),
+            ImageScaleMode::Fit,
+            ImageAnchor::Center,
+            0.5,
+            0.0,
+            0.0,
+        )
+        .expect("layout");
+
+        assert_eq!(layout.image_width, 60.0);
+        assert_eq!(layout.image_height, 30.0);
+        assert_eq!(layout.image_x, 30.0);
+        assert_eq!(layout.image_y, 45.0);
     }
 }

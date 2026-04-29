@@ -76,7 +76,7 @@ pub(super) fn build_inspector(
         redo_button,
     );
 
-    let image_scale_mode_buttons = build_image_fit_section(
+    let (image_scale_mode_buttons, image_zoom_scale, image_zoom_value) = build_image_fit_section(
         &panel,
         state.clone(),
         canvas.clone(),
@@ -135,6 +135,8 @@ pub(super) fn build_inspector(
         ratio_buttons,
         image_scale_mode_buttons,
         image_anchor_buttons,
+        image_zoom_scale,
+        image_zoom_value,
         background_buttons: background_section.swatch_buttons,
         background_preset_controls: background_section.preset_controls,
         background_mode_controls: background_section.mode_controls,
