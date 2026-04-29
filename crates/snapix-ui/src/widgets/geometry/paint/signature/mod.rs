@@ -1,8 +1,11 @@
 pub(crate) mod blueprint;
 pub(crate) mod cut_paper;
+pub(crate) mod memphis_grid;
 pub(crate) mod midnight_panel;
+pub(crate) mod neo_brutalism;
 pub(crate) mod redacted;
 pub(crate) mod style;
+pub(crate) mod swiss_poster;
 pub(crate) mod terminal_glow;
 pub(crate) mod warning_tape;
 
@@ -115,6 +118,15 @@ pub(crate) fn paint_signature_background(
         BackgroundStyleId::CutPaper => {
             cut_paper::paint_cut_paper_background(cr, x, y, width, height, intensity)
         }
+        BackgroundStyleId::NeoBrutalism => {
+            neo_brutalism::paint_neo_brutalism_background(cr, x, y, width, height, intensity)
+        }
+        BackgroundStyleId::MemphisGrid => {
+            memphis_grid::paint_memphis_grid_background(cr, x, y, width, height, intensity)
+        }
+        BackgroundStyleId::SwissPoster => {
+            swiss_poster::paint_swiss_poster_background(cr, x, y, width, height, intensity)
+        }
         BackgroundStyleId::TerminalGlow => {
             terminal_glow::paint_terminal_glow_background(cr, x, y, width, height, intensity)
         }
@@ -129,6 +141,9 @@ pub(crate) fn paint_signature_background(
     // Add subtle grain/texture for "Editorial Tech" look
     let grain_opacity = match id {
         BackgroundStyleId::CutPaper => 0.04,
+        BackgroundStyleId::NeoBrutalism => 0.012,
+        BackgroundStyleId::MemphisGrid => 0.015,
+        BackgroundStyleId::SwissPoster => 0.01,
         BackgroundStyleId::TerminalGlow => 0.03,
         BackgroundStyleId::Blueprint => 0.02,
         BackgroundStyleId::WarningTape => 0.025,

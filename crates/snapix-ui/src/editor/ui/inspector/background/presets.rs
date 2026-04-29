@@ -353,6 +353,30 @@ pub(super) fn background_presets() -> Vec<BackgroundPresetDefinition> {
             },
         },
         BackgroundPresetDefinition {
+            label: "Neo Brutalism",
+            css_class: "swatch-neobrutalism",
+            background: Background::Style {
+                id: BackgroundStyleId::NeoBrutalism,
+                intensity: 0.65,
+            },
+        },
+        BackgroundPresetDefinition {
+            label: "Memphis Grid",
+            css_class: "swatch-memphisgrid",
+            background: Background::Style {
+                id: BackgroundStyleId::MemphisGrid,
+                intensity: 0.65,
+            },
+        },
+        BackgroundPresetDefinition {
+            label: "Swiss Poster",
+            css_class: "swatch-swissposter",
+            background: Background::Style {
+                id: BackgroundStyleId::SwissPoster,
+                intensity: 0.65,
+            },
+        },
+        BackgroundPresetDefinition {
             label: "Terminal Glow",
             css_class: "swatch-terminalglow",
             background: Background::Style {
