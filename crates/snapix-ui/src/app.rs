@@ -53,9 +53,6 @@ impl SnapixApp {
 
 fn build_ui(app: &Application, context: LaunchContext) {
     install_editor_css();
-    if let Some(settings) = gtk4::Settings::default() {
-        settings.set_gtk_application_prefer_dark_theme(false);
-    }
     if let Ok(preferences) = load_preferences() {
         apply_style_preferences(&preferences);
     }
@@ -344,7 +341,6 @@ paned > separator:hover {
 
 .signature-preview-art {
     border-radius: 10px;
-    overflow: hidden;
 }
 
 .signature-preview-base {

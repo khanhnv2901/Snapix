@@ -232,7 +232,7 @@ mod tests {
 
         assert_eq!(
             shortcut_hint_text(&state).as_deref(),
-            Some("Fullscreen / Region / Import to begin")
+            Some("Fullscreen / Region / Import / Paste to begin")
         );
     }
 

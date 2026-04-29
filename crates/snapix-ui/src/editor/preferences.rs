@@ -21,6 +21,7 @@ pub(crate) enum AppearancePreference {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub(crate) struct AppPreferences {
     pub(crate) appearance: AppearancePreference,
     pub(crate) default_save_format: PreferredSaveFormat,
@@ -202,6 +203,34 @@ mod tests {
         assert!(loaded.auto_copy_after_export);
         assert!(loaded.auto_reframe_after_load);
         assert_eq!(loaded.license_key.as_deref(), Some("SNAPIX-PRO-DEV"));
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn preferences_legacy_file_uses_defaults_for_missing_fields() {
+        let path = unique_test_path();
+        fs::write(
+            &path,
+            r#"{
+  "appearance": "Dark",
+  "default_save_format": "Png",
+  "remember_last_export_format": true,
+  "last_export_format": null,
+  "auto_copy_after_export": false,
+  "auto_reframe_after_load": true,
+  "license_key": null
+}"#,
+        )
+        .expect("write legacy preferences");
+
+        let loaded = load_preferences_from_path(&path).expect("load legacy preferences");
+
+        assert_eq!(loaded.appearance, AppearancePreference::Dark);
+        assert_eq!(loaded.default_save_format, PreferredSaveFormat::Png);
+        assert_eq!(loaded.jpeg_quality, 92);
+        assert!(loaded.remember_last_export_format);
+        assert!(loaded.auto_reframe_after_load);
 
         let _ = fs::remove_file(path);
     }
